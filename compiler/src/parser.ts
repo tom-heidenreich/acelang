@@ -1,21 +1,27 @@
 import StringBuffer from './buffer';
 
-type Token = {
+export type DataType = 'string' | 'int' | 'float' | 'void';
+export type Keyword = 'const' | 'var' | 'func' | 'sync';
+
+export type Token = {
     value: string;
-    type: 'string' | 'int' | 'float' | 'identifier' | 'symbol' | 'keyword' | 'block';
+    type: 'datatype' | 'identifier' | 'symbol' | 'keyword' | 'block';
+    specificType?: DataType;
     block?: Token[][];
 }
 
-const KEYWORDS = ['const', 'var', 'func', 'sync']
+export const DATATYPES = ['string', 'int', 'float', 'void']
+export const KEYWORDS = ['const', 'var', 'func', 'sync']
 const SYMBOLS = ['=', '+', '-', '*', '/', '>', '<', '^', '%', ':', ',', '.']
 
-function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'string' | 'int' | 'float' | 'symbol') {
+function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
         const exType = KEYWORDS.includes(value) ? 'keyword' : !type ? 'identifier' : type;
         line.push({
             value,
-            type: exType
+            type: exType,
+            specificType
         });
     }
 }
@@ -106,7 +112,7 @@ export function parse(content: string) {
         if(c === '"') {
             if(structure === 'string') {
                 structure = undefined;
-                pushBuffer(line, buffer, 'string');
+                pushBuffer(line, buffer, 'datatype', 'string');
             }
             else structure = 'string';
             continue;
@@ -124,17 +130,10 @@ export function parse(content: string) {
             continue;
         }
         if(c === '\n' || c == '\r' || c === ';') {
-            pushBuffer(line, buffer, structure);
+            if(!structure) pushBuffer(line, buffer);
+            else pushBuffer(line, buffer, 'datatype', structure);
             structure = undefined;
             if(line.length > 0) result.push(line.splice(0));
-            continue;
-        }
-        if(!isNaN(Number(c))) {
-            if(structure !== 'int' && structure !== 'float') {
-                pushBuffer(line, buffer);
-                structure = 'int';
-            }
-            buffer.append(c);
             continue;
         }
         if(structure === 'int') {
@@ -156,6 +155,12 @@ export function parse(content: string) {
             }
             else structure = undefined;
         }
+        if(!isNaN(Number(c))) {
+            pushBuffer(line, buffer);
+            structure = 'int';
+            buffer.append(c);
+            continue;
+        }
         if(SYMBOLS.includes(c)) {
             pushBuffer(line, buffer);
             line.push({
@@ -166,7 +171,8 @@ export function parse(content: string) {
         }
         else buffer.append(c);
     }
-    pushBuffer(line, buffer);
+    if(structure === 'int' || structure === 'float' || structure === 'string') pushBuffer(line, buffer, 'datatype', structure)
+    else pushBuffer(line, buffer);
     if(line.length > 0) result.push(line);
     return result;
 }
