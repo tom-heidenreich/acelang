@@ -1,23 +1,32 @@
 #include <stdio.h>
 #include "./threads.h"
 
-DWORD WINAPI wait() {
-    Sleep(2000);
-    printf("waited\n");
+ThreadList threads;
+
+DWORD WINAPI add(void* _arg) {
+    printf("Thread started\n");
+    PARAM* arg = (PARAM*)_arg;
+    int* param = (int*)arg->param;
+    int* result = (int*)arg->result;
+    printf("Result hier: %d\n", *result);
+    printf("Param hier: %d\n", *param);
+    *result = *param + 1;
     return 0;
 }
 
 int main() {
-
-    ThreadList threads = mallocThreadList();
     
-    const char a[] = "hello world";
-    printf("%s\n", a);
+    threads = mallocThreadList();
 
-    wait();
-    Sleep(1000);
-    printf("done\n");
+    int result = 0;
+    createThread(&threads, add, &result, &result);
 
-    waitForThreads(threads);
+    while (result == 0)
+    {
+        printf("Waiting for thread to finish...\n");
+    }
+    printf("Result: %d\n", result);
+
+    waitForThreads(&threads);
     return 0;
 }

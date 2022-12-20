@@ -7,6 +7,11 @@ typedef struct {
     int cursor;
 } ThreadList;
 
+typedef struct {
+    LPVOID result;
+    LPVOID param;
+} PARAM;
+
 ThreadList mallocThreadList() {
 
     size_t thread_size = 1000;
@@ -26,17 +31,21 @@ void reallocThreadList(ThreadList *threads) {
     threads->array = realloc(threads->array, threads->size * sizeof(HANDLE));
 }
 
-void waitForThreads(ThreadList threads) {
-    for (size_t i = 0; i < threads.size; i++)
+void waitForThreads(ThreadList *threads) {
+    for (size_t i = 0; i < threads->size; i++)
     {
-        const HANDLE thread = threads.array[i];
+        const HANDLE thread = threads->array[i];
         if(thread != NULL)
             WaitForSingleObject(thread, INFINITE);
     }
 }
 
-HANDLE createThread(ThreadList* threads, LPTHREAD_START_ROUTINE routine, LPVOID param) {
-    const HANDLE thread = CreateThread(NULL, 0, routine, param, 0, NULL);
+HANDLE createThread(ThreadList *threads, LPTHREAD_START_ROUTINE routine, LPVOID param, LPVOID result) {
+    PARAM _param = {
+        .param = param,
+        .result = result,
+    };
+    const HANDLE thread = CreateThread(NULL, 0, routine, &_param, 0, NULL);
     threads->array[threads->cursor++] = thread;
     return thread;
 }
