@@ -9,7 +9,7 @@ typedef struct {
 
 typedef struct {
     LPVOID result;
-    LPVOID param;
+    LPVOID arg;
 } PARAM;
 
 ThreadList mallocThreadList() {
@@ -40,12 +40,12 @@ void waitForThreads(ThreadList *threads) {
     }
 }
 
-HANDLE createThread(ThreadList *threads, LPTHREAD_START_ROUTINE routine, LPVOID param, LPVOID result) {
-    PARAM _param = {
-        .param = param,
-        .result = result,
+HANDLE createThread(ThreadList *threads, LPTHREAD_START_ROUTINE routine, LPVOID p_arg, LPVOID p_result) {
+    PARAM param = {
+        .arg = p_arg,
+        .result = p_result,
     };
-    const HANDLE thread = CreateThread(NULL, 0, routine, &_param, 0, NULL);
+    const HANDLE thread = CreateThread(NULL, 0, routine, &param, 0, NULL);
     threads->array[threads->cursor++] = thread;
     return thread;
 }

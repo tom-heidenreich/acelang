@@ -3,14 +3,14 @@
 
 ThreadList threads;
 
-DWORD WINAPI add(void* _arg) {
+DWORD WINAPI add(void* _param) {
     printf("Thread started\n");
-    PARAM* arg = (PARAM*)_arg;
-    int* param = (int*)arg->param;
-    int* result = (int*)arg->result;
+    PARAM* param = (PARAM*)_param;
+    int* arg = (int*)(param->arg);
+    int* result = (int*)(param->result);
     printf("Result hier: %d\n", *result);
-    printf("Param hier: %d\n", *param);
-    *result = *param + 1;
+    printf("Arg hier: %d\n", *arg);
+    *result = *arg + 1;
     return 0;
 }
 
@@ -19,7 +19,8 @@ int main() {
     threads = mallocThreadList();
 
     int result = 0;
-    createThread(&threads, add, &result, &result);
+    int arg = 1;
+    createThread(&threads, add, &arg, &result);
 
     while (result == 0)
     {
