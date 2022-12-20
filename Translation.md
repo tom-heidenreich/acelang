@@ -20,28 +20,23 @@ will compile to
 #include <stdio.h>
 #include "./threads.h"
 
-DWORD WINAPI sleep(void* param) {
-    DWORD* time = (DWORD*)param;
-    Sleep(time);
-    return 0;
-}
+ThreadList threads;
 
-DWORD WINAPI wait(void* param) {
-    ThreadList* threads = (ThreadList*)param;
-    createThread(threads, sleep, (int*) 2000);
+DWORD WINAPI wait() {
+    createThread(&threads, Sleep, (LPVOID) 2000);
     printf("waited\n");
     return 0;
 }
 
 int main() {
 
-    ThreadList threads = mallocThreadList();
+    threads =  mallocThreadList();
     
     const char a[] = "hello world";
     printf("%s\n", a);
 
-    createThread(&threads, wait, &threads);
-    createThread(&threads, sleep, (DWORD*) 1000);
+    createThread(&threads, wait, NULL);
+    createThread(&threads, Sleep, (LPVOID) 1000);
     printf("done\n");
 
     waitForThreads(threads);
@@ -78,11 +73,7 @@ will compile to
 #include <stdio.h>
 #include "./threads.h"
 
-DWORD WINAPI sleep(void* param) {
-    DWORD* time = (DWORD*)param;
-    Sleep(time);
-    return 0;
-}
+ThreadList threads;
 
 DWORD WINAPI wait() {
     Sleep(2000);
@@ -92,13 +83,13 @@ DWORD WINAPI wait() {
 
 int main() {
 
-    ThreadList threads = mallocThreadList();
+    threads =  mallocThreadList();
     
     const char a[] = "hello world";
     printf("%s\n", a);
 
     createThread(&threads, wait, NULL);
-    createThread(&threads, sleep, (DWORD*) 1000);
+    createThread(&threads, Sleep, (LPVOID) 1000);
     printf("done\n");
 
     waitForThreads(threads);
@@ -113,7 +104,7 @@ $ -> done
 $ -> waited
 ```
 
-# Example 4
+# Example 3
 
 ```ts
 const a = "hello world"
@@ -135,14 +126,19 @@ will compile to
 
 ```c
 #include <stdio.h>
+#include "./threads.h"
+
+ThreadList threads;
 
 DWORD WINAPI wait() {
-    Sleep(2000);
+    createThread(&threads, Sleep, (LPVOID) 2000);
     printf("waited\n");
     return 0;
 }
 
 int main() {
+
+    threads =  mallocThreadList();
     
     const char a[] = "hello world";
     printf("%s\n", a);
@@ -151,6 +147,62 @@ int main() {
     Sleep(1000);
     printf("done\n");
 
+    waitForThreads(threads);
+    return 0;
+}
+```
+Program will take about 1 seconds to execute
+Output:
+```
+$ -> hello world
+$ -> waited
+$ -> done
+```
+
+# Example 4
+
+```ts
+const a = "hello world"
+
+sync func wait() {
+    sleep(2000)
+    print('waited')
+}
+
+sync {
+    print(a)
+    wait()
+    sleep(1000)
+    print("done")
+}
+```
+
+will compile to
+
+```c
+#include <stdio.h>
+#include "./threads.h"
+
+ThreadList threads;
+
+DWORD WINAPI wait() {
+    Sleep(2000);
+    printf("waited\n");
+    return 0;
+}
+
+int main() {
+
+    threads =  mallocThreadList();
+    
+    const char a[] = "hello world";
+    printf("%s\n", a);
+
+    wait();
+    Sleep(1000);
+    printf("done\n");
+
+    waitForThreads(threads);
     return 0;
 }
 ```
