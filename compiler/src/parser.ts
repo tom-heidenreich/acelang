@@ -1,23 +1,10 @@
 import StringBuffer from './buffer';
-
-export type DataType = 'string' | 'int' | 'float' | 'void';
-export type Keyword = 'const' | 'var' | 'func' | 'sync';
-
-export type Token = {
-    value: string;
-    type: 'datatype' | 'identifier' | 'symbol' | 'keyword' | 'block';
-    specificType?: DataType;
-    block?: Token[][];
-}
-
-export const DATATYPES = ['string', 'int', 'float', 'void']
-export const KEYWORDS = ['const', 'var', 'func', 'sync']
-const SYMBOLS = ['=', '+', '-', '*', '/', '>', '<', '^', '%', ':', ',', '.']
+import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol } from './types';
 
 function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
-        const exType = KEYWORDS.includes(value) ? 'keyword' : !type ? 'identifier' : type;
+        const exType = KEYWORDS.includes(value as Keyword) ? 'keyword' : !type ? 'identifier' : type;
         line.push({
             value,
             type: exType,
@@ -126,7 +113,9 @@ export function parse(content: string) {
             continue;
         }
         if(c === ' ' || c === '\t') {
-            pushBuffer(line, buffer);
+            if(!structure) pushBuffer(line, buffer);
+            else pushBuffer(line, buffer, 'datatype', structure);
+            structure = undefined;
             continue;
         }
         if(c === '\n' || c == '\r' || c === ';') {
@@ -146,7 +135,11 @@ export function parse(content: string) {
                 buffer.append(c);
                 continue;
             }
-            else structure = undefined;
+            else {
+                if(!structure) pushBuffer(line, buffer);
+                else pushBuffer(line, buffer, 'datatype', structure);
+                structure = undefined;
+            }
         }
         if(structure === 'float') {
             if(!isNaN(Number(c))) {
@@ -161,8 +154,10 @@ export function parse(content: string) {
             buffer.append(c);
             continue;
         }
-        if(SYMBOLS.includes(c)) {
-            pushBuffer(line, buffer);
+        if(SYMBOLS.includes(c as Symbol)) {
+            if(!structure) pushBuffer(line, buffer);
+            else pushBuffer(line, buffer, 'datatype', structure);
+            structure = undefined;
             line.push({
                 value: c,
                 type: 'symbol'
