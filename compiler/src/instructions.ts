@@ -88,8 +88,17 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
 
                 if(lastToken && lastToken.type === 'identifier') {
                     
-                    const name = lastToken.value
-                    const func = build.functions[lastToken.value];
+                    const field = FieldResolve.resolve(instructions.fields, lastToken.value, build.functions);
+                    if(!field) {
+                        throw new Error(`Unknown identifier: ${lastToken.value} at line ${lineIndex}`);
+                    }
+                    if(field.type !== 'callable') {
+                        throw new Error(`Expected callable, got ${field.type} at line ${lineIndex}`);
+                    }
+
+                    const name = FieldResolve.resolveReferences(field, instructions.fields) || lastToken.value;
+                    const func = build.functions[name];
+
                     if(!func) {
                         throw new Error(`Unknown function: ${lastToken.value} at line ${lineIndex}`);
                     }
@@ -458,6 +467,7 @@ function handleConst(build: Build, instructions: Instructions, line: Token[], li
     // push to fields
     instructions.fields.local[name.value] = {
         type,
+        reference: valueType === 'reference' ? value as string : undefined
     };
 
     // add to run
@@ -599,6 +609,7 @@ function handleVar(build: Build, instructions: Instructions, line: Token[], line
     // push to fields
     instructions.fields.local[name.value] = {
         type,
+        reference: valueType === 'reference' ? value as string : undefined
     };
 
     // add to run
