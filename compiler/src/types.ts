@@ -92,6 +92,7 @@ export type Instructions = {
 
 export type Field = {
     type: DataType,
+    reference?: Identifier,
 }
 
 export type Fields = {
