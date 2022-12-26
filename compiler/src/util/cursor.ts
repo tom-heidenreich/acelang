@@ -3,7 +3,7 @@ export default class Cursor<T> {
     private cursor = 0;
     private readonly array: T[];
 
-    constructor(array: T[], offset?: number) {
+    constructor(array?: T[], offset?: number) {
         this.array = array || [];
         if(offset) this.cursor = offset;
     }
@@ -34,8 +34,36 @@ export default class Cursor<T> {
         return new Cursor(this.array, cursor);
     }
 
+    public remainingLength() {
+        return this.array.length - this.cursor;
+    }
+
     public asList(): T[] {
         return this.array.slice(this.cursor);
+    }
+
+    public until(predicate: (value: T) => boolean): Cursor<T> {
+        const cursor = new WriteCursor<T>();
+        while(!this.reachedEnd()) {
+            const value = this.next();
+            if(predicate(value)) break;
+            cursor.push(value);
+        }
+        return cursor.toReadCursor();
+    }
+
+    public untilInclude(predicate: (value: T) => boolean): Cursor<T> {
+        const cursor = new WriteCursor<T>();
+        while(!this.reachedEnd()) {
+            const value = this.next();
+            cursor.push(value);
+            if(predicate(value)) break;
+        }
+        return cursor.toReadCursor();
+    }
+
+    public hasOnlyOne(): boolean {
+        return this.remainingLength() === 1;
     }
 }
 
@@ -44,7 +72,7 @@ export class WriteCursor<T> {
     private cursor = 0;
     private readonly array: T[];
 
-    constructor(array: T[], offset?: number) {
+    constructor(array?: T[], offset?: number) {
         this.array = array || [];
         if(offset) this.cursor = offset;
     }
@@ -71,5 +99,9 @@ export class WriteCursor<T> {
 
     public size() {
         return this.cursor;
+    }
+
+    public toReadCursor(): Cursor<T> {
+        return new Cursor(this.array, 0);
     }
 }
