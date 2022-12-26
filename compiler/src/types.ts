@@ -15,6 +15,7 @@ export const SYMBOLS: Symbol[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '
 
 export type Identifier = string;
 export type Primitive = string | number | boolean;
+export type Key = string | number;
 
 // keywords
 export type Const = {
@@ -97,12 +98,14 @@ export type ArrayType = {
     items: Type
 }
 
+export type ObjectType = StructType | ArrayType
+
 export type PrimitiveType = {
     type: 'primitive',
     primitive: DataType
 }
 
-export type Type = (PrimitiveType | UnionType | StructType | ArrayType | LiteralType | ReferenceType)
+export type Type = (PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType)
 
 export type Types = {
     [name: string]: Type,
