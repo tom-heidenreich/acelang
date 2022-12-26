@@ -91,8 +91,25 @@ export default class TypeCheck {
         return undefined;
     }
 
-    public static stringify(type: Type) {
-        // TODO: Implement
-        // console.log(type);
+    public static stringify(type: Type): Primitive {
+        if(type.type === 'primitive') {
+            return type.primitive;
+        }
+        else if(type.type === 'reference') {
+            return type.reference;
+        }
+        else if(type.type === 'union') {
+            return type.oneOf.map(TypeCheck.stringify).join(' | ');
+        }
+        else if(type.type === 'struct') {
+            return '{ ' + Object.keys(type.properties).map(key => `${key}: ${TypeCheck.stringify(type.properties[key])}`).join(', ') + ' }';
+        }
+        else if(type.type === 'array') {
+            return `${TypeCheck.stringify(type.items)}[]`;
+        }
+        else if(type.type === 'literal') {
+            return type.literal;
+        }
+        return 'unknown';
     }
 }
