@@ -155,3 +155,58 @@ class myClass2 extends myClass {
     }
 }
 ```
+
+### types
+```
+type number = int | float
+
+"number": {
+    "oneOf": [
+        {
+            "type": "integer"
+        },
+        {
+            "type": "number"
+        }
+    ]
+}
+
+type User = {
+    name: string,
+    age: number,
+}
+
+"User": {
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "age": {
+            "type": "number"
+        }
+    }
+}
+
+type FriendList = User[]
+"FriendList": {
+    "type": "array",
+    "items": "User"
+}
+
+type NumberList = (int | float)[]
+
+"NumberList": {
+    "type": "array",
+    "items": {
+        "oneOf": [
+            {
+                "type": "integer"
+            },
+            {
+                "type": "number"
+            }
+        ]
+    }
+}
+```
