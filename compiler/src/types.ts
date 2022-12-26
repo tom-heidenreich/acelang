@@ -130,7 +130,7 @@ export type Steps = {
     type: 'steps',
     value: Step[]
 }
-export type Step = (Identifier | PrimitiveValue | Symbol | Call)
+export type Step = (Identifier | PrimitiveValue | Symbol | Call | Access)
 
 export type Call = {
     type: 'call',
@@ -138,6 +138,11 @@ export type Call = {
     args: Argument[]
 }
 
+export type Access = {
+    type: 'access',
+    name: string,
+    key: Primitive,
+}
 
 export type Argument = {
     type: 'argument',
