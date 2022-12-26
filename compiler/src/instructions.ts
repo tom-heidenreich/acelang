@@ -1,4 +1,4 @@
-import { DataType, DATATYPES, Keyword, Token, Symbol, Build, Steps, Value, Instructions, Param, Step, Call, Argument, Field, Fields, Types, Type, StructType, Struct, ArrayValue } from "./types";
+import { DATATYPES, Keyword, Token, Symbol, Build, Steps, Value, Instructions, Param, Step, Argument, Fields, Types, Type, StructType, Struct, ArrayValue, Key } from "./types";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
 import TypeCheck from "./util/TypeCheck";
@@ -106,28 +106,12 @@ function parseArguments(build: Build, instructions: Instructions, cursor: Cursor
     const value: Argument[] = []
 
     while(!cursor.reachedEnd()) {
-
-        const lineCursor = new Cursor(cursor.next());
-        
-        if(lineCursor.hasOnlyOne()) {
-            const valueResult = parseValue(build, instructions, lineCursor, lineIndex)
-            value.push({
-                type: 'argument',
-                dataType: valueResult.type,
-                value: valueResult.value,
-            });
-        }
-        else {
-            const steps = parseSteps(build, instructions, lineCursor, lineIndex)
-            if(!steps.type) {
-                throw new Error(`Expected datatype, got ${steps.type} at line ${lineIndex}`);
-            }
-            value.push({
-                type: 'argument',
-                dataType: steps.type,
-                value: steps.steps,
-            });
-        }
+        const valueResult = parseValue(build, instructions, new Cursor(cursor.next()), lineIndex)
+        value.push({
+            type: 'argument',
+            dataType: valueResult.type,
+            value: valueResult.value,
+        });
     }
 
     return value;
@@ -308,24 +292,24 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                 throw new Error(`Expected block, got ${token.type} at line ${lineIndex}`);
             }
 
-            if(token.value === '()') {
-
+            // check if access
+            // TODO: access last object not just last identifier
+            if(lastToken && lastToken.type === 'identifier') {
                 writeCursor.rollback();
+                const field = FieldResolve.resolve(instructions.fields, lastToken.value, build.functions);
+                if(!field) {
+                    throw new Error(`Unknown identifier: ${lastToken.value} at line ${lineIndex}`);
+                }
+                const name = FieldResolve.resolveReferences(field, instructions.fields) || lastToken.value;
 
-                // check if call
-                if(lastToken && lastToken.type === 'identifier') {
+                // check if function call
+                if(token.value === '()') {
                     
-                    const field = FieldResolve.resolve(instructions.fields, lastToken.value, build.functions);
-                    if(!field) {
-                        throw new Error(`Unknown identifier: ${lastToken.value} at line ${lineIndex}`);
-                    }
                     if(!TypeCheck.matchesPrimitive(build.types, field.type, 'callable')) {
                         throw new Error(`Expected callable, got ${field.type} at line ${lineIndex}`);
                     }
 
-                    const name = FieldResolve.resolveReferences(field, instructions.fields) || lastToken.value;
                     const func = build.functions[name];
-
                     if(!func) {
                         throw new Error(`Unknown function: ${lastToken.value} at line ${lineIndex}`);
                     }
@@ -356,6 +340,41 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                         type: 'call',
                         name: name,
                         args,
+                    });
+
+                    continue;
+                }
+                // check if object access
+                else if(token.value === '[]') {
+
+                    if(!TypeCheck.matchesPrimitive(build.types, field.type, 'object')) {
+                        throw new Error(`Expected object, got ${field.type} at line ${lineIndex}`);
+                    }
+                    if(token.block.length !== 1) {
+                        throw new Error(`Expected 1 argument for object access, got ${token.block.length} at line ${lineIndex}`);
+                    }
+
+                    const valueResult = parseValue(build, instructions, new Cursor(token.block[0]), lineIndex);
+                    if(valueResult.value.type !== 'primitive') {
+                        throw new Error(`Expected primitive, got ${valueResult.value.type} at line ${lineIndex}`);
+                    }
+
+                    if(!type || TypeCheck.matchesPrimitive(build.types, type, 'object')) {
+                        let key = valueResult.value.primitive;
+                        if(typeof valueResult.value.primitive === 'boolean') {
+                            key = valueResult.value.primitive ? 'true' : 'false';
+                        }
+                        const resolvedType = TypeCheck.resolveObject(build.types, field.type, key as Key);
+                        if(resolvedType) type = resolvedType;
+                    }
+                    else if(field.type && type !== field.type) {
+                        throw new Error(`Expected ${type}, got ${field.type} at line ${lineIndex}`);
+                    }
+
+                    writeCursor.push({
+                        type: 'access',
+                        name: name,
+                        key: valueResult.value.primitive,
                     });
 
                     continue;
@@ -443,9 +462,20 @@ function parseStruct(build: Build, instructions: Instructions, cursor: Cursor<To
     while(!cursor.reachedEnd()) {
         const lineCursor = new Cursor(cursor.next());
 
-        const key = lineCursor.next();
-        if(key.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${key.type} at line ${lineIndex}`);
+        const keyToken = lineCursor.next();
+        let key: Key;
+
+        if(keyToken.type === 'identifier') {
+            key = keyToken.value;
+        }
+        else if(keyToken.type === 'datatype') {
+            if(keyToken.specificType !== 'string' && keyToken.specificType !== 'int') {
+                throw new Error(`Expected string or number, got ${keyToken.specificType} at line ${lineIndex}`);
+            }
+            key = keyToken.value;
+        }
+        else {
+            throw new Error(`Expected identifier or datatype, got ${keyToken.type} at line ${lineIndex}`);
         }
 
         if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
@@ -455,8 +485,8 @@ function parseStruct(build: Build, instructions: Instructions, cursor: Cursor<To
 
         const {type: propertyType, value: propertyValue} = parseValue(build, instructions, lineCursor, lineIndex);
 
-        type.properties[key.value] = propertyType;
-        value.properties[key.value] = propertyValue;
+        type.properties[key] = propertyType;
+        value.properties[key] = propertyValue;
     }
 
     return {
