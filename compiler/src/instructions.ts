@@ -704,7 +704,7 @@ function handleConst(build: Build, instructions: Instructions, cursor: Cursor<To
         type = valueResult.type;
     }
     else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
-        throw new Error(`Type mismatch: ${TypeCheck.stringify(type)} !== ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
+        throw new Error(`Expected type ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
     }
 
     if(!cursor.reachedEnd()) {
@@ -783,7 +783,14 @@ function handleVar(build: Build, instructions: Instructions, cursor: Cursor<Toke
     }
     cursor.next();
 
-    // TODO: make this a function
+    // value
+    const valueResult = parseValue(build, instructions, cursor.remaining(), lineIndex);
+    if(!type) {
+        type = valueResult.type;
+    }
+    else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
+        throw new Error(`Expected type ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
+    }
 }
 
 function handleSync(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
@@ -892,7 +899,6 @@ function handleReturn(build: Build, instructions: Instructions, cursor: Cursor<T
     // dynamic type
     if(TypeCheck.matchesPrimitive(build.types, parentFunction.returnType, 'unknown')) {
         // set type
-        // TODO: check if setting returnType of parentFunction is enough
         build.functions[functionName].returnType = type;
     }
     // check if return type of function matches
