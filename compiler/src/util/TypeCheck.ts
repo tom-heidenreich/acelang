@@ -1,4 +1,4 @@
-import { DataType, Primitive, PrimitiveValue, Type, Types, Value, ValueResult } from "../types";
+import { DataType, Key, Primitive, Type, Types, ValueResult } from "../types";
 
 export default class TypeCheck {
 
@@ -72,8 +72,23 @@ export default class TypeCheck {
         return false;
     }
 
-    public static resolveObject(types: Types, type: Type): Type {
-        
+    public static resolveObject(types: Types, type: Type, key: Key): Type | undefined {
+        if(type.type === 'reference') {
+            return TypeCheck.resolveObject(types, types[type.reference], key);
+        }
+        else if(type.type === 'struct') {
+            return type.properties[key];
+        }
+        else if(type.type === 'array') {
+            return type.items;
+        }
+        else if(type.type === 'union') {
+            for(const oneOfType of type.oneOf) {
+                const resolved = TypeCheck.resolveObject(types, oneOfType, key);
+                if(resolved) return resolved;
+            }
+        }
+        return undefined;
     }
 
     public static stringify(type: Type) {
