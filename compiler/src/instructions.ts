@@ -1,13 +1,21 @@
-import { DataType, DATATYPES, Keyword, Token, Symbol, Build, Steps, ValueType, Value, Instructions, Param, Step, Call, Argument, Field, Fields } from "./types";
+import { DataType, DATATYPES, Keyword, Token, Symbol, Build, Steps, Value, Instructions, Param, Step, Call, Argument, Field, Fields, Types, Type, StructType, Struct, ArrayValue } from "./types";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
 import TypeCheck from "./util/TypeCheck";
 
 export function toBuildInstructions(tokens: Token[][]) {
 
+    const defaultTypes: Types = {}
+    DATATYPES.forEach(type => {
+        defaultTypes[type] = {
+            type: 'primitive',
+            primitive: type
+        }
+    })
+
     const build: Build = {
         functions: {},
-        types: DATATYPES,
+        types: defaultTypes,
         main: {
             fields: {
                 local: {},
@@ -22,24 +30,29 @@ export function toBuildInstructions(tokens: Token[][]) {
 }
 
 function toInstructions(tokens: Token[][], build: Build, instructions: Instructions, lineIndex: number = 1, wrapperName?: string) {
+    lineIndex++
     for(let i = 0; i < tokens.length; i++) {
         const line = tokens[i];
         if(line[0].type === 'keyword') {
+            const cursor = new Cursor(line, 1);
             switch(line[0].value as Keyword) {
                 case 'func':
-                    handleFunction(build, instructions, line, lineIndex + i);
+                    handleFunction(build, instructions, cursor, lineIndex);
                     break;
                 case 'const':
-                    handleConst(build, instructions, line, lineIndex + i);
+                    handleConst(build, instructions, cursor, lineIndex);
                     break;
                 case 'var':
-                    handleVar(build, instructions, line, lineIndex + i);
+                    handleVar(build, instructions, cursor, lineIndex);
                     break;
                 case 'sync':
-                    handleSync(build, instructions, line, lineIndex + i);
+                    handleSync(build, instructions, cursor, lineIndex);
                     break;
                 case 'return':
-                    handleReturn(build, instructions, line, lineIndex + i, wrapperName);
+                    handleReturn(build, instructions, cursor, lineIndex, wrapperName);
+                    break;
+                case 'type':
+                    handleType(build, instructions, cursor, lineIndex);
                     break;
                 default:
                     throw new Error(`Unknown keyword: ${line[0].value}`);
@@ -51,11 +64,225 @@ function toInstructions(tokens: Token[][], build: Build, instructions: Instructi
     return instructions;
 }
 
-function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number): { steps: Steps, type?: DataType } {
+// functions
+function parseParams(build: Build, cursor: Cursor<Token[]>, lineIndex: number) {
+
+    const params: Param[] = [];
+
+    while(!cursor.reachedEnd()) {
+
+        const lineCursor = new Cursor(cursor.next());
+
+        // name
+        const paramName = lineCursor.next();
+        if(paramName.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${paramName.type} at line ${lineIndex}`);
+        }
+
+        // type
+        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
+            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineIndex}`);
+        }
+        lineCursor.next();
+        const paramType = lineCursor.next();
+        if(paramType.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${paramType.type} at line ${lineIndex}`);
+        }
+        if(!build.types[paramType.value]) {
+            throw new Error(`Unknown datatype: ${paramType.value} at line ${lineIndex}`);
+        }
+
+        params.push({
+            name: paramName.value,
+            type: build.types[paramType.value],
+        });
+    }
+
+    return params;
+}
+
+function parseArguments(build: Build, instructions: Instructions, cursor: Cursor<Token[]>, lineIndex: number) {
+
+    const value: Argument[] = []
+
+    while(!cursor.reachedEnd()) {
+
+        const lineCursor = new Cursor(cursor.next());
+        
+        if(lineCursor.hasOnlyOne()) {
+            const valueResult = parseValue(build, instructions, lineCursor, lineIndex)
+            value.push({
+                type: 'argument',
+                dataType: valueResult.type,
+                value: valueResult.value,
+            });
+        }
+        else {
+            const steps = parseSteps(build, instructions, lineCursor, lineIndex)
+            if(!steps.type) {
+                throw new Error(`Expected datatype, got ${steps.type} at line ${lineIndex}`);
+            }
+            value.push({
+                type: 'argument',
+                dataType: steps.type,
+                value: steps.steps,
+            });
+        }
+    }
+
+    return value;
+}
+
+// types
+function parseStructType(build: Build, cursor: Cursor<Token[]>, lineIndex: number): StructType {
+
+    const struct: Types = {}
+
+    while(!cursor.reachedEnd()) {
+        const lineCursor = new Cursor(cursor.next());
+
+        const key = lineCursor.next();
+        if(key.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${key.type} at line ${lineIndex}`);
+        }
+
+        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
+            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineIndex}`);
+        }
+        lineCursor.next();
+
+        const value = parseType(build, lineCursor, lineIndex);
+
+        struct[key.value] = value;
+    }
+
+    return {
+        type: 'struct',
+        properties: struct,
+    };
+}
+
+function parseType(build: Build, cursor: Cursor<Token>, lineIndex: number): Type {
+
+    let types: Type[] = [];
+    const writeCursor = new WriteCursor<Token>([]);
+
+    function push() {
+        
+        const cursor = new Cursor(writeCursor.asList());
+        const name = cursor.next();
+
+        // array type
+        if(!cursor.reachedEnd()) {
+            const next = cursor.next();
+            if(next.type !== 'block' || next.value !== '[]') {
+                throw new Error(`Expected block '[]', got ${next.type} at line ${lineIndex}`);
+            }
+            if(!next.block) {
+                throw new Error(`Expected block, got ${next.type} at line ${lineIndex}`);
+            }
+            if(name.type === 'identifier') {
+                if(!build.types[name.value]) {
+                    throw new Error(`Unknown datatype: ${name.value} at line ${lineIndex}`);
+                }
+                types.push({
+                    type: 'array',
+                    items: {
+                        type: 'reference',
+                        reference: name.value
+                    }
+                });
+            }
+            else if(name.type === 'datatype') {
+                types.push({
+                    type: 'array',
+                    items: {
+                        type: 'literal',
+                        literal: name.value
+                    }
+                });
+            }
+            else if(name.type === 'block') {
+                if(!name.block) {
+                    throw new Error(`Expected block, got ${name.type} at line ${lineIndex}`);
+                }
+                types.push({
+                    type: 'array',
+                    items: parseType(build, new Cursor(name.block[0]), lineIndex)
+                });
+            }
+            else {
+                throw new Error(`Unknown type: ${name.type} at line ${lineIndex}`);
+            }
+        }
+        else if(name.type === 'block') {
+            if(!name.block) {
+                throw new Error(`Expected block, got ${name.type} at line ${lineIndex}`);
+            }
+            if(name.value === '()') {
+                types.push(parseType(build, new Cursor(name.block[0]), lineIndex));
+            }
+            else if(name.value === '{}') {
+                // struct type
+                types.push(parseStructType(build, new Cursor(name.block), lineIndex));
+            }
+            else {
+                throw new Error(`Unknown block type: ${name.value} at line ${lineIndex}`);
+            }
+        }
+        else {
+            if(name.type === 'identifier') {
+                if(!build.types[name.value]) {
+                    throw new Error(`Unknown datatype: ${name.value} at line ${lineIndex}`);
+                }
+
+                types.push({
+                    type: 'reference',
+                    reference: name.value
+                });
+            }
+            else if(name.type === 'datatype') {
+                types.push({
+                    type: 'literal',
+                    literal: name.value
+                });
+            }
+        }
+
+        writeCursor.clear();
+    }
+
+    while(!cursor.reachedEnd()) {
+        const next = cursor.next();
+        
+        if(next.type === 'symbol' && next.value === '|') {
+            push();
+        }else {
+            writeCursor.push(next);
+        }
+    }
+    push();
+
+    if(types.length === 0) {
+        throw new Error(`Expected at least one type, got 0 at line ${lineIndex}`);
+    }
+    else if(types.length === 1) {
+        return types[0];
+    }
+    else {
+        return {
+            type: 'union',
+            oneOf: types
+        }
+    }
+}
+
+// steps
+function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number): { steps: Steps, type?: Type } {
 
     const writeCursor = new WriteCursor<Step>([]);
 
-    let type: DataType | undefined;
+    let type: Type | undefined;
     let lastToken: Token | undefined;
 
     while(!cursor.reachedEnd()) {
@@ -81,18 +308,18 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                 throw new Error(`Expected block, got ${token.type} at line ${lineIndex}`);
             }
 
-            // check if call
             if(token.value === '()') {
 
                 writeCursor.rollback();
 
+                // check if call
                 if(lastToken && lastToken.type === 'identifier') {
                     
                     const field = FieldResolve.resolve(instructions.fields, lastToken.value, build.functions);
                     if(!field) {
                         throw new Error(`Unknown identifier: ${lastToken.value} at line ${lineIndex}`);
                     }
-                    if(field.type !== 'callable') {
+                    if(!TypeCheck.matchesPrimitive(build.types, field.type, 'callable')) {
                         throw new Error(`Expected callable, got ${field.type} at line ${lineIndex}`);
                     }
 
@@ -103,20 +330,24 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                         throw new Error(`Unknown function: ${lastToken.value} at line ${lineIndex}`);
                     }
 
-                    const args = parseArray(build, instructions, new Cursor(token.block[0]), lineIndex).splice(0, func.params.length)
+                    const args = parseArguments(build, instructions, new Cursor(token.block), lineIndex).splice(0, func.params.length)
+                    console.log(args);
 
-                    let argsMatch = true;
                     for(let i = 0; i < func.params.length; i++) {
-                        if(!TypeCheck.matches(func.params[i].type, args[i].dataType)) {
-                            argsMatch = false;
-                            break;
+                        const param = func.params[i];
+                        const arg = args[i];
+                        if(!param) {
+                            throw new Error(`Too many arguments for function ${lastToken.value} at line ${lineIndex}`);
+                        }
+                        else if(!arg) {
+                            throw new Error(`Not enough arguments for function ${lastToken.value} at line ${lineIndex}`);
+                        }
+                        else if(!TypeCheck.matches(build.types, param.type, arg.dataType)) {
+                            throw new Error(`Invalid arguments for function ${lastToken.value} at line ${lineIndex}`);
                         }
                     }
-                    if(!argsMatch) {
-                        throw new Error(`Invalid arguments for function ${lastToken.value} at line ${lineIndex}`);
-                    }
 
-                    if(!type || type === 'callable') type = func.returnType
+                    if(!type || TypeCheck.matchesPrimitive(build.types, type, 'callable')) type = func.returnType
                     else if(func.returnType && type !== func.returnType) {
                         throw new Error(`Expected ${type}, got ${func.returnType} at line ${lineIndex}`);
                     }
@@ -140,16 +371,16 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
             writeCursor.push(token.value.split('')[0], ...content.steps.value, token.value.split('')[1]);
         }
         else if(token.type === 'datatype') {
-            if(!build.types.includes(token.specificType as DataType)) {
+            if(!build.types[token.specificType as string]) {
                 throw new Error(`Unknown datatype: ${token.specificType} at line ${lineIndex}`);
             }
             writeCursor.push(token.value);
 
-            if(!type) type = token.specificType as DataType;
-            else if(type !== token.specificType) {
+            if(!type) type = build.types[token.specificType as string];
+            else if(token.specificType && !TypeCheck.matchesPrimitive(build.types, type, token.specificType)) {
                 // TODO: auto convert
                 console.log(writeCursor.asList());
-                throw new Error(`Expected ${type}, got ${token.specificType} at line ${lineIndex}`);
+                throw new Error(`Expected ${type.type}, got ${token.specificType} at line ${lineIndex}`);
             }
         }
 
@@ -164,120 +395,149 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
     }
 }
 
-function parseArray(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
+// values
+function parseArray(build: Build, instructions: Instructions, cursor: Cursor<Token[]>, lineIndex: number): { type: Type, value: ArrayValue } {
 
-    const array: Argument[] = []
-    const writeCursor = new WriteCursor<Token>([]);
+    const value: Value[] = []
+    let type: Type | undefined;
 
-    function push() {
-        if(writeCursor.size() === 1) {
+    while(!cursor.reachedEnd()) {
+        
+        const valueResult = parseValue(build, instructions, new Cursor(cursor.next()), lineIndex)
+        if(!type) {
+            type = valueResult.type;
+        }
+        else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
+            throw new Error(`Expected type ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
+        }
+        value.push(valueResult.value);
+    }
 
-            const token = writeCursor.asList()[0];
+    if(!type) {
+        throw new Error(`Expected at least one value, got 0 at line ${lineIndex}`);
+    }
 
-            if(token.type === 'identifier') {
-                const field = FieldResolve.resolve(instructions.fields, token.value, build.functions);
-                if(!field) {
-                    throw new Error(`Unknown identifier: ${token.value} at line ${lineIndex}`);
-                }
-                array.push({
-                    type: 'argument',
-                    dataType: field.type,
-                    value: token.value,
-                    valueType: 'reference'
-                });
+    return {
+        type: {
+            type: 'array',
+            items: type,
+        },
+        value: {
+            type: 'array',
+            items: value
+        }
+    };
+}
+
+function parseStruct(build: Build, instructions: Instructions, cursor: Cursor<Token[]>, lineIndex: number): {type: Type, value: Struct} {
+    
+    const type: StructType = {
+        type: 'struct',
+        properties: {}
+    }
+    const value: Struct = {
+        type: 'struct',
+        properties: {}
+    }
+
+    while(!cursor.reachedEnd()) {
+        const lineCursor = new Cursor(cursor.next());
+
+        const key = lineCursor.next();
+        if(key.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${key.type} at line ${lineIndex}`);
+        }
+
+        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
+            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineIndex}`);
+        }
+        lineCursor.next();
+
+        const {type: propertyType, value: propertyValue} = parseValue(build, instructions, lineCursor, lineIndex);
+
+        type.properties[key.value] = propertyType;
+        value.properties[key.value] = propertyValue;
+    }
+
+    return {
+        type,
+        value
+    };
+}
+
+function parseValue(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number): {type: Type, value: Value} {
+
+    if(cursor.hasOnlyOne()) {
+        const token = cursor.next();
+
+        if(token.type === 'datatype') {
+            if(!token.specificType) {
+                throw new Error(`Unknown datatype: ${token.value} at line ${lineIndex}`);
             }
-            else if(token.type === 'datatype') {
-                if(!build.types.includes(token.specificType as DataType)) {
-                    throw new Error(`Unknown datatype: ${token.specificType} at line ${lineIndex}`);
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: token.specificType
+                },
+                value: {
+                    type: 'primitive',
+                    primitive: token.value
                 }
-                array.push({
-                    type: 'argument',
-                    dataType: token.specificType as DataType,
-                    value: token.value,
-                    valueType: 'value'
-                });
-            }else {
-                throw new Error(`Expected datatype, got ${token.type} at line ${lineIndex}`);
+            }
+        }
+        else if(token.type === 'identifier') {
+
+            const field = FieldResolve.resolve(instructions.fields, token.value);
+            if(!field) {
+                throw new Error(`Unknown field: ${token.value} at line ${lineIndex}`);
+            }
+
+            return {
+                type: field.type,
+                value: {
+                    type: 'reference',
+                    reference: token.value
+                }
+            }
+        }
+        else if(token.type === 'block') {
+            if(!token.block) {
+                throw new Error(`Expected block, got ${token.type} at line ${lineIndex}`);
+            }
+            if(token.value === '()') {
+                if(token.block.length !== 1) {
+                    throw new Error(`Expected 1 token in block, got ${token.block.length} at line ${lineIndex}`);
+                }
+                return parseValue(build, instructions, new Cursor(token.block[0]), lineIndex);
+            }
+            else if(token.value === '{}') {
+                return parseStruct(build, instructions, new Cursor(token.block), lineIndex)
+            }
+            else if(token.value === '[]') {
+                return parseArray(build, instructions, new Cursor(token.block), lineIndex);
+            }
+            else {
+                throw new Error(`Unknown block type: ${token.value} at line ${lineIndex}`);
             }
         }
         else {
-            const steps = parseSteps(build, instructions, new Cursor(writeCursor.asList()), lineIndex)
-            if(!steps.type) {
-                throw new Error(`Expected datatype, got ${steps.type} at line ${lineIndex}`);
-            }
-            array.push({
-                type: 'argument',
-                dataType: steps.type,
-                value: steps.steps,
-                valueType: 'steps'
-            });
-        }
-        writeCursor.clear();
-    }
-
-    while(!cursor.reachedEnd()) {
-        const next = cursor.next();
-        if(next.type === 'symbol' && next.value === ',') {
-            push()
-        }else {
-            writeCursor.push(next);
+            throw new Error(`Unknown type: ${token.type} at line ${lineIndex}`);
         }
     }
-    push();
-
-    return array;
+    else {
+        const stepResult = parseSteps(build, instructions, cursor, lineIndex);
+        if(!stepResult.type) {
+            throw new Error(`No type found at line ${lineIndex}`);
+        }
+        return {
+            type: stepResult.type,
+            value: stepResult.steps
+        };
+    }
 }
 
-function parseParams(build: Build, cursor: Cursor<Token>, lineIndex: number) {
-
-    const params: Param[] = [];
-
-    const writeCursor = new WriteCursor<Token>([]);
-    
-    function push() {
-        const cursor = new Cursor(writeCursor.asList());
-        // name
-        const paramName = cursor.next();
-        if(paramName.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${paramName.type} at line ${lineIndex}`);
-        }
-
-        // type
-        if(cursor.peek().type !== 'symbol' || cursor.peek().value !== ':') {
-            throw new Error(`Expected symbol ':', got ${cursor.peek().type} at line ${lineIndex}`);
-        }
-        cursor.next();
-        const paramType = cursor.next();
-        if(paramType.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${paramType.type} at line ${lineIndex}`);
-        }
-        if(!build.types.includes(paramType.value as DataType)) {
-            throw new Error(`Unknown datatype: ${paramType.value} at line ${lineIndex}`);
-        }
-
-        params.push({
-            name: paramName.value,
-            type: paramType.value as DataType,
-        });
-    }
-
-    while(!cursor.reachedEnd()) {
-        if(cursor.peek().type === 'symbol' && cursor.peek().value === ',') {
-            cursor.next();
-            push();
-            writeCursor.clear();
-        }else {
-            writeCursor.push(cursor.next());
-        }
-    }
-    push();
-
-    return params;
-}
-
-function handleFunction(build: Build, instructions: Instructions, line: Token[], lineIndex: number, isSync: boolean = false) {
-
-    const cursor = new Cursor(line, 1);
+// keywords
+function handleFunction(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number, isSync: boolean = false) {
 
     // name
     const name = cursor.next();
@@ -303,23 +563,26 @@ function handleFunction(build: Build, instructions: Instructions, line: Token[],
     if(!block) {
         throw new Error(`Expected block, got ${cursor.rollback().type} at line ${lineIndex}`);
     }
-    const params = parseParams(build, new Cursor(block[0]), lineIndex);
+    const params = parseParams(build, new Cursor(block), lineIndex);
 
     // return type
-    let returnType: DataType | undefined;
+    let returnType: Type | undefined;
     if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
         cursor.next();
         const typeToken = cursor.next();
         if(typeToken.type !== 'identifier') {
             throw new Error(`Expected identifier, got ${typeToken.type} at line ${lineIndex}`);
         }
-        if(!build.types.includes(typeToken.value as DataType)) {
+        if(!build.types[typeToken.value]) {
             throw new Error(`Unknown datatype: ${typeToken.value} at line ${lineIndex}`);
         }
-        returnType = typeToken.value as DataType;
+        returnType = build.types[typeToken.value];
     }
     else {
-        returnType = 'unknown';
+        returnType = {
+            type: 'primitive',
+            primitive: 'unknown'
+        };
     }
 
     // body
@@ -360,7 +623,10 @@ function handleFunction(build: Build, instructions: Instructions, line: Token[],
 
     // add to fields
     instructions.fields.local[name.value] = {
-        type: 'callable',
+        type: {
+            type: 'primitive',
+            primitive: 'callable',
+        }
     }
 
     // parse body after function is added to build, so it can be accessed in the body
@@ -368,9 +634,7 @@ function handleFunction(build: Build, instructions: Instructions, line: Token[],
     build.functions[name.value].body = body;
 }
 
-function handleConst(build: Build, instructions: Instructions, line: Token[], lineIndex: number) {
-
-    const cursor = new Cursor(line, 1);
+function handleConst(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
 
     // name
     const name = cursor.next();
@@ -388,100 +652,51 @@ function handleConst(build: Build, instructions: Instructions, line: Token[], li
     }
 
     // type
-    let type: DataType | undefined;
+    let type: Type | undefined;
     if(cursor.peek().value === ':') {
         cursor.next();
-        const typeToken = cursor.next();
-        if(typeToken.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${typeToken.type} at line ${lineIndex}`);
-        }
-        if(!build.types.includes(typeToken.value as DataType)) {
-            throw new Error(`Unknown datatype: ${typeToken.value} at line ${lineIndex}`);
-        }
-        type = typeToken.value as DataType;
+        const typeCursor = cursor.until((token) => token.type === 'symbol' && token.value === '=');
+        type = parseType(build, typeCursor, lineIndex);
+        cursor.rollback();
     }
 
-    // =
-    if(cursor.peek().type !== 'symbol') {
-        throw new Error(`Expected symbol, got ${cursor.peek().type} at line ${lineIndex}`);
+    if(cursor.reachedEnd()) {
+        throw new Error(`Unexpected end of line at line ${lineIndex}`);
     }
-    if(cursor.peek().value !== '=') {
-        throw new Error(`Expected '=', got ${cursor.peek().value} at line ${lineIndex}`);
+    if(cursor.peek().type !== 'symbol' || cursor.peek().value !== '=') {
+        throw new Error(`Expected symbol, got ${cursor.peek().type} at line ${lineIndex}`);
     }
     cursor.next();
 
     // value
-    const valueToken: Token = cursor.next();
-    let value: Value | Steps = valueToken.value;
-    let valueType: ValueType = 'value';
-
-    // dynamic type
-    if(cursor.reachedEnd()) {
-        if(valueToken.type === 'datatype') {
-            if(type === undefined) {
-                type = valueToken.specificType;
-            }
-            else if(type !== valueToken.specificType) {
-                throw new Error(`Expected datatype ${type}, got ${valueToken.specificType} at line ${lineIndex}`);
-            }
-        }
-        else if(valueToken.type === 'identifier') {
-            // check if value is a field
-            const resolvedField = FieldResolve.resolve(instructions.fields, valueToken.value, build.functions)
-            if(resolvedField === undefined) {
-                throw new Error(`Unknown field: ${valueToken.value} at line ${lineIndex}`);
-            }
-            if(type === undefined) {
-                type = resolvedField.type;
-            }
-            else if(type !== resolvedField.type) {
-                throw new Error(`Expected datatype ${type}, got ${resolvedField.type} at line ${lineIndex}`);
-            }
-            valueType = 'reference';
-        }
-        else {
-            throw new Error(`Expected value, got ${valueToken.type} at line ${lineIndex}`);
-        }
+    const valueResult = parseValue(build, instructions, cursor.remaining(), lineIndex);
+    if(!type) {
+        type = valueResult.type;
     }
-    else {
-        cursor.rollback()
-        const steps = parseSteps(build, instructions, cursor.remaining(), lineIndex)
-        value = steps.steps;
-        // resolve steps
-        if(!type) type = steps.type;
-        else if(type !== steps.type) {
-            throw new Error(`Expected datatype ${type}, got ${steps.type} at line ${lineIndex}`);
-        }
-        valueType = 'steps';
-    }
-
-    if(type === undefined) {
-        throw new Error(`No type specified at line ${lineIndex}`);
+    else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
+        throw new Error(`Type mismatch: ${TypeCheck.stringify(type)} !== ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
     }
 
     if(!cursor.reachedEnd()) {
-        console.log(cursor.peek());
         throw new Error(`Expected end of line, got ${cursor.peek().type} at line ${lineIndex}`);
     }
 
     // push to fields
     instructions.fields.local[name.value] = {
         type,
-        reference: valueType === 'reference' ? value as string : undefined
+        // TODO: maybe not needed
+        reference: valueResult.value.type === 'reference' ? valueResult.value.reference : undefined
     };
 
     // add to run
     instructions.run.push({
         type: 'const',
         name: name.value,
-        value,
-        valueType
+        value: valueResult.value,
     });
 }
 
-function handleVar(build: Build, instructions: Instructions, line: Token[], lineIndex: number) {
-
-    const cursor = new Cursor(line, 1);
+function handleVar(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
 
     // name
     const name = cursor.next();
@@ -499,17 +714,17 @@ function handleVar(build: Build, instructions: Instructions, line: Token[], line
     }
 
     // type
-    let type: DataType | undefined;
+    let type: Type | undefined;
     if(cursor.peek().value === ':') {
         cursor.next();
         const typeToken = cursor.next();
         if(typeToken.type !== 'identifier') {
             throw new Error(`Expected identifier, got ${typeToken.type} at line ${lineIndex}`);
         }
-        if(!build.types.includes(typeToken.value as DataType)) {
+        if(!build.types[typeToken.value]) {
             throw new Error(`Unknown datatype: ${typeToken.value} at line ${lineIndex}`);
         }
-        type = typeToken.value as DataType;
+        type = build.types[typeToken.value];
     }
 
     if(cursor.reachedEnd()) {
@@ -524,8 +739,7 @@ function handleVar(build: Build, instructions: Instructions, line: Token[], line
         // add to run
         instructions.run.push({
             type: 'var',
-            name: name.value,
-            valueType: 'value'
+            name: name.value,            
         });
         return;
     }
@@ -539,95 +753,14 @@ function handleVar(build: Build, instructions: Instructions, line: Token[], line
     }
     cursor.next();
 
-    // value
-    const valueToken: Token = cursor.next();
-    let value: Value | Steps = valueToken.value;
-    let valueType: ValueType = 'value';
-
-    // dynamic type
-    if(cursor.reachedEnd()) {
-        if(valueToken.type === 'datatype') {
-            if(type === undefined) {
-                type = valueToken.specificType;
-            }
-            else if(type !== valueToken.specificType) {
-                throw new Error(`Expected datatype ${type}, got ${valueToken.specificType} at line ${lineIndex}`);
-            }
-        }
-        else if(valueToken.type === 'identifier') {
-            // check if value is a field
-            const resolvedField = FieldResolve.resolve(instructions.fields, valueToken.value, build.functions)
-            if(resolvedField === undefined) {
-                throw new Error(`Unknown field: ${valueToken.value} at line ${lineIndex}`);
-            }
-            if(type === undefined) {
-                type = resolvedField.type;
-            }
-            else if(type !== resolvedField.type) {
-                throw new Error(`Expected datatype ${type}, got ${resolvedField.type} at line ${lineIndex}`);
-            }
-            valueType = 'reference';
-        }
-        else if(valueToken.type === 'block') {
-            if(!valueToken.block) {
-                throw new Error(`Expected block, got ${valueToken.type} at line ${lineIndex}`);
-            }
-            const steps = parseSteps(build, instructions, new Cursor(valueToken.block[0]), lineIndex)
-            value = steps.steps;
-            // resolve steps
-            if(!type) type = steps.type;
-            else if(type !== steps.type) {
-                throw new Error(`Expected datatype ${type}, got ${steps.type} at line ${lineIndex}`);
-            }
-            valueType = 'steps';
-        }
-        else {
-            throw new Error(`Expected value, got ${valueToken.type} at line ${lineIndex}`);
-        }
-    }
-    else {
-        cursor.rollback()
-        const steps = parseSteps(build, instructions, cursor.remaining(), lineIndex)
-        value = steps.steps;
-        // resolve steps
-        if(!type) type = steps.type;
-        else if(type !== steps.type) {
-            throw new Error(`Expected datatype ${type}, got ${steps.type} at line ${lineIndex}`);
-        }
-        valueType = 'steps';
-    }
-
-    if(type === undefined) {
-        throw new Error(`No type specified at line ${lineIndex}`);
-    }
-
-    if(!cursor.reachedEnd()) {
-        console.log(cursor.peek());
-        throw new Error(`Expected end of line, got ${cursor.peek().type} at line ${lineIndex}`);
-    }
-
-    // push to fields
-    instructions.fields.local[name.value] = {
-        type,
-        reference: valueType === 'reference' ? value as string : undefined
-    };
-
-    // add to run
-    instructions.run.push({
-        type: 'var',
-        name: name.value,
-        value,
-        valueType
-    });
+    // TODO: make this a function
 }
 
-function handleSync(build: Build, instructions: Instructions, line: Token[], lineIndex: number) {
-
-    const cursor = new Cursor(line, 1);
+function handleSync(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
 
     // check if sync function
     if(cursor.peek().type === 'keyword' && cursor.peek().value === 'func') {
-        handleFunction(build, instructions, cursor.asList(), lineIndex, true);
+        handleFunction(build, instructions, cursor, lineIndex, true);
         return;
     }
 
@@ -656,7 +789,7 @@ function handleSync(build: Build, instructions: Instructions, line: Token[], lin
     });
 }
 
-function handleReturn(build: Build, instructions: Instructions, line: Token[], lineIndex: number, functionName?: string) {
+function handleReturn(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number, functionName?: string) {
 
     if(!functionName) {
         throw new Error(`Unexpected return at line ${lineIndex}`);
@@ -667,25 +800,24 @@ function handleReturn(build: Build, instructions: Instructions, line: Token[], l
         throw new Error(`Unknown function: ${functionName} at line ${lineIndex}`);
     }
 
-    if(line.length === 1) {
+    if(cursor.remainingLength() === 1) {
         // return type is void
         // add to run
         instructions.run.push({
             type: 'return',
             value: undefined,
-            valueType: 'value',
         })
         return;
     }
 
-    const cursor = new Cursor(line, 1);
-
     // value
     const valueToken: Token = cursor.next();
-    let value: Value | Steps = valueToken.value;
-    let valueType: ValueType = 'value';
+    let value: Value = {
+        type: 'primitive',
+        primitive: valueToken.value
+    };
 
-    let type: DataType | undefined;
+    let type: Type | undefined;
 
     if(cursor.reachedEnd()) {
         if(valueToken.type === 'identifier') {
@@ -694,10 +826,19 @@ function handleReturn(build: Build, instructions: Instructions, line: Token[], l
             if(resolvedField === undefined) {
                 throw new Error(`Unknown field: ${valueToken.value} at line ${lineIndex}`);
             }
-            valueType = 'reference';
+            value = {
+                type: 'reference',
+                reference: valueToken.value
+            }
         }
         else if(valueToken.type === 'datatype') {
-            type = valueToken.specificType;
+            if(!valueToken.specificType) {
+                throw new Error(`Expected datatype, got ${valueToken.type} at line ${lineIndex}`);
+            }
+            type = {
+                type: 'primitive',
+                primitive: valueToken.specificType
+            }
         }
         else {
             throw new Error(`Expected value, got ${valueToken.type} at line ${lineIndex}`);
@@ -712,7 +853,6 @@ function handleReturn(build: Build, instructions: Instructions, line: Token[], l
         else if(type !== steps.type) {
             throw new Error(`Expected datatype ${type}, got ${steps.type} at line ${lineIndex}`);
         }
-        valueType = 'steps';
     }
 
     if(!type) {
@@ -720,7 +860,7 @@ function handleReturn(build: Build, instructions: Instructions, line: Token[], l
     }
 
     // dynamic type
-    if(parentFunction.returnType === 'unknown') {
+    if(TypeCheck.matchesPrimitive(build.types, parentFunction.returnType, 'unknown')) {
         // set type
         // TODO: check if setting returnType of parentFunction is enough
         build.functions[functionName].returnType = type;
@@ -731,14 +871,44 @@ function handleReturn(build: Build, instructions: Instructions, line: Token[], l
     }
 
     if(!cursor.reachedEnd()) {
-        console.log(cursor.peek());
         throw new Error(`Expected end of line, got ${cursor.peek().type} at line ${lineIndex}`);
     }
 
     // add to run
     instructions.run.push({
         type: 'return',
-        value,
-        valueType
+        value,        
     });
+}
+
+function handleType(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
+
+    // name
+    const nameToken = cursor.next();
+    if(nameToken.type !== 'identifier') {
+        throw new Error(`Expected identifier, got ${nameToken.type} at line ${lineIndex}`);
+    }
+    const name = nameToken.value;
+
+    // check if type already exists
+    if(build.types[name]) {
+        throw new Error(`Type already exists: ${name} at line ${lineIndex}`);
+    }
+
+    // check if type is a field
+    if(FieldResolve.resolve(instructions.fields, name, build.functions)) {
+        throw new Error(`Field already exists: ${name} at line ${lineIndex}`);
+    }
+
+    // =
+    const equalsToken = cursor.next();
+    if(equalsToken.type !== 'symbol' || equalsToken.value !== '=') {
+        throw new Error(`Expected '=', got ${equalsToken.type} at line ${lineIndex}`);
+    }
+
+    // type
+    const type = parseType(build, cursor.remaining(), lineIndex);
+
+    // add to types
+    build.types[name] = type;
 }
