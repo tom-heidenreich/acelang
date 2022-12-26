@@ -281,7 +281,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
             }
             if(!type) type = field.type;
             else if(type !== field.type) {
-                throw new Error(`Expected ${type}, got ${field.type} at line ${lineIndex}`);
+                throw new Error(`Expected ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(field.type)} at line ${lineIndex}`);
             }
             writeCursor.push(token.value);
         }
@@ -307,7 +307,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                 if(token.value === '()') {
                     
                     if(!TypeCheck.matchesPrimitive(build.types, field.type, 'callable')) {
-                        throw new Error(`Expected callable, got ${field.type} at line ${lineIndex}`);
+                        throw new Error(`Expected callable, got ${TypeCheck.stringify(field.type)} at line ${lineIndex}`);
                     }
 
                     const func = build.functions[name];
@@ -334,7 +334,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
 
                     if(!type || TypeCheck.matchesPrimitive(build.types, type, 'callable')) type = func.returnType
                     else if(func.returnType && type !== func.returnType) {
-                        throw new Error(`Expected ${type}, got ${func.returnType} at line ${lineIndex}`);
+                        throw new Error(`Expected ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(func.returnType)} at line ${lineIndex}`);
                     }
 
                     writeCursor.push({
@@ -349,7 +349,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                 else if(token.value === '[]') {
 
                     if(!TypeCheck.matchesPrimitive(build.types, field.type, 'object')) {
-                        throw new Error(`Expected object, got ${field.type} at line ${lineIndex}`);
+                        throw new Error(`Expected object, got ${TypeCheck.stringify(field.type)} at line ${lineIndex}`);
                     }
                     if(token.block.length !== 1) {
                         throw new Error(`Expected 1 argument for object access, got ${token.block.length} at line ${lineIndex}`);
@@ -369,7 +369,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
                         if(resolvedType) type = resolvedType;
                     }
                     else if(field.type && type !== field.type) {
-                        throw new Error(`Expected ${type}, got ${field.type} at line ${lineIndex}`);
+                        throw new Error(`Expected ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(field.type)} at line ${lineIndex}`);
                     }
 
                     writeCursor.push({
@@ -385,7 +385,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
             let content = parseSteps(build, instructions, new Cursor(token.block[0]), lineIndex);
             if(!type) type = content.type;
             else if(content.type && type !== content.type) {
-                throw new Error(`Expected ${type}, got ${content.type} at line ${lineIndex}`);
+                throw new Error(`Expected ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(content.type)} at line ${lineIndex}`);
             }
 
             writeCursor.push(token.value.split('')[0], ...content.steps.value, token.value.split('')[1]);
@@ -400,7 +400,7 @@ function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Tok
             else if(token.specificType && !TypeCheck.matchesPrimitive(build.types, type, token.specificType)) {
                 // TODO: auto convert
                 console.log(writeCursor.asList());
-                throw new Error(`Expected ${type.type}, got ${token.specificType} at line ${lineIndex}`);
+                throw new Error(`Expected ${TypeCheck.stringify(type)}, got ${token.specificType} at line ${lineIndex}`);
             }
         }
 
@@ -819,7 +819,7 @@ function handleReturn(build: Build, instructions: Instructions, cursor: Cursor<T
         if(valueToken.type === 'identifier') {
             // check if value is a field
             const resolvedField = FieldResolve.resolve(instructions.fields, valueToken.value, build.functions)
-            if(resolvedField === undefined) {
+            if(!resolvedField) {
                 throw new Error(`Unknown field: ${valueToken.value} at line ${lineIndex}`);
             }
             value = {
@@ -847,7 +847,11 @@ function handleReturn(build: Build, instructions: Instructions, cursor: Cursor<T
         // resolve steps
         if(!type) type = steps.type;
         else if(type !== steps.type) {
-            throw new Error(`Expected datatype ${type}, got ${steps.type} at line ${lineIndex}`);
+            if(!steps.type) {
+                // TODO: make this prettier
+                throw new Error(`Expected datatype ${TypeCheck.stringify(type)}, got undefined at line ${lineIndex}`);
+            }
+            throw new Error(`Expected datatype ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(steps.type)} at line ${lineIndex}`);
         }
     }
 
@@ -862,7 +866,7 @@ function handleReturn(build: Build, instructions: Instructions, cursor: Cursor<T
     }
     // check if return type of function matches
     else if(type !== parentFunction.returnType) {
-        throw new Error(`Expected return type ${parentFunction.returnType}, got ${type} at line ${lineIndex}`);
+        throw new Error(`Expected return type ${TypeCheck.stringify(parentFunction.returnType)}, got ${TypeCheck.stringify(type)} at line ${lineIndex}`);
     }
 
     if(!cursor.reachedEnd()) {
