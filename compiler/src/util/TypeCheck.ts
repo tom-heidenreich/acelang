@@ -3,7 +3,8 @@ import { DataType, Primitive, PrimitiveValue, Type, Types, Value, ValueResult } 
 export default class TypeCheck {
 
     public static matchesPrimitive(types: Types, match: Type, against: DataType): boolean {
-        if(match.type === 'primitive') {
+        if(against === 'unknown' || against === 'any') return true;
+        else if(match.type === 'primitive') {
             return match.primitive === against;
         }
         else if(match.type === 'reference') {
@@ -11,6 +12,9 @@ export default class TypeCheck {
         }
         else if(match.type === 'union') {
             return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against));
+        }
+        else if(match.type === 'struct' || match.type === 'array') {
+            return against === 'object';
         }
         return false;
     }
@@ -66,6 +70,10 @@ export default class TypeCheck {
             return TypeCheck.matches(types, match.items, against.items, againstValue);
         }
         return false;
+    }
+
+    public static resolveObject(types: Types, type: Type): Type {
+        
     }
 
     public static stringify(type: Type) {
