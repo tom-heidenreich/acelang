@@ -262,6 +262,7 @@ function parseType(build: Build, cursor: Cursor<Token>, lineIndex: number): Type
 }
 
 // steps
+// TODO: refactor this
 function parseSteps(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number): { steps: Steps, type?: Type } {
 
     const writeCursor = new WriteCursor<Step>([]);
@@ -664,7 +665,7 @@ function handleFunction(build: Build, instructions: Instructions, cursor: Cursor
     build.functions[name.value].body = body;
 }
 
-function handleConst(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
+function parseVariable(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number, isConst: boolean = false) {
 
     // name
     const name = cursor.next();
@@ -687,12 +688,29 @@ function handleConst(build: Build, instructions: Instructions, cursor: Cursor<To
         cursor.next();
         const typeCursor = cursor.until((token) => token.type === 'symbol' && token.value === '=');
         type = parseType(build, typeCursor, lineIndex);
-        cursor.rollback();
+        if(!cursor.reachedEnd()) cursor.rollback();
     }
-
+    
     if(cursor.reachedEnd()) {
-        throw new Error(`Unexpected end of line at line ${lineIndex}`);
+        if(isConst) {
+            throw new Error(`Expected value, got end of line at line ${lineIndex}`);
+        }
+        if(!type) {
+            throw new Error(`No type specified at line ${lineIndex}`);
+        }
+        // push to fields
+        instructions.fields.local[name.value] = {
+            type,
+        };
+
+        // add to run
+        instructions.run.push({
+            type: 'var',
+            name: name.value,            
+        });
+        return;
     }
+    
     if(cursor.peek().type !== 'symbol' || cursor.peek().value !== '=') {
         throw new Error(`Expected symbol, got ${cursor.peek().type} at line ${lineIndex}`);
     }
@@ -700,10 +718,10 @@ function handleConst(build: Build, instructions: Instructions, cursor: Cursor<To
 
     // value
     const valueResult = parseValue(build, instructions, cursor.remaining(), lineIndex);
-    if(!type) {
-        type = valueResult.type;
-    }
-    else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
+    
+    // use value type, because value is constant
+    if(isConst || !type) type = valueResult.type;
+    if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
         throw new Error(`Expected type ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
     }
 
@@ -720,77 +738,18 @@ function handleConst(build: Build, instructions: Instructions, cursor: Cursor<To
 
     // add to run
     instructions.run.push({
-        type: 'const',
+        type: isConst ? 'const' : 'var',
         name: name.value,
         value: valueResult.value,
     });
 }
 
+function handleConst(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
+    parseVariable(build, instructions, cursor, lineIndex, true);
+}
+
 function handleVar(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
-
-    // name
-    const name = cursor.next();
-    if(name.type !== 'identifier') {
-        throw new Error(`Expected identifier, got ${name.type} at line ${lineIndex}`);
-    }
-
-    // check if already exists locally
-    if(instructions.fields.local[name.value]) {
-        throw new Error(`Field already exists: ${name.value} at line ${lineIndex}`);
-    }
-
-    if(cursor.peek().type !== 'symbol') {
-        throw new Error(`Expected symbol, got ${cursor.peek().type} at line ${lineIndex}`);
-    }
-
-    // type
-    let type: Type | undefined;
-    if(cursor.peek().value === ':') {
-        cursor.next();
-        const typeToken = cursor.next();
-        if(typeToken.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${typeToken.type} at line ${lineIndex}`);
-        }
-        if(!build.types[typeToken.value]) {
-            throw new Error(`Unknown datatype: ${typeToken.value} at line ${lineIndex}`);
-        }
-        type = build.types[typeToken.value];
-    }
-
-    if(cursor.reachedEnd()) {
-        if(type === undefined) {
-            throw new Error(`No type specified at line ${lineIndex}`);
-        }
-        // push to fields
-        instructions.fields.local[name.value] = {
-            type,
-        };
-
-        // add to run
-        instructions.run.push({
-            type: 'var',
-            name: name.value,            
-        });
-        return;
-    }
-
-    // =
-    if(cursor.peek().type !== 'symbol') {
-        throw new Error(`Expected symbol, got ${cursor.peek().type} at line ${lineIndex}`);
-    }
-    if(cursor.peek().value !== '=') {
-        throw new Error(`Expected '=', got ${cursor.peek().value} at line ${lineIndex}`);
-    }
-    cursor.next();
-
-    // value
-    const valueResult = parseValue(build, instructions, cursor.remaining(), lineIndex);
-    if(!type) {
-        type = valueResult.type;
-    }
-    else if(!TypeCheck.matchesValue(build.types, type, valueResult)) {
-        throw new Error(`Expected type ${TypeCheck.stringify(type)}, got ${TypeCheck.stringify(valueResult.type)} at line ${lineIndex}`);
-    }
+    parseVariable(build, instructions, cursor, lineIndex, false);
 }
 
 function handleSync(build: Build, instructions: Instructions, cursor: Cursor<Token>, lineIndex: number) {
