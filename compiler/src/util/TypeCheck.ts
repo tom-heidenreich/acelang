@@ -83,10 +83,14 @@ export default class TypeCheck {
             return type.items;
         }
         else if(type.type === 'union') {
+            const resolvedTypes: Type[] = [] 
             for(const oneOfType of type.oneOf) {
                 const resolved = TypeCheck.resolveObject(types, oneOfType, key);
-                if(resolved) return resolved;
+                if(resolved) resolvedTypes.push(resolved);
             }
+            if(resolvedTypes.length === 0) return undefined;
+            else if(resolvedTypes.length === 1) return resolvedTypes[0];
+            else return { type: 'union', oneOf: resolvedTypes };
         }
         return undefined;
     }
