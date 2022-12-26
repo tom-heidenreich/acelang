@@ -1,4 +1,4 @@
-export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'any' | 'callable';
+export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
 export type Symbol = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | ':' | ',' | '.' | '|'
 
