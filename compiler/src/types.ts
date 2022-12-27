@@ -7,12 +7,12 @@ export type Token = {
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type']
-export const SYMBOLS: Symbol[] = [':', ',', '.', '|']
+export const SYMBOLS: Symbol[] = ['=', ':', ',', '.', '|']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
 
 export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
-export type Symbol = ':' | ',' | '.' | '|'
+export type Symbol = '=' | ':' | ',' | '.' | '|'
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
 
 export type Identifier = string;
@@ -114,7 +114,7 @@ export type Types = {
 }
 
 // values
-export type Value = (PrimitiveValue | Steps | Reference | Struct | ArrayValue)
+export type Value = (PrimitiveValue | Execution | Reference | Struct | ArrayValue)
 export type ValueResult = {
     value: Value,
     type: Type,
@@ -135,24 +135,28 @@ export type Steps = {
     type: 'steps',
     value: Step[]
 }
-export type Step = (Identifier | PrimitiveValue | Symbol | Call | Access)
+export type Step = Operation
 
-export type Call = {
-    type: 'call',
-    name: string,
-    args: Argument[]
+// operations
+export type Operation = PlusOperation
+
+export type PlusOperation = AddInt | AddFloat | ConcatString
+export type AddInt = {
+    type: 'intAdd',
+    left: Execution,
+    right: Execution,
 }
 
-export type Access = {
-    type: 'access',
-    name: string,
-    key: Primitive,
+export type AddFloat = {
+    type: 'floatAdd',
+    left: Execution,
+    right: Execution,
 }
 
-export type Argument = {
-    type: 'argument',
-    dataType: Type,
-    value: Value
+export type ConcatString = {
+    type: 'stringConcat',
+    left: Execution,
+    right: Execution,
 }
 
 // objects
@@ -166,6 +170,33 @@ export type ArrayValue = {
     items: Value[],
 }
 
+// execution
+export type Execution = PrimitiveValue | Executable | Operation
+export type Executable = Call | Access | Set
+
+export type ExecutionResult = {
+    type: Type,
+    value: Execution,
+}
+
+export type Call = {
+    type: 'call',
+    address: Identifier,
+    args: Value[]
+}
+
+export type Access = {
+    type: 'access',
+    address: Identifier,
+    key: Primitive,
+}
+
+export type Set = {
+    type: 'set',
+    address: Identifier,
+    value: Value,
+}
+
 // build
 export type Build = {
     functions: Functions,
@@ -175,5 +206,5 @@ export type Build = {
 
 export type Instructions = {
     fields: FieldInstructions,
-    run: (Const | Var | Sync | Return | Steps)[],
+    run: (Const | Var | Sync | Return | Executable)[],
 }
