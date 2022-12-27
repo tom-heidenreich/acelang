@@ -45,8 +45,9 @@ export default class Cursor<T> {
     public until(predicate: (value: T) => boolean): Cursor<T> {
         const cursor = new WriteCursor<T>();
         while(!this.reachedEnd()) {
-            const value = this.next();
+            const value = this.peek();
             if(predicate(value)) break;
+            this.next();
             cursor.push(value);
         }
         return cursor.toReadCursor();
