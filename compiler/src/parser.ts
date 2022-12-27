@@ -1,5 +1,5 @@
 import StringBuffer from './buffer';
-import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol } from './types';
+import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator } from './types';
 
 function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
@@ -161,6 +161,16 @@ export function parse(content: string, inBlock: boolean = false) {
             line.push({
                 value: c,
                 type: 'symbol'
+            });
+            continue;
+        }
+        if(OPERATORS.includes(c as Operator)) {
+            if(!structure) pushBuffer(line, buffer);
+            else pushBuffer(line, buffer, 'datatype', structure);
+            structure = undefined;
+            line.push({
+                value: c,
+                type: 'operator'
             });
             continue;
         }

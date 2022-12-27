@@ -1,17 +1,19 @@
-export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
-export type Symbol = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | ':' | ',' | '.' | '|'
-
 export type Token = {
     value: string;
-    type: 'datatype' | 'identifier' | 'symbol' | 'keyword' | 'block';
+    type: 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block';
     specificType?: DataType;
     block?: Token[][];
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type']
-export const SYMBOLS: Symbol[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', ':', ',', '.', '|']
+export const SYMBOLS: Symbol[] = [':', ',', '.', '|']
+export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
+
+export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
+export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
+export type Symbol = ':' | ',' | '.' | '|'
+export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
 
 export type Identifier = string;
 export type Primitive = string | number | boolean;
