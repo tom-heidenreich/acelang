@@ -1,6 +1,8 @@
 import StringBuffer from './buffer';
 import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator } from './types';
 
+// TODO: refactor whole file
+
 function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
@@ -164,7 +166,7 @@ export function parse(content: string, inBlock: boolean = false) {
             });
             continue;
         }
-        if(OPERATORS.includes(c as Operator)) {
+        if(OPERATORS.includes(buffer.toString() + c as Operator)) {
             if(!structure) pushBuffer(line, buffer);
             else pushBuffer(line, buffer, 'datatype', structure);
             structure = undefined;
