@@ -26,8 +26,6 @@ export default class TypeCheck {
 
     public static matches(types: Types, match: Type, against: Type, againstValue?: Primitive): boolean {
 
-        console.log(match, against);
-
         // match
         if(match.type === 'union') {
             return match.oneOf.some(type => TypeCheck.matches(types, type, against, againstValue));
@@ -86,13 +84,36 @@ export default class TypeCheck {
             const resolvedTypes: Type[] = [] 
             for(const oneOfType of type.oneOf) {
                 const resolved = TypeCheck.resolveObject(types, oneOfType, key);
-                if(resolved) resolvedTypes.push(resolved);
+                if(resolved && resolvedTypes.indexOf(resolved) === -1) resolvedTypes.push(resolved);
             }
             if(resolvedTypes.length === 0) return undefined;
             else if(resolvedTypes.length === 1) return resolvedTypes[0];
             else return { type: 'union', oneOf: resolvedTypes };
         }
         return undefined;
+    }
+
+    public static resolvePrimitive(types: Types, type: Type): DataType {
+        if(type.type === 'primitive') {
+            return type.primitive;
+        }
+        else if(type.type === 'reference') {
+            return TypeCheck.resolvePrimitive(types, types[type.reference]);
+        }
+        else if(type.type === 'union') {
+            const resolvedTypes: DataType[] = [] 
+            for(const oneOfType of type.oneOf) {
+                const resolved = TypeCheck.resolvePrimitive(types, oneOfType);
+                if(resolvedTypes.indexOf(resolved) === -1) resolvedTypes.push(resolved);
+            }
+            if(resolvedTypes.length === 0) return 'unknown';
+            else if(resolvedTypes.length === 1) return resolvedTypes[0];
+            else return 'any';
+        }
+        else if(type.type === 'struct' || type.type === 'array') {
+            return 'object';
+        }
+        return 'unknown';
     }
 
     public static stringify(type: Type): Primitive {
