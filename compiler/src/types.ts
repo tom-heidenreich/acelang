@@ -62,7 +62,7 @@ export type Functions = {
 // fields
 export type Field = {
     type: Type,
-    reference?: Identifier,
+    address: MemoryAddress
 }
 
 export type Fields = {
@@ -197,8 +197,33 @@ export type Set = {
     value: Value,
 }
 
+// memory
+export type Memory = {
+    [key: MemoryAddress]: PrimitiveMemory | StructMemory | ArrayMemory
+}
+
+export type MemoryAddress = Identifier
+
+export type PrimitiveMemory = {
+    type: 'primitive',
+    primitive: Primitive
+}
+
+export type StructMemory = {
+    type: 'struct',
+    properties: {
+        [key: Identifier]: MemoryAddress
+    }
+}
+
+export type ArrayMemory = {
+    type: 'array',
+    items: MemoryAddress[]
+}
+
 // build
 export type Build = {
+    mem: Memory,
     functions: Functions,
     types: Types,
     main: Instructions,

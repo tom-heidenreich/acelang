@@ -15,6 +15,7 @@ export function toBuildInstructions(tokens: Token[][]) {
     })
 
     const build: Build = {
+        mem: {},
         functions: {},
         types: defaultTypes,
         main: {
