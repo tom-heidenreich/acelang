@@ -210,3 +210,114 @@ type NumberList = (int | float)[]
     }
 }
 ```
+
+## New Instruction Design
+
+```
+const a = "hello"
+const b = a
+const c = {
+    "key1": {
+        "key2": a
+    }
+}
+```
+
+```json
+
+    "functions": {
+    },
+    "mem": {
+        "0x24a5f": {
+            // will be set when run executes
+            "type": "primitive",
+            "primitive": "hello"
+        },
+        "0x97aF3": {
+            "type": "struct",
+            "properties": {
+                "key1": "0x3A4e2"
+            }
+        },
+        "0x3A4e2": {
+            "type": "struct",
+            "properties": {
+                "key2": "0x24a5f"
+            }
+        },
+    },
+    "main": {
+        "fields": {
+            "local": {
+                "a": {
+                    "type": {
+                        "type": "primitive",
+                        "primitive": "string"
+                    },
+                    "address": "0x24a5f"
+                },
+                "b": {
+                    "type": {
+                        "type": "primitive",
+                        "primitive": "string"
+                    },
+                    "address": "0x24a5f"
+                },
+                "c": {
+                    "type": {
+                        "type": "struct",
+                        "properties": {
+                            "key1": {
+                                "type": "struct",
+                                "properties": {
+                                    "key2": {
+                                        "type": "primitive",
+                                        "primitive": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "address": "0x97aF3"
+                }
+            }
+        },
+        "run": [
+            {
+                "type": "const",
+                "name": "a",
+                "value": {
+                    "type": "primitive",
+                    "primitive": "hello"
+                }
+            },
+            {
+                "type": "const",
+                "name": "b",
+                "value": {
+                    "type": "reference",
+                    "reference": "a"
+                }
+            },
+            {
+                "type": "const",
+                "name": "c",
+                "value": {
+                    "type": "struct",
+                    "properties": {
+                        "key1": {
+                            "type": "struct",
+                            "properties": {
+                                "key2": {
+                                    "type": "reference",
+                                    "reference": "a"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}
+```
