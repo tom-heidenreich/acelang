@@ -24,7 +24,7 @@ export default class Cursor<T> {
         return this.array[this.cursor];
     }
 
-    public reachedEnd() {
+    public get done() {
         return this.cursor >= this.array.length;
     }
 
@@ -34,7 +34,7 @@ export default class Cursor<T> {
         return new Cursor(this.array, cursor);
     }
 
-    public remainingLength() {
+    public get remainingLength() {
         return this.array.length - this.cursor;
     }
 
@@ -44,7 +44,7 @@ export default class Cursor<T> {
 
     public until(predicate: (value: T) => boolean): Cursor<T> {
         const cursor = new WriteCursor<T>();
-        while(!this.reachedEnd()) {
+        while(!this.done) {
             const value = this.peek();
             if(predicate(value)) break;
             this.next();
@@ -55,7 +55,7 @@ export default class Cursor<T> {
 
     public untilInclude(predicate: (value: T) => boolean): Cursor<T> {
         const cursor = new WriteCursor<T>();
-        while(!this.reachedEnd()) {
+        while(!this.done) {
             const value = this.next();
             cursor.push(value);
             if(predicate(value)) break;
@@ -64,7 +64,7 @@ export default class Cursor<T> {
     }
 
     public hasOnlyOne(): boolean {
-        return this.remainingLength() === 1;
+        return this.remainingLength === 1;
     }
 }
 
@@ -79,6 +79,12 @@ export class WriteCursor<T> {
     }
 
     public push(...values: T[]) {
+        for(const value of values) {
+            this.array[this.cursor++] = value;
+        }
+    }
+
+    public pushAll(values: T[]) {
         for(const value of values) {
             this.array[this.cursor++] = value;
         }

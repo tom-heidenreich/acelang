@@ -19,58 +19,18 @@ export type Identifier = string;
 export type Primitive = string | number | boolean;
 export type Key = string | number;
 
-// keywords
-export type Const = {
-    type: 'const',
-    name: string,
-    value: Value,
-}
-
-export type Var = {
-    type: 'var',
-    name: string,
-    value?: Value,
-}
-
-export type Return = {
-    type: 'return',
-    value?: Value,
-}
-
-export type Sync = {
-    type: 'sync',
-    instructions: Instructions,
-}
-
-// functions
-export type Param = {
-    name: string,
-    type: Type,
-}
-
-export type Function = {
-    params: Param[],
-    returnType: Type,
-    body: Instructions,
-    isSync: boolean,
-}
-
-export type Functions = {
-    [name: string]: Function,
-}
-
 // fields
 export type Field = {
     type: Type,
-    address: MemoryAddress
+    address: Identifier
 }
 
 export type Fields = {
     [name: string]: Field
 }
 
-export type FieldInstructions = {
-    parent?: FieldInstructions,
+export type FieldEnv = {
+    parent?: FieldEnv,
     local: Fields,
 }
 
@@ -114,7 +74,7 @@ export type Types = {
 }
 
 // values
-export type Value = (PrimitiveValue | Execution | Reference | Struct | ArrayValue)
+export type Value = (PrimitiveValue | Reference | Struct | ArrayValue | Steps)
 export type ValueResult = {
     value: Value,
     type: Type,
@@ -130,35 +90,6 @@ export type Reference = {
     reference: string,
 }
 
-// steps
-export type Steps = {
-    type: 'steps',
-    value: Step[]
-}
-export type Step = Operation
-
-// operations
-export type Operation = PlusOperation
-
-export type PlusOperation = AddInt | AddFloat | ConcatString
-export type AddInt = {
-    type: 'intAdd',
-    left: Execution,
-    right: Execution,
-}
-
-export type AddFloat = {
-    type: 'floatAdd',
-    left: Execution,
-    right: Execution,
-}
-
-export type ConcatString = {
-    type: 'stringConcat',
-    left: Execution,
-    right: Execution,
-}
-
 // objects
 export type Struct = {
     type: 'struct',
@@ -170,66 +101,40 @@ export type ArrayValue = {
     items: Value[],
 }
 
-// execution
-export type Execution = PrimitiveValue | Executable | Operation
-export type Executable = Call | Access | Set
-
-export type ExecutionResult = {
-    type: Type,
-    value: Execution,
+// steps
+export type Steps = {
+    type: 'steps',
 }
 
-export type Call = {
-    type: 'call',
+// runnable
+export type Runnable = Malloc | Move | Assign
+
+export type Malloc = {
+    type: 'malloc',
     address: Identifier,
-    args: Value[]
+    size: number,
 }
 
-export type Access = {
-    type: 'access',
+export type Move = {
+    type: 'move',
+    from: Value,
+    to: Value,
+}
+
+export type Assign = {
+    type: 'assign',
     address: Identifier,
-    key: Primitive,
-}
-
-export type Set = {
-    type: 'set',
-    address: Identifier,
-    value: Value,
-}
-
-// memory
-export type Memory = {
-    [key: MemoryAddress]: PrimitiveMemory | StructMemory | ArrayMemory
-}
-
-export type MemoryAddress = Identifier
-
-export type PrimitiveMemory = {
-    type: 'primitive',
-    primitive: Primitive
-}
-
-export type StructMemory = {
-    type: 'struct',
-    properties: {
-        [key: Identifier]: MemoryAddress
-    }
-}
-
-export type ArrayMemory = {
-    type: 'array',
-    items: MemoryAddress[]
+    data: Uint8Array,
+    debug?: string,
 }
 
 // build
 export type Build = {
-    mem: Memory,
-    functions: Functions,
     types: Types,
-    main: Instructions,
+    main: Environment,
 }
 
-export type Instructions = {
-    fields: FieldInstructions,
-    run: (Const | Var | Sync | Return | Executable)[],
+export type Environment = {
+    fields: FieldEnv,
+    run: Runnable[],
 }

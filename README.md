@@ -214,110 +214,173 @@ type NumberList = (int | float)[]
 ## New Instruction Design
 
 ```
+# will create field 'a', malloc 0x0000 and move 'hello' to 0x0000
 const a = "hello"
+
+# will create field 'b' with a pointer to 0x0000
 const b = a
-const c = {
-    "key1": {
-        "key2": a
-    }
+
+# will create field 'c', malloc 0x0001, move '1' to 0x0001, add '2' to 0x0001
+const c = 1 + 2
+
+# will create field 'd', (somehow recognize it's not a pointer, ) malloc 0x0002, move 0x0001 to 0x0002, add '1' to 0x0002
+const d = c + 1
+
+# will create field 'e'
+func e() {
+
+    # will create field 'a' in 'e', malloc 0x0003, move '1' to 0x0003, add '1' to 0x0003
+    const a = 1 + 1
+
+    # will move 0x0003 to 0xffff (return cache) 
+    return a
 }
+
+# will create field 'f', malloc 0x0005, run 'e' and move 0xffff to 0x0005 
+const f = a()
 ```
 
 ```json
-
-    "functions": {
-    },
-    "mem": {
-        "0x24a5f": {
-            // will be set when run executes
-            "type": "primitive",
-            "primitive": "hello"
-        },
-        "0x97aF3": {
-            "type": "struct",
-            "properties": {
-                "key1": "0x3A4e2"
-            }
-        },
-        "0x3A4e2": {
-            "type": "struct",
-            "properties": {
-                "key2": "0x24a5f"
-            }
-        },
-    },
-    "main": {
-        "fields": {
-            "local": {
-                "a": {
-                    "type": {
-                        "type": "primitive",
-                        "primitive": "string"
-                    },
-                    "address": "0x24a5f"
-                },
-                "b": {
-                    "type": {
-                        "type": "primitive",
-                        "primitive": "string"
-                    },
-                    "address": "0x24a5f"
-                },
-                "c": {
-                    "type": {
-                        "type": "struct",
-                        "properties": {
-                            "key1": {
-                                "type": "struct",
-                                "properties": {
-                                    "key2": {
-                                        "type": "primitive",
-                                        "primitive": "string"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "address": "0x97aF3"
-                }
-            }
-        },
-        "run": [
-            {
-                "type": "const",
-                "name": "a",
-                "value": {
-                    "type": "primitive",
-                    "primitive": "hello"
-                }
+{
+    "fields": {
+        "a": {
+            "type": {
+                "type": "primitive",
+                "primitive": "string"
             },
-            {
-                "type": "const",
-                "name": "b",
-                "value": {
-                    "type": "reference",
-                    "reference": "a"
-                }
+            "address": "0x0000"
+        },
+        "b": {
+            "type": {
+                "type": "primitive",
+                "primitive": "string"
             },
-            {
-                "type": "const",
-                "name": "c",
-                "value": {
-                    "type": "struct",
-                    "properties": {
-                        "key1": {
-                            "type": "struct",
-                            "properties": {
-                                "key2": {
-                                    "type": "reference",
-                                    "reference": "a"
-                                }
-                            }
-                        }
+            "address": "0x0000"
+        },
+        "c": {
+            "type": {
+                "type": "primitive",
+                "primitive": "int"
+            },
+            "address": "0x0001"
+        },
+        "d": {
+            "type": {
+                "type": "primitive",
+                "primitive": "int"
+            },
+            "address": "0x0002"
+        },
+        "e": {
+            "type": {
+                "type": "callable"
+            },
+            "instructions": {
+                "fields": {
+                    "a": {
+                        "type": {
+                            "type": "primitive",
+                            "primitive": "int"
+                        },
+                        "address": "0x0003"
                     }
-                }
+                },
+                "run": [
+                    {
+                        "type": "malloc",
+                        "address": "0x0003",
+                        "size": 32
+                    },
+                    {
+                        "type": "move",
+                        "to": "0x0003",
+                        "value": "1"
+                    },
+                    {
+                        "type": "add",
+                        "to": "0x0003",
+                        "value": "1"
+                    },
+
+                    {
+                        "type": "malloc",
+                        "address": "0x0004",
+                        "size": 32
+                    },
+                    {
+                        "type": "move",
+                        "to": "0x0004",
+                        "from": "0x0003"
+                    }
+                ]
             }
-        ]
-    }
+        },
+        "f": {
+            "type": {
+                "type": "primitive",
+                "primitive": "int"
+            },
+            "address": "0x0005"
+        }
+    },
+    "run": [
+        {
+            "type": "malloc",
+            "address": "0x0000",
+            "size": 32
+        },
+        {
+            "type": "move",
+            "to": "0x0000",
+            "value": "hello"
+        },
+
+        {
+            "type": "malloc",
+            "address": "0x0001",
+            "size": 32
+        },
+        {
+            "type": "move",
+            "to": "0x0001",
+            "value": "1"
+        },
+        {
+            "type": "add",
+            "to": "0x0001",
+            "value": "1"
+        },
+
+        {
+            "type": "malloc",
+            "address": "0x0002",
+            "size": 32
+        },
+        {
+            "type": "move",
+            "to": "0x0002",
+            "from": "0x0001"
+        },
+        {
+            "type": "add",
+            "to": "0x0002",
+            "value": "1"
+        },
+
+        {
+            "type": "malloc",
+            "address": "0x0005",
+            "size": 32
+        },
+        {
+            "type": "run",
+            "field": "e"
+        },
+        {
+            "type": "move",
+            "to": "0x0005",
+            "from": "0x0004"
+        }
+    ]
 }
 ```

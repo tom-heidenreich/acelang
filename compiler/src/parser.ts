@@ -1,4 +1,4 @@
-import StringBuffer from './buffer';
+import StringBuffer from './util/buffer';
 import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator } from './types';
 
 // TODO: refactor whole file
