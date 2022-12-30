@@ -1,3 +1,6 @@
+import AddressManager from "./util/AddressManager";
+import { WriteCursor } from "./util/cursor";
+
 export type Token = {
     value: string;
     type: 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block';
@@ -22,7 +25,7 @@ export type Key = string | number;
 // fields
 export type Field = {
     type: Type,
-    address: Identifier
+    address?: Identifier
 }
 
 export type Fields = {
@@ -74,7 +77,7 @@ export type Types = {
 }
 
 // values
-export type Value = (PrimitiveValue | Reference | Struct | ArrayValue | Steps)
+export type Value = (PrimitiveValue | Reference | Struct | ArrayValue | OperationValue)
 export type ValueResult = {
     value: Value,
     type: Type,
@@ -101,13 +104,43 @@ export type ArrayValue = {
     items: Value[],
 }
 
-// steps
-export type Steps = {
-    type: 'steps',
+// operation
+export type OperationValue = {
+    type: 'operation',
+    operation: Operation,
+}
+
+export type Operation = AssignOperation | PlusOperation
+
+export type AssignOperation = {
+    type: 'assign',
+    left: Identifier,
+    right: Value,
+}
+
+export type PlusOperation = AddIntOperation | AddFloatOperation | ConcatStringOperation
+
+// plus operations
+export type AddIntOperation = {
+    type: 'intAdd',
+    left: Value,
+    right: Value,
+}
+
+export type AddFloatOperation = {
+    type: 'floatAdd',
+    left: Value,
+    right: Value,
+}
+
+export type ConcatStringOperation = {
+    type: 'stringConcat',
+    left: Value,
+    right: Value,
 }
 
 // runnable
-export type Runnable = Malloc | Move | Assign
+export type Runnable = Malloc | Move | Assign | Add | Append
 
 export type Malloc = {
     type: 'malloc',
@@ -115,10 +148,11 @@ export type Malloc = {
     size: number,
 }
 
+// TODO: fix this, only addresses are allowed
 export type Move = {
     type: 'move',
-    from: Value,
-    to: Value,
+    from: Identifier,
+    to: Identifier,
 }
 
 export type Assign = {
@@ -126,6 +160,18 @@ export type Assign = {
     address: Identifier,
     data: Uint8Array,
     debug?: string,
+}
+
+export type Add = {
+    type: 'add',
+    address: Identifier,
+    from: Identifier
+}
+
+export type Append = {
+    type: 'append',
+    address: Identifier,
+    from: Identifier
 }
 
 // build
@@ -137,4 +183,12 @@ export type Build = {
 export type Environment = {
     fields: FieldEnv,
     run: Runnable[],
+}
+
+export type LineState = {
+    addrManager: AddressManager,
+    build: Build,
+    env: Environment,
+    runnables: WriteCursor<Runnable>,
+    lineIndex: number,
 }

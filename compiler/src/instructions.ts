@@ -1,16 +1,9 @@
-import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key } from "./types";
+import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState } from "./types";
 import AddressManager from "./util/AddressManager";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
+import OperationParser from "./util/OperationParser";
 import TypeCheck from "./util/TypeCheck";
-
-type LineState = {
-    addrManager: AddressManager,
-    build: Build,
-    env: Environment,
-    runnables: WriteCursor<Runnable>,
-    lineIndex: number,
-}
 
 export function toBuildInstructions(tokens: Token[][]) {
     const defaultTypes: Types = {}
@@ -31,7 +24,14 @@ export function toBuildInstructions(tokens: Token[][]) {
         },
     }
 
-    build.main = parseEnvironment(build, new AddressManager(), tokens, build.main)
+    const addrManager = new AddressManager(4)
+    // reserve addresses
+    // CACHE
+    addrManager.reserveAddress(0x0000)
+    // FUNCTION RETURN
+    addrManager.reserveAddress(0x0001)
+
+    build.main = parseEnvironment(build, addrManager, tokens, build.main)
 
     return build
 }
@@ -71,6 +71,7 @@ function parseLine(lineState: LineState, cursor: Cursor<Token>) {
     if(token.type === 'keyword') {
         switch(token.value) {
             case 'const': return parseConst(lineState, cursor)
+            case 'var': return parseVar(lineState, cursor)
         }
     }
     throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
@@ -362,15 +363,129 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueResult {
         }
     }
     else {
-        throw new Error(`Not implemented at line ${lineState.lineIndex}`)
-        /*const stepResult = parseSteps(build, instructions, cursor, lineIndex);
-        if(!stepResult.type) {
-            throw new Error(`No type found at line ${lineIndex}`);
+        return parseSteps(lineState, cursor);
+    }
+}
+
+// steps
+function parseSteps(lineState: LineState, cursor: Cursor<Token>): ValueResult {
+    
+    let lastObject: ValueResult | undefined;
+    let lastOperator: Operator | undefined;
+
+    while(!cursor.done) {
+
+        const token = cursor.next();
+        if(!lastOperator && lastObject) {
+            if(token.type !== 'operator') {
+                throw new Error(`Expected operator, got ${token.type} at line ${lineState.lineIndex}`);
+            }
+            lastOperator = token.value as Operator
         }
-        return {
-            type: stepResult.type,
-            value: stepResult.value
-        };*/
+        else {
+
+            var currentObject: ValueResult | undefined;
+            if(token.type === 'identifier') {
+                const field = FieldResolve.resolve(lineState.env.fields, token.value);
+                if(!field) {
+                    throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
+                }
+                currentObject = {
+                    type: field.type,
+                    value: {
+                        type: 'reference',
+                        reference: token.value
+                    }
+                }
+            }
+            else if(token.type === 'datatype') {
+                if(!token.specificType) {
+                    throw new Error(`Unknown datatype: ${token.value} at line ${lineState.lineIndex}`);
+                }
+                currentObject = {
+                    type: {
+                        type: 'primitive',
+                        primitive: token.specificType
+                    },
+                    value: {
+                        type: 'primitive',
+                        primitive: token.value
+                    }
+                }
+            }
+            else if(token.type === 'block') {
+                if(!token.block) {
+                    throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
+                }
+                if(token.value === '()') {
+                    if(token.block.length !== 1) {
+                        throw new Error(`Expected 1 token in block, got ${token.block.length} at line ${lineState.lineIndex}`);
+                    }
+                    currentObject = parseValue(lineState, new Cursor(token.block[0]));
+                }
+                else if(token.value === '{}') {
+                    currentObject = parseStruct(lineState, new Cursor(token.block),)
+                }
+                else if(token.value === '[]') {
+                    currentObject = parseArray(lineState, new Cursor(token.block));
+                }
+                else {
+                    throw new Error(`Unknown block type: ${token.value} at line ${lineState.lineIndex}`);
+                }
+            }
+            else {
+                throw new Error(`Unknown type: ${token.type} at line ${lineState.lineIndex}`);
+            }
+
+            if(!lastObject) {
+                lastObject = currentObject;
+            }
+            else if(lastOperator && currentObject) {
+                const operation = OperationParser.parse(lineState, lastObject, currentObject, lastOperator);
+                lastObject = {
+                    type: operation.type,
+                    value: {
+                        type: 'operation',
+                        operation: operation.value
+                    }
+                };
+                lastOperator = undefined;
+            }
+            else {
+                throw new Error(`Unknown error at line ${lineState.lineIndex}`)
+            }
+        }
+    }
+
+    if(!lastObject) {
+        throw new Error(`No object found at line ${lineState.lineIndex}`);
+    }
+
+    return lastObject;
+}
+
+function valueToBuffer(lineState: LineState, value: Value) {
+    if(value.type === 'primitive') {
+        // generate binary data
+        return Buffer.from(value.primitive.toString(), 'utf8')
+    }
+    else if(value.type === 'array') {
+        // generate addresses for array
+        const addresses = value.items.map(value => mallocValue(lineState, value))
+        // generate binary data
+        return Buffer.from(addresses.join(''), 'utf8')
+    }
+    else if(value.type === 'struct') {
+        // generate addresses for struct
+        const buffer: string[] = []
+        for (const key in value.properties) {
+            const address = mallocValue(lineState, value.properties[key])
+            buffer.push(key)
+            buffer.push(':')
+            buffer.push(address)
+        }
+        // generate binary data
+        return Buffer.from(buffer.join(''), 'utf8')
     }
 }
 
@@ -389,38 +504,18 @@ function mallocValue(lineState: LineState, value: Value): string {
         if(!reference) {
             throw new Error(`Field ${value.reference} does not exist at line ${lineState.lineIndex}`)
         }
+        if(!reference.address) {
+            throw new Error(`Field ${value.reference} does not have an address at line ${lineState.lineIndex}`)
+        }
         
         return reference.address
     }
     // malloc value
-    else if(value.type !== 'steps') {
+    else if(value.type !== 'operation') {
 
         // generate address
         const address = lineState.addrManager.address
-        let binary: Buffer | undefined
-
-        if(value.type === 'primitive') {
-            // generate binary data
-            binary = Buffer.from(value.primitive.toString(), 'utf8')
-        }
-        else if(value.type === 'array') {
-            // generate addresses for array
-            const addresses = value.items.map(value => mallocValue(lineState, value))
-            // generate binary data
-            binary = Buffer.from(addresses.join(''), 'utf8')
-        }
-        else if(value.type === 'struct') {
-            // generate addresses for struct
-            const buffer: string[] = []
-            for (const key in value.properties) {
-                const address = mallocValue(lineState, value.properties[key])
-                buffer.push(key)
-                buffer.push(':')
-                buffer.push(address)
-            }
-            // generate binary data
-            binary = Buffer.from(buffer.join(''), 'utf8')
-        }
+        let binary = valueToBuffer(lineState, value)
 
         if(!binary) {
             throw new Error(`No data to malloc at line ${lineState.lineIndex}`)
@@ -442,12 +537,90 @@ function mallocValue(lineState: LineState, value: Value): string {
 
         return address
     }
+    else if(value.type === 'operation') {
+        return mallocOperation(lineState, value.operation)
+    }
     else {
-        throw new Error(`Not implemented at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected error at line ${lineState.lineIndex}`)
     }
 }
 
-function parseConst(lineState: LineState, cursor: Cursor<Token>) {
+function mallocOperation(lineState: LineState, operation: Operation): string {
+    switch(operation.type) {
+        case 'intAdd': {
+            const left = mallocValue(lineState, operation.left)
+            
+            // assign right to cache
+            const right = valueToBuffer(lineState, operation.right)
+            if(!right) {
+                throw new Error(`No data to assign at line ${lineState.lineIndex}`)
+            }
+            lineState.runnables.push({
+                type: 'assign',
+                address: '0x0000',
+                data: right,
+                debug: right.toString('utf8')
+            })
+
+            lineState.runnables.push({
+                type: 'add',
+                address: left,
+                from: '0x0000'
+            })
+
+            return left
+        }
+        // TODO: floatAdd
+        case 'stringConcat': {
+
+            const left = mallocValue(lineState, operation.left)
+            
+            // assign right to cache
+            const right = valueToBuffer(lineState, operation.right)
+            if(!right) {
+                throw new Error(`No data to assign at line ${lineState.lineIndex}`)
+            }
+            lineState.runnables.push({
+                type: 'assign',
+                address: '0x0000',
+                data: right,
+                debug: right.toString('utf8')
+            })
+
+            lineState.runnables.push({
+                type: 'append',
+                address: left,
+                from: '0x0000'
+            })
+
+            return left
+        }
+        case 'assign': {
+            const field = FieldResolve.resolve(lineState.env.fields, operation.left)
+            if(!field) {
+                throw new Error(`Field ${operation.left} does not exist at line ${lineState.lineIndex}`)
+            }
+            const address = field.address || mallocValue(lineState, operation.right)
+            const binary = valueToBuffer(lineState, operation.right)
+
+            if(!binary) {
+                throw new Error(`No data to assign at line ${lineState.lineIndex}`)
+            }
+
+            lineState.runnables.push({
+                type: 'assign',
+                address,
+                data: Uint8Array.from(binary),
+                debug: binary.toString('utf8')
+            })
+
+            return address
+        }
+    }
+    throw new Error(`Unexpected error at line ${lineState.lineIndex}`)
+}
+
+function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false) {
 
     // name
     const name = cursor.next()
@@ -465,34 +638,61 @@ function parseConst(lineState: LineState, cursor: Cursor<Token>) {
     if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
         cursor.next()
         const typeToken = cursor.until(token => token.type === 'symbol' && token.value === '=')
-        if(typeToken.remainingLength === 0) {
+        if(typeToken.remainingLength === 0 && isConst) {
             throw new Error(`Unexpected symbol '=' at line ${lineState.lineIndex}`)
         }
         type = parseType(lineState, typeToken)
     }
-    else if(cursor.peek().type === 'symbol' && cursor.peek().value === '=') {
-        cursor.next()
-    }
 
-    // value
-    const valueToken = parseValue(lineState, cursor)
-    const value = valueToken.value
+    if(!cursor.done) {
 
-    // dynamic type
-    if(!type) {
-        type = valueToken.type
-    }
-    // check if types match
-    else if(!TypeCheck.matches(lineState.build.types, type, valueToken.type)) {
-        throw new Error(`Types ${TypeCheck.stringify(type)} and ${TypeCheck.stringify(valueToken.type)} do not match at line ${lineState.lineIndex}`)
-    }
+        if(cursor.peek().type === 'symbol' && cursor.peek().value === '=') {
+            cursor.next()
+        }
 
-    // malloc value
-    const address = mallocValue(lineState, value)
+        // value
+        const valueToken = parseValue(lineState, cursor)
+        const value = valueToken.value
 
-    // add field
-    lineState.env.fields.local[name.value] = {
-        type,
-        address,
+        // dynamic type
+        if(!type) {
+            type = valueToken.type
+        }
+        // check if types match
+        else if(!TypeCheck.matches(lineState.build.types, type, valueToken.type)) {
+            throw new Error(`Types ${TypeCheck.stringify(type)} and ${TypeCheck.stringify(valueToken.type)} do not match at line ${lineState.lineIndex}`)
+        }
+
+        // malloc value
+        const address = mallocValue(lineState, value)
+
+        // add field
+        lineState.env.fields.local[name.value] = {
+            type,
+            address,
+        }
     }
+    else if(!isConst){
+
+        // check if type exists
+        if(!type) {
+            throw new Error(`No type found at line ${lineState.lineIndex}`)
+        }
+
+        // add field
+        lineState.env.fields.local[name.value] = {
+            type,
+        }
+    }
+    else {
+        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    }
+}
+
+function parseConst(lineState: LineState, cursor: Cursor<Token>) {
+    parseDeclaration(lineState, cursor, true)
+}
+
+function parseVar(lineState: LineState, cursor: Cursor<Token>) {
+    parseDeclaration(lineState, cursor, false)
 }
