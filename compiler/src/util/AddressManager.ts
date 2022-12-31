@@ -1,7 +1,12 @@
+type ReservedAddress = {
+    address: number,
+    name?: string,
+}
+
 export default class AddressManager {
 
     private readonly addressSize: number
-    private reservedAddresses: number[] = []
+    private reservedAddresses: ReservedAddress[] = []
 
     private addresses: number[] = []
     private nextAddress: number = 0
@@ -14,8 +19,9 @@ export default class AddressManager {
         // generate the next address
         const address = this.nextAddress++
         // check if the address is reserved
-        if (this.reservedAddresses.includes(address)) {
-            // if it is, generate the next address
+        const reserved = this.reservedAddresses.find(a => a.address === address)
+        // if the address is reserved, try again
+        if (reserved) {
             return this.count()
         }
         // add the address to the list
@@ -24,13 +30,17 @@ export default class AddressManager {
         return address
     }
 
-    public get address(): string {
-        // get the next address
-        const address = this.count()
+    private format(address: number): string {
         // format to hex
         const hex = address.toString(16).padStart(this.addressSize, '0')
         // return the address
         return `0x${hex}`
+    }
+
+    public get address(): string {
+        // get the next address
+        const address = this.count()
+        return this.format(address)
     }
 
     public releaseAddress(address: number) {
@@ -38,8 +48,20 @@ export default class AddressManager {
         this.addresses = this.addresses.filter(a => a !== address)
     }
 
-    public reserveAddress(address: number) {
+    public reserveAddress(address: number, name?: string) {
         // add the address to the list
-        this.reservedAddresses.push(address)
+        this.reservedAddresses.push({
+            address,
+            name,
+        })
+    }
+
+    public getReserved(name: string): string {
+        // return the reserved addresses
+        const reserved = this.reservedAddresses.filter(a => a.name === name)
+        if(reserved.length === 0) {
+            throw new Error(`No reserved address found for ${name}`)
+        }
+        return this.format(reserved[0].address)
     }
 }

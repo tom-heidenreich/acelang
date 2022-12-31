@@ -1,4 +1,4 @@
-import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState } from "./types";
+import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields } from "./types";
 import AddressManager from "./util/AddressManager";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
@@ -26,17 +26,15 @@ export function toBuildInstructions(tokens: Token[][]) {
 
     const addrManager = new AddressManager(4)
     // reserve addresses
-    // CACHE
-    addrManager.reserveAddress(0x0000)
-    // FUNCTION RETURN
-    addrManager.reserveAddress(0x0001)
+    addrManager.reserveAddress(0x0000, 'cache')
+    addrManager.reserveAddress(0x0001, 'return')
 
     build.main = parseEnvironment(build, addrManager, tokens, build.main)
 
     return build
 }
 
-function parseEnvironment(build: Build, addrManager: AddressManager, tokens: Token[][], preEnv?: Environment) {
+function parseEnvironment(build: Build, addrManager: AddressManager, tokens: Token[][], preEnv?: Environment, wrapperName?: string) {
 
     const env: Environment = preEnv || {
         fields: {
@@ -57,7 +55,7 @@ function parseEnvironment(build: Build, addrManager: AddressManager, tokens: Tok
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        parseLine(lineState, cursor)
+        parseLine(lineState, cursor, wrapperName)
     }
 
     env.run = runnables.asList()
@@ -65,16 +63,74 @@ function parseEnvironment(build: Build, addrManager: AddressManager, tokens: Tok
     return env
 }
 
-function parseLine(lineState: LineState, cursor: Cursor<Token>) {
-    const token = cursor.next()
-    
+function parseLine(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string) {
+
+    const token = cursor.peek()
     if(token.type === 'keyword') {
+        cursor.next()
         switch(token.value) {
             case 'const': return parseConst(lineState, cursor)
             case 'var': return parseVar(lineState, cursor)
+            case 'func': return parseFunc(lineState, cursor)
+            case 'return': return parseReturn(lineState, cursor, wrapperName)
         }
     }
-    throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+    // parse steps
+    const steps = parseSteps(lineState, cursor)
+    // malloc
+    mallocValue(lineState, steps.value)
+}
+
+// functions
+function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
+
+    const params: Param[] = [];
+
+    while(!cursor.done) {
+
+        const lineCursor = new Cursor(cursor.next());
+
+        // name
+        const paramName = lineCursor.next();
+        if(paramName.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${paramName.type} at line ${lineState.lineIndex}`);
+        }
+
+        // type
+        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
+            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineState.lineIndex}`);
+        }
+        lineCursor.next();
+        const paramType = lineCursor.next();
+        if(paramType.type !== 'identifier') {
+            throw new Error(`Expected identifier, got ${paramType.type} at line ${lineState.lineIndex}`);
+        }
+        if(!lineState.build.types[paramType.value]) {
+            throw new Error(`Unknown datatype: ${paramType.value} at line ${lineState.lineIndex}`);
+        }
+
+        params.push({
+            name: paramName.value,
+            type: lineState.build.types[paramType.value],
+        });
+    }
+
+    return params;
+}
+
+function parseArguments(lineState: LineState, cursor: Cursor<Token[]>) {
+
+    const value: ValueResult[] = []
+
+    while(!cursor.done) {
+        const valueResult = parseValue(lineState, new Cursor(cursor.next()))
+        value.push({
+            type: valueResult.type,
+            value: valueResult.value,
+        });
+    }
+
+    return value;
 }
 
 // type
@@ -547,6 +603,7 @@ function mallocValue(lineState: LineState, value: Value): string {
 
 function mallocOperation(lineState: LineState, operation: Operation): string {
     switch(operation.type) {
+        // TODO: will assign to address even if not allowed
         case 'intAdd': {
             const left = mallocValue(lineState, operation.left)
             
@@ -555,17 +612,22 @@ function mallocOperation(lineState: LineState, operation: Operation): string {
             if(!right) {
                 throw new Error(`No data to assign at line ${lineState.lineIndex}`)
             }
-            lineState.runnables.push({
-                type: 'assign',
-                address: '0x0000',
-                data: right,
-                debug: right.toString('utf8')
-            })
 
             lineState.runnables.push({
-                type: 'add',
-                address: left,
-                from: '0x0000'
+                type: 'critical',
+                runnables: [
+                    {
+                        type: 'assign',
+                        address: lineState.addrManager.getReserved('cache'),
+                        data: right,
+                        debug: right.toString('utf8')
+                    },
+                    {
+                        type: 'add',
+                        address: left,
+                        from: lineState.addrManager.getReserved('cache')
+                    }
+                ]
             })
 
             return left
@@ -580,26 +642,28 @@ function mallocOperation(lineState: LineState, operation: Operation): string {
             if(!right) {
                 throw new Error(`No data to assign at line ${lineState.lineIndex}`)
             }
-            lineState.runnables.push({
-                type: 'assign',
-                address: '0x0000',
-                data: right,
-                debug: right.toString('utf8')
-            })
 
             lineState.runnables.push({
-                type: 'append',
-                address: left,
-                from: '0x0000'
+                type: 'critical',
+                runnables: [
+                    {
+                        type: 'assign',
+                        address: lineState.addrManager.getReserved('cache'),
+                        data: right,
+                        debug: right.toString('utf8')
+                    },
+                    {
+                        type: 'append',
+                        address: left,
+                        from: lineState.addrManager.getReserved('cache')
+                    }
+                ]
             })
 
             return left
         }
         case 'assign': {
-            const field = FieldResolve.resolve(lineState.env.fields, operation.left)
-            if(!field) {
-                throw new Error(`Field ${operation.left} does not exist at line ${lineState.lineIndex}`)
-            }
+            const field = operation.left
             const address = field.address || mallocValue(lineState, operation.right)
             const binary = valueToBuffer(lineState, operation.right)
 
@@ -637,7 +701,7 @@ function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: 
     let type: Type | undefined
     if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
         cursor.next()
-        const typeToken = cursor.until(token => token.type === 'symbol' && token.value === '=')
+        const typeToken = cursor.until(token => token.type === 'operator' && token.value === '=')
         if(typeToken.remainingLength === 0 && isConst) {
             throw new Error(`Unexpected symbol '=' at line ${lineState.lineIndex}`)
         }
@@ -646,7 +710,7 @@ function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: 
 
     if(!cursor.done) {
 
-        if(cursor.peek().type === 'symbol' && cursor.peek().value === '=') {
+        if(cursor.peek().type === 'operator' && cursor.peek().value === '=') {
             cursor.next()
         }
 
@@ -695,4 +759,136 @@ function parseConst(lineState: LineState, cursor: Cursor<Token>) {
 
 function parseVar(lineState: LineState, cursor: Cursor<Token>) {
     parseDeclaration(lineState, cursor, false)
+}
+
+function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean = false) {
+
+    // name
+    const name = cursor.next()
+    if(name.type !== 'identifier') {
+        throw new Error(`Unexpected token ${name.type} ${name.value} at line ${lineState.lineIndex}`)
+    }
+    // check if field exists
+    const searchedField = FieldResolve.resolve(lineState.env.fields, name.value)
+    if(searchedField) {
+        throw new Error(`Field ${name.value} already exists at line ${lineState.lineIndex}`)
+    }
+
+    // params
+    const paramsToken = cursor.next()
+    if(paramsToken.type !== 'block' || paramsToken.value !== '()') {
+        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at line ${lineState.lineIndex}`)
+    }
+    if(!paramsToken.block) {
+        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    }
+    const params = parseParams(lineState, new Cursor(paramsToken.block))
+    // convert to fields
+    const paramFields = params.reduce((fields, param) => {
+        fields[param.name] = {
+            type: param.type,
+        }
+        return fields
+    }, {} as Fields)
+
+    // return type
+    let returnType: Type | undefined
+    if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
+        cursor.next()
+        const typeToken = cursor.until(token => token.type === 'block' && token.value === '{}')
+        if(typeToken.remainingLength === 0) {
+            throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+        }
+        returnType = parseType(lineState, typeToken)
+    }
+
+    // body
+    const bodyToken = cursor.next()
+    if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+    }
+    if(!bodyToken.block) {
+        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    }
+
+    // add field
+    lineState.env.fields.local[name.value] = {
+        type: returnType || {
+            type: 'primitive',
+            primitive: 'unknown',
+        },
+    }
+
+    // TODO: separate fields and functions again
+    const env = {
+        fields: {
+            local: paramFields,
+            parent: lineState.env.fields,
+        },
+        run: []
+    }
+    const body = parseEnvironment(lineState.build, lineState.addrManager, bodyToken.block, env, name.value)
+
+    // check if body has return
+    const field = lineState.env.fields.local[name.value]
+    if(TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'unknown')) {
+        // will return void
+        returnType = {
+            type: 'primitive',
+            primitive: 'void',
+        }
+    }
+    else if(returnType && !TypeCheck.matches(lineState.build.types, field.type, returnType)) {
+        throw new Error(`Types ${TypeCheck.stringify(field.type)} and ${TypeCheck.stringify(returnType)} do not match at line ${lineState.lineIndex}`)
+    }
+    else if(!returnType) {
+        throw new Error(`No return type found at line ${lineState.lineIndex}`)
+    }
+    
+    // add function
+    field.type = returnType
+    field.function = {
+        params,
+        returnType,
+        body,
+        isSync,
+    }
+}
+
+function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string) {
+
+    if(!wrapperName) {
+        throw new Error(`Unexpected return at line ${lineState.lineIndex}`)
+    }
+
+    // check if function exists
+    const field = FieldResolve.resolve(lineState.env.fields, wrapperName)
+    if(!field || !field.function) {
+        throw new Error(`No function found at line ${lineState.lineIndex}`)
+    }
+
+    // value
+    const valueToken = parseValue(lineState, cursor)
+    const value = valueToken.value
+
+    // check if types match
+    if(TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'unknown')) {
+        // dynamic type
+        field.type = valueToken.type
+    }
+    else if(!TypeCheck.matches(lineState.build.types, field.type, valueToken.type)) {
+        throw new Error(`Types ${TypeCheck.stringify(field.type)} and ${TypeCheck.stringify(valueToken.type)} do not match at line ${lineState.lineIndex}`)
+    }
+
+    // malloc value
+    const address = mallocValue(lineState, value)
+
+    // add return
+    lineState.runnables.push({
+        type: 'move',
+        from: address,
+        to: lineState.addrManager.getReserved('return'),
+    })
+
+    // TODO: free value
 }

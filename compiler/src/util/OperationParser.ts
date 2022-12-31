@@ -1,4 +1,5 @@
-import { AddFloatOperation, AddIntOperation, ConcatStringOperation, LineState, Operation, Operator, PlusOperation, Type, ValueResult } from "../types";
+import { AddFloatOperation, AddIntOperation, AssignOperation, ConcatStringOperation, LineState, Operation, Operator, PlusOperation, Type, ValueResult } from "../types";
+import FieldResolve from "./FieldResolve";
 import TypeCheck from "./TypeCheck";
 
 export default class OperationParser {
@@ -7,6 +8,9 @@ export default class OperationParser {
         switch(operator) {
             case '+': {
                 return handlePlus(lineState, first, second);
+            }
+            case '=': {
+                return handleEquals(lineState, first, second);
             }
         }
         throw new Error(`Unknown operator ${operator} at line ${lineState.lineIndex}`);
@@ -68,6 +72,32 @@ function handleStringConcat(first: ValueResult, second: ValueResult): { type: Ty
         value: {
             type: 'stringConcat',
             left: first.value,
+            right: second.value,
+        }
+    }
+}
+
+function handleEquals(lineState: LineState, first: ValueResult, second: ValueResult): { type: Type, value: AssignOperation } {
+    
+    // first has to be a field
+    if(first.value.type !== 'reference') {
+        throw new Error(`Expected field reference at line ${lineState.lineIndex}`)
+    }
+    const field = FieldResolve.resolve(lineState.env.fields, first.value.reference);
+    if(!field) {
+        throw new Error(`Cannot find field ${first.value.reference} at line ${lineState.lineIndex}`);
+    }
+
+    // second has to be the same type as the field
+    if(!TypeCheck.matches(lineState.build.types, field.type, second.type)) {
+        throw new Error(`Type mismatch at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: field.type,
+        value: {
+            type: 'assign',
+            left: field,
             right: second.value,
         }
     }

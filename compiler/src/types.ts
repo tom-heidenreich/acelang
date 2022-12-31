@@ -10,13 +10,13 @@ export type Token = {
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type']
-export const SYMBOLS: Symbol[] = ['=', ':', ',', '.', '|']
-export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
+export const SYMBOLS: Symbol[] = [':', ',', '.', '|']
+export const OPERATORS: Operator[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
 
 export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
-export type Symbol = '=' | ':' | ',' | '.' | '|'
-export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
+export type Symbol =  ':' | ',' | '.' | '|'
+export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
 
 export type Identifier = string;
 export type Primitive = string | number | boolean;
@@ -26,6 +26,7 @@ export type Key = string | number;
 export type Field = {
     type: Type,
     address?: Identifier
+    function?: Function,
 }
 
 export type Fields = {
@@ -35,6 +36,19 @@ export type Fields = {
 export type FieldEnv = {
     parent?: FieldEnv,
     local: Fields,
+}
+
+// functions
+export type Param = {
+    name: string,
+    type: Type,
+}
+
+export type Function = {
+    params: Param[],
+    returnType: Type,
+    body: Environment,
+    isSync: boolean,
 }
 
 // types
@@ -114,7 +128,7 @@ export type Operation = AssignOperation | PlusOperation
 
 export type AssignOperation = {
     type: 'assign',
-    left: Identifier,
+    left: Field,
     right: Value,
 }
 
@@ -140,7 +154,12 @@ export type ConcatStringOperation = {
 }
 
 // runnable
-export type Runnable = Malloc | Move | Assign | Add | Append
+export type Runnable = CriticalBlock | Malloc | Move | Assign | Add | Append
+
+export type CriticalBlock = {
+    type: 'critical',
+    runnables: Runnable[],
+}
 
 export type Malloc = {
     type: 'malloc',
@@ -148,7 +167,6 @@ export type Malloc = {
     size: number,
 }
 
-// TODO: fix this, only addresses are allowed
 export type Move = {
     type: 'move',
     from: Identifier,
