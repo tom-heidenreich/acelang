@@ -1,4 +1,4 @@
-import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields } from "./types";
+import { Build, Token, Environment, DATATYPES, Types, Runnable, ValueResult, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields, PlusOperation } from "./types";
 import AddressManager from "./util/AddressManager";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
@@ -16,6 +16,7 @@ export function toBuildInstructions(tokens: Token[][]) {
 
     const build: Build = {
         types: defaultTypes,
+        functions: {},
         main: {
             fields: {
                 local: {},
@@ -601,66 +602,61 @@ function mallocValue(lineState: LineState, value: Value): string {
     }
 }
 
+function plusOperationWrapper(lineState: LineState, operation: PlusOperation, type: 'add' | 'append') {
+    const left = mallocValue(lineState, operation.left)  
+    if(operation.right.type !== 'reference') {
+        // assign right to cache
+        const right = valueToBuffer(lineState, operation.right)
+        if(!right) {
+            throw new Error(`No data to assign at line ${lineState.lineIndex}`)
+        }
+
+        lineState.runnables.push({
+            type: 'critical',
+            runnables: [
+                {
+                    type: 'assign',
+                    address: lineState.addrManager.getReserved('cache'),
+                    data: right,
+                    debug: right.toString('utf8')
+                },
+                {
+                    type,
+                    address: left,
+                    from: lineState.addrManager.getReserved('cache')
+                }
+            ]
+        })
+    }
+    else {
+        // get field
+        const field = FieldResolve.resolve(lineState.env.fields, operation.right.reference)
+        if(!field) {
+            throw new Error(`Field ${operation.right.reference} does not exist at line ${lineState.lineIndex}`)
+        }
+        if(!field.address) {
+            throw new Error(`Field ${operation.right.reference} does not have an address at line ${lineState.lineIndex}`)
+        }
+
+        lineState.runnables.push({
+            type,
+            address: left,
+            from: field.address
+        })
+    }
+
+    return left
+}
+
 function mallocOperation(lineState: LineState, operation: Operation): string {
     switch(operation.type) {
         // TODO: will assign to address even if not allowed
         case 'intAdd': {
-            const left = mallocValue(lineState, operation.left)
-            
-            // assign right to cache
-            const right = valueToBuffer(lineState, operation.right)
-            if(!right) {
-                throw new Error(`No data to assign at line ${lineState.lineIndex}`)
-            }
-
-            lineState.runnables.push({
-                type: 'critical',
-                runnables: [
-                    {
-                        type: 'assign',
-                        address: lineState.addrManager.getReserved('cache'),
-                        data: right,
-                        debug: right.toString('utf8')
-                    },
-                    {
-                        type: 'add',
-                        address: left,
-                        from: lineState.addrManager.getReserved('cache')
-                    }
-                ]
-            })
-
-            return left
+            return plusOperationWrapper(lineState, operation, 'add')
         }
         // TODO: floatAdd
         case 'stringConcat': {
-
-            const left = mallocValue(lineState, operation.left)
-            
-            // assign right to cache
-            const right = valueToBuffer(lineState, operation.right)
-            if(!right) {
-                throw new Error(`No data to assign at line ${lineState.lineIndex}`)
-            }
-
-            lineState.runnables.push({
-                type: 'critical',
-                runnables: [
-                    {
-                        type: 'assign',
-                        address: lineState.addrManager.getReserved('cache'),
-                        data: right,
-                        debug: right.toString('utf8')
-                    },
-                    {
-                        type: 'append',
-                        address: left,
-                        from: lineState.addrManager.getReserved('cache')
-                    }
-                ]
-            })
-
-            return left
+            return plusOperationWrapper(lineState, operation, 'append')
         }
         case 'assign': {
             const field = operation.left
@@ -787,6 +783,8 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
             type: param.type,
+            // generate address
+            address: lineState.addrManager.address
         }
         return fields
     }, {} as Fields)
@@ -811,15 +809,7 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
         throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
     }
 
-    // add field
-    lineState.env.fields.local[name.value] = {
-        type: returnType || {
-            type: 'primitive',
-            primitive: 'unknown',
-        },
-    }
-
-    // TODO: separate fields and functions again
+    // create new env
     const env = {
         fields: {
             local: paramFields,
@@ -827,32 +817,47 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
         },
         run: []
     }
+
+    // add function to build
+    lineState.build.functions[name.value] = {
+        params,
+        returnType: {
+            type: 'primitive',
+            primitive: 'unknown',
+        },
+        body: env,
+        isSync,
+    }
+
+    // add field
+    lineState.env.fields.local[name.value] = {
+        type: {
+            type: 'primitive',
+            primitive: 'callable',
+        }
+    }
+
+    // parse body
     const body = parseEnvironment(lineState.build, lineState.addrManager, bodyToken.block, env, name.value)
 
     // check if body has return
-    const field = lineState.env.fields.local[name.value]
-    if(TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'unknown')) {
+    const func = lineState.build.functions[name.value]
+    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
         // will return void
-        returnType = {
+        func.returnType = {
             type: 'primitive',
             primitive: 'void',
         }
     }
-    else if(returnType && !TypeCheck.matches(lineState.build.types, field.type, returnType)) {
-        throw new Error(`Types ${TypeCheck.stringify(field.type)} and ${TypeCheck.stringify(returnType)} do not match at line ${lineState.lineIndex}`)
+    else if(returnType && !TypeCheck.matches(lineState.build.types, func.returnType, returnType)) {
+        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(returnType)} do not match at line ${lineState.lineIndex}`)
     }
-    else if(!returnType) {
+    else if(!returnType && !func.returnType) {
         throw new Error(`No return type found at line ${lineState.lineIndex}`)
     }
-    
-    // add function
-    field.type = returnType
-    field.function = {
-        params,
-        returnType,
-        body,
-        isSync,
-    }
+
+    // add body
+    func.body = body
 }
 
 function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string) {
@@ -863,32 +868,45 @@ function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: 
 
     // check if function exists
     const field = FieldResolve.resolve(lineState.env.fields, wrapperName)
-    if(!field || !field.function) {
+    if(!field) {
         throw new Error(`No function found at line ${lineState.lineIndex}`)
     }
+    // check if field is callable
+    if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'callable')) {
+        throw new Error(`Field ${wrapperName} is not callable at line ${lineState.lineIndex}`)
+    }
+    // get function
+    const func = lineState.build.functions[wrapperName]
 
     // value
     const valueToken = parseValue(lineState, cursor)
     const value = valueToken.value
 
     // check if types match
-    if(TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'unknown')) {
+    if(TypeCheck.matchesPrimitive(lineState.build.types, func.returnType, 'unknown')) {
         // dynamic type
-        field.type = valueToken.type
+        func.returnType = valueToken.type
     }
-    else if(!TypeCheck.matches(lineState.build.types, field.type, valueToken.type)) {
-        throw new Error(`Types ${TypeCheck.stringify(field.type)} and ${TypeCheck.stringify(valueToken.type)} do not match at line ${lineState.lineIndex}`)
+    else if(!TypeCheck.matches(lineState.build.types, func.returnType, valueToken.type)) {
+        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(valueToken.type)} do not match at line ${lineState.lineIndex}`)
     }
 
     // malloc value
     const address = mallocValue(lineState, value)
 
-    // add return
+    // add return and free
     lineState.runnables.push({
-        type: 'move',
-        from: address,
-        to: lineState.addrManager.getReserved('return'),
+        type: 'critical',
+        runnables: [
+            {
+                type: 'move',
+                from: address,
+                to: lineState.addrManager.getReserved('return'),
+            },
+            {
+                type: 'free',
+                address,
+            },
+        ]
     })
-
-    // TODO: free value
 }

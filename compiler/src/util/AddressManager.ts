@@ -43,9 +43,11 @@ export default class AddressManager {
         return this.format(address)
     }
 
-    public releaseAddress(address: number) {
+    public free(address: string) {
+        // hex string to number
+        const num = parseInt(address, 16)
         // remove the address from the list
-        this.addresses = this.addresses.filter(a => a !== address)
+        this.addresses = this.addresses.filter(a => a !== num)
     }
 
     public reserveAddress(address: number, name?: string) {

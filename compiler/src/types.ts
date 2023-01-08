@@ -26,7 +26,6 @@ export type Key = string | number;
 export type Field = {
     type: Type,
     address?: Identifier
-    function?: Function,
 }
 
 export type Fields = {
@@ -154,7 +153,7 @@ export type ConcatStringOperation = {
 }
 
 // runnable
-export type Runnable = CriticalBlock | Malloc | Move | Assign | Add | Append
+export type Runnable = CriticalBlock | Malloc | Free | Move | Assign | Add | Append
 
 export type CriticalBlock = {
     type: 'critical',
@@ -165,6 +164,11 @@ export type Malloc = {
     type: 'malloc',
     address: Identifier,
     size: number,
+}
+
+export type Free = {
+    type: 'free',
+    address: Identifier,
 }
 
 export type Move = {
@@ -195,6 +199,7 @@ export type Append = {
 // build
 export type Build = {
     types: Types,
+    functions: {[name: string]: Function}
     main: Environment,
 }
 
