@@ -1,4 +1,4 @@
-import { DataType, Key, Primitive, Type, Types, ValueResult } from "../types";
+import { DataType, Key, Param, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
@@ -19,12 +19,12 @@ export default class TypeCheck {
         return false;
     }
 
-    public static matchesValue(types: Types, match: Type, against: ValueResult): boolean {
-        const againstValue = against.value.type === 'primitive' ? against.value.primitive : undefined;
+    public static matchesValue(types: Types, match: Type, against: ValueNode): boolean {
+        const againstValue = against.value.type === 'literal' ? against.value.literal : undefined;
         return TypeCheck.matches(types, match, against.type, againstValue);
     }
 
-    public static matches(types: Types, match: Type, against: Type, againstValue?: Primitive): boolean {
+    public static matches(types: Types, match: Type, against: Type, againstValue?: Literal): boolean {
 
         // match
         if(match.type === 'union') {
@@ -68,6 +68,14 @@ export default class TypeCheck {
             return TypeCheck.matches(types, match.items, against.items, againstValue);
         }
         return false;
+    }
+
+    public static matchesArgs(types: Types, params: Param[], args: ValueNode[]) {
+        if(args.length < params.length) return false;
+        for(let i = 0; i < params.length; i++) {
+            if(!TypeCheck.matchesValue(types, params[i].type, args[i])) return false;
+        }
+        return true;
     }
 
     public static resolveObject(types: Types, type: Type, key: Key): Type | undefined {
@@ -116,7 +124,7 @@ export default class TypeCheck {
         return 'unknown';
     }
 
-    public static stringify(type: Type): Primitive {
+    public static stringify(type: Type): Literal {
         if(type.type === 'primitive') {
             return type.primitive;
         }
@@ -134,6 +142,29 @@ export default class TypeCheck {
         }
         else if(type.type === 'literal') {
             return type.literal;
+        }
+        return 'unknown';
+    }
+
+    public static toPrimitive(types: Types, type: Type): DataType {
+        if(type.type === 'primitive') {
+            return type.primitive;
+        }
+        else if(type.type === 'reference') {
+            return TypeCheck.toPrimitive(types, types[type.reference]);
+        }
+        else if(type.type === 'union') {
+            const resolvedTypes: DataType[] = [] 
+            for(const oneOfType of type.oneOf) {
+                const resolved = TypeCheck.toPrimitive(types, oneOfType);
+                if(resolvedTypes.indexOf(resolved) === -1) resolvedTypes.push(resolved);
+            }
+            if(resolvedTypes.length === 0) return 'unknown';
+            else if(resolvedTypes.length === 1) return resolvedTypes[0];
+            else return 'any';
+        }
+        else if(type.type === 'struct' || type.type === 'array') {
+            return 'object';
         }
         return 'unknown';
     }

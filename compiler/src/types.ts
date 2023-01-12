@@ -1,31 +1,29 @@
-import AddressManager from "./util/AddressManager";
-import { WriteCursor } from "./util/cursor";
+export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block'
 
 export type Token = {
     value: string;
-    type: 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block';
+    type: TokenType;
     specificType?: DataType;
     block?: Token[][];
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type']
-export const SYMBOLS: Symbol[] = [':', ',', '.', '|']
-export const OPERATORS: Operator[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
+export const OPERATORS: Operator[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
+export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|']
 
 export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
-export type Symbol =  ':' | ',' | '.' | '|'
-export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
+export type Symbol =  Operator | ':' | ',' | '.' | '|'
+export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
 export type Identifier = string;
-export type Primitive = string | number | boolean;
+export type Literal = string | number | boolean;
 export type Key = string | number;
 
 // fields
 export type Field = {
     type: Type,
-    address?: Identifier
 }
 
 export type Fields = {
@@ -46,7 +44,7 @@ export type Param = {
 export type Function = {
     params: Param[],
     returnType: Type,
-    body: Environment,
+    body: Node[],
     isSync: boolean,
 }
 
@@ -58,7 +56,7 @@ export type ReferenceType = {
 
 export type LiteralType = {
     type: 'literal',
-    literal: Primitive
+    literal: Literal
 }
 
 export type UnionType = {
@@ -90,15 +88,11 @@ export type Types = {
 }
 
 // values
-export type Value = (PrimitiveValue | Reference | Struct | ArrayValue | OperationValue)
-export type ValueResult = {
-    value: Value,
-    type: Type,
-}
+export type Value = (LiteralValue | Reference | Struct | ArrayValue | CallValue | OperationValue)
 
-export type PrimitiveValue = {
-    type: 'primitive',
-    primitive: Primitive
+export type LiteralValue = {
+    type: 'literal',
+    literal: Literal
 };
 
 export type Reference = {
@@ -115,6 +109,13 @@ export type Struct = {
 export type ArrayValue = {
     type: 'array',
     items: Value[],
+}
+
+// call
+export type CallValue = {
+    type: 'call',
+    args: Value[],
+    reference: Identifier,
 }
 
 // operation
@@ -152,66 +153,57 @@ export type ConcatStringOperation = {
     right: Value,
 }
 
-// runnable
-export type Runnable = CriticalBlock | Malloc | Free | Move | Assign | Add | Append
+// ast
+export type Program = Node[]
 
-export type CriticalBlock = {
-    type: 'critical',
-    runnables: Runnable[],
+// nodes
+export type ASTNode = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | Value
+
+export type ValueNode = {
+    type: Type,
+    value: Value,
 }
 
-export type Malloc = {
-    type: 'malloc',
-    address: Identifier,
-    size: number,
+export type Node = ValueNode | ASTNode
+
+export type VariableDeclaration = {
+    type: 'variableDeclaration',
+    name: Identifier,
+    value?: Value,
 }
 
-export type Free = {
-    type: 'free',
-    address: Identifier,
+export type ConstantDeclaration = {
+    type: 'constantDeclaration',
+    name: Identifier,
+    value: Value,
 }
 
-export type Move = {
-    type: 'move',
-    from: Identifier,
-    to: Identifier,
+export type FunctionDeclaration = {
+    type: 'functionDeclaration',
+    name: Identifier,
+    params: Param[],
+    returnType: Type,
+    body: Program,
 }
-
-export type Assign = {
-    type: 'assign',
-    address: Identifier,
-    data: Uint8Array,
-    debug?: string,
-}
-
-export type Add = {
-    type: 'add',
-    address: Identifier,
-    from: Identifier
-}
-
-export type Append = {
-    type: 'append',
-    address: Identifier,
-    from: Identifier
+export type ReturnStatement = {
+    type: 'returnStatement',
+    value: Value,
 }
 
 // build
-export type Build = {
-    types: Types,
-    functions: {[name: string]: Function}
-    main: Environment,
-}
-
 export type Environment = {
     fields: FieldEnv,
-    run: Runnable[],
 }
 
 export type LineState = {
-    addrManager: AddressManager,
-    build: Build,
+    build: ModuleMap,
     env: Environment,
-    runnables: WriteCursor<Runnable>,
     lineIndex: number,
+}
+
+// export
+export type ModuleMap = {
+    types: Types,
+    functions: {[name: string]: Function}
+    fields: FieldEnv,
 }

@@ -1,10 +1,10 @@
-import { AddFloatOperation, AddIntOperation, AssignOperation, ConcatStringOperation, LineState, Operation, Operator, PlusOperation, Type, ValueResult } from "../types";
+import { AddFloatOperation, AddIntOperation, AssignOperation, ConcatStringOperation, LineState, Operation, Operator, PlusOperation, Type, ValueNode } from "../types";
 import FieldResolve from "./FieldResolve";
 import TypeCheck from "./TypeCheck";
 
 export default class OperationParser {
 
-    public static parse(lineState:LineState, first: ValueResult, second: ValueResult, operator: Operator): {type: Type, value: Operation } {
+    public static parse(lineState:LineState, first: ValueNode, second: ValueNode, operator: Operator): {type: Type, value: Operation } {
         switch(operator) {
             case '+': {
                 return handlePlus(lineState, first, second);
@@ -17,7 +17,7 @@ export default class OperationParser {
     }
 }
 
-function handlePlus(lineState: LineState, first: ValueResult, second: ValueResult): { type: Type, value: PlusOperation } {
+function handlePlus(lineState: LineState, first: ValueNode, second: ValueNode): { type: Type, value: PlusOperation } {
     const firstType = TypeCheck.resolvePrimitive(lineState.build.types, first.type);
     const secondType = TypeCheck.resolvePrimitive(lineState.build.types, second.type);
 
@@ -35,7 +35,7 @@ function handlePlus(lineState: LineState, first: ValueResult, second: ValueResul
     }
 }
 
-function handleIntAdd(first: ValueResult, second: ValueResult): { type: Type, value: AddIntOperation } {
+function handleIntAdd(first: ValueNode, second: ValueNode): { type: Type, value: AddIntOperation } {
     return {
         type: {
             type: 'primitive',
@@ -49,7 +49,7 @@ function handleIntAdd(first: ValueResult, second: ValueResult): { type: Type, va
     }
 }
 
-function handleFloatAdd(first: ValueResult, second: ValueResult): { type: Type, value: AddFloatOperation } {
+function handleFloatAdd(first: ValueNode, second: ValueNode): { type: Type, value: AddFloatOperation } {
     return {
         type: {
             type: 'primitive',
@@ -63,7 +63,7 @@ function handleFloatAdd(first: ValueResult, second: ValueResult): { type: Type, 
     }
 }
 
-function handleStringConcat(first: ValueResult, second: ValueResult): { type: Type, value: ConcatStringOperation } {
+function handleStringConcat(first: ValueNode, second: ValueNode): { type: Type, value: ConcatStringOperation } {
     return {
         type: {
             type: 'primitive',
@@ -77,7 +77,7 @@ function handleStringConcat(first: ValueResult, second: ValueResult): { type: Ty
     }
 }
 
-function handleEquals(lineState: LineState, first: ValueResult, second: ValueResult): { type: Type, value: AssignOperation } {
+function handleEquals(lineState: LineState, first: ValueNode, second: ValueNode): { type: Type, value: AssignOperation } {
     
     // first has to be a field
     if(first.value.type !== 'reference') {
