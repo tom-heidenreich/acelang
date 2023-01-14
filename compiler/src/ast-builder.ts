@@ -1,10 +1,15 @@
-import { Node, Token, Environment, DATATYPES, Types, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields, PlusOperation, ASTNode, ModuleMap, Program, ValueNode } from "./types";
+import { Node, Token, Environment, DATATYPES, Types, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields, PlusOperation, ASTNode, Program, ValueNode, OperationPrototype, PrototypeValue, Build } from "./types";
+import { Consumable } from "./util/consumable";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
 import OperationParser from "./util/OperationParser";
+import Stack from "./util/stack";
 import TypeCheck from "./util/TypeCheck";
 
+import * as fs from 'fs'
+
 export function buildAST(tokens: Token[][]) {
+
     const defaultTypes: Types = {}
     for (const type of DATATYPES) {
         defaultTypes[type] = {
@@ -13,20 +18,38 @@ export function buildAST(tokens: Token[][]) {
         }
     }
     
-    const map: ModuleMap = {
+    const build: Build = {
         types: defaultTypes,
         functions: {},
-        fields: {
-            local: {},
-        },
     }
 
-    const ast = parseEnvironment(map, tokens, )
+    const { ast, env } = parseEnvironment(build, tokens)
 
-    return ast
+    // clean functions
+    const functions: {
+        name: string,
+        params: Param[],
+        returnType: Type,
+        isSync: boolean,
+    }[] = []
+    for (const name in build.functions) {
+        const func = build.functions[name]
+        functions.push({
+            name: name,
+            params: func.params,
+            returnType: func.returnType,
+            isSync: func.isSync,
+        })
+    }
+
+    return { ast, map: {
+        types: build.types,
+        fields: env.fields.local,
+        functions,
+    } }
 }
 
-function parseEnvironment(map: ModuleMap, tokens: Token[][], preEnv?: Environment, wrapperName?: string) {
+function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Environment, wrapperName?: string) {
 
     const env: Environment = preEnv || {
         fields: {
@@ -40,19 +63,19 @@ function parseEnvironment(map: ModuleMap, tokens: Token[][], preEnv?: Environmen
     for (const line of tokens) {
         const lineState: LineState = {
             // TODO: rename build to map
-            build: map,
+            build,
             env,
             lineIndex: lineIndex++,
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        ast.push(parseLine(lineState, cursor, wrapperName))
+        ast.push(parseLine({ lineState, cursor, wrapperName }))
     }
 
-    return ast
+    return { ast, env }
 }
 
-function parseLine(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string): Node {
+function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; cursor: Cursor<Token>; wrapperName?: string; }): Node {
 
     const token = cursor.peek()
     if(token.type === 'keyword') {
@@ -65,7 +88,7 @@ function parseLine(lineState: LineState, cursor: Cursor<Token>, wrapperName?: st
         }
     }
     // parse steps
-    return parseSteps(lineState, cursor)
+    return parseSteps(lineState, cursor).value
 }
 
 // functions
@@ -408,154 +431,201 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
 
 // steps
 function parseSteps(lineState: LineState, cursor: Cursor<Token>): ValueNode {
-    
-    let lastObject: ValueNode | undefined;
-    let lastOperator: Operator | undefined;
+     
+    type StackItem = {
+        consumable: Consumable<PrototypeValue | undefined, PrototypeValue>,
+        priority: number,
+    }
+    const stack = new Stack<StackItem>();
 
     while(!cursor.done) {
-
         const token = cursor.next();
-        if(!lastOperator && lastObject) {
-            if(token.type === 'block') {
-                if(!token.block) {
-                    throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
-                }
-                // parse function call
-                if(token.value === '()') {
-                    // check if lastObject is a function
-                    if(lastObject.value.type !== 'reference') {
-                        throw new Error(`Expected reference, got ${lastObject.value.type} at line ${lineState.lineIndex}`);
-                    }
-                    const field = FieldResolve.resolve(lineState.env.fields, lastObject.value.reference);
-                    if(!field) {
-                        throw new Error(`Unknown field: ${lastObject.value.reference} at line ${lineState.lineIndex}`);
-                    }
-                    if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'callable')) {
-                        throw new Error(`Expected callable, got ${field.type.type} at line ${lineState.lineIndex}`);
-                    }
 
-                    // parse args
-                    const args = parseArgs(lineState, new Cursor(token.block));
+        if(token.type === 'operator') {
 
-                    // get function
-                    const functionName = lastObject.value.reference;
-                    const func = lineState.build.functions[functionName];
-                    if(!func) {
-                        throw new Error(`Unknown function: ${functionName} at line ${lineState.lineIndex}`);
-                    }
+            const operator = token.value as Operator;
+            const priority = OperationParser.getPriority(operator);
 
-                    // check if args match function
-                    if(!TypeCheck.matchesArgs(lineState.build.types, func.params, args)) {
-                        throw new Error(`Arguments don't match function at line ${lineState.lineIndex}`);
-                    }
-
-                    lastObject = {
-                        type: func.returnType,
-                        value: {
-                            type: 'call',
-                            args: args.map(arg => arg.value),
-                            reference: functionName,
-                        }
-                    }
-                }
-                else {
-                    throw new Error(`Unknown block type: ${token.value} at line ${lineState.lineIndex}`);
-                }
-
-                continue
+            // get last item
+            const lastItem = stack.pop();
+            
+            if(!lastItem) {
+                throw new Error(`Expected value, got ${token.type} at line ${lineState.lineIndex}`);
             }
-            else if(token.type === 'symbol' && token.value === '.') {
-                // parse field access
-                if(lastObject.value.type !== 'reference') {
-                    throw new Error(`Expected reference, got ${lastObject.value.type} at line ${lineState.lineIndex}`);
-                }
-                
+            const lastValue = lastItem.consumable.consume(undefined);
+
+            // get last operation
+            const lastOperation = stack.peek;
+            // give value to last operation if it has higher priority
+            if(lastOperation && lastOperation.priority > priority) {
+                const operation = stack.popSafe();
+                const consumedOperation = operation.consumable.consume(lastValue);
+
+                stack.push({
+                    consumable: new Consumable(() => consumedOperation),
+                    priority: operation.priority
+                });
+
+                // create new operation consumable
+                stack.push({
+                    consumable: new Consumable(value => {
+                        return {
+                            type: 'prototype',
+                            operator,
+                            right: value
+                        } as OperationPrototype
+                    }),
+                    priority
+                })  
             }
-            else if(token.type !== 'operator') {
-                throw new Error(`Expected operator, got ${token.type} at line ${lineState.lineIndex}`);
+            else {
+                // create new operation consumable
+                stack.push({
+                    consumable: new Consumable(value => {
+                        return {
+                            type: 'prototype',
+                            operator,
+                            left: lastValue,
+                            right: value
+                        } as OperationPrototype
+                    }),
+                    priority
+                })
             }
-            lastOperator = token.value as Operator
         }
         else {
 
-            var currentObject: ValueNode | undefined;
-            if(token.type === 'identifier') {
-                const field = FieldResolve.resolve(lineState.env.fields, token.value);
-                if(!field) {
-                    throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
-                }
-                currentObject = {
-                    type: field.type,
-                    value: {
-                        type: 'reference',
-                        reference: token.value
+            // get last item
+            const lastItem = stack.peek;
+
+            if(lastItem) {
+                const lastValue = stack.peek.consumable.consume(undefined);
+                // check if last value is not operation
+                if(lastValue.type !== 'prototype') {
+
+                    if(lastValue.value.type === 'reference') {
+
+                        stack.pop()
+
+                        const field = FieldResolve.resolve(lineState.env.fields, lastValue.value.reference);
+                        if(!field) {
+                            throw new Error(`Unknown field: ${lastValue.value.reference} at line ${lineState.lineIndex}`);
+                        }
+                        
+                        // do something with field
+                        if(token.type === 'block' && token.value === '()') {
+                            // function call
+                            // TODO: implement
+                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
+                        }
+                        else if(token.type === 'block' && token.value === '[]') {
+                            // array access
+                            // TODO: implement
+                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
+                        }
+                        else if(token.type === 'symbol' && token.value === '.') {
+                            // field access
+                            // TODO: implement
+                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
+                        }
+                        else {
+                            throw new Error(`Unknown token: ${token.type} at line ${lineState.lineIndex}`);
+                        }
+                        continue
                     }
+                } else {
+                    // revert consume
+                    lastItem.consumable.revert(undefined);
                 }
-            }
-            else if(token.type === 'datatype') {
-                if(!token.specificType) {
-                    throw new Error(`Unknown datatype: ${token.value} at line ${lineState.lineIndex}`);
-                }
-                currentObject = {
-                    type: {
-                        type: 'primitive',
-                        primitive: token.specificType
-                    },
-                    value: {
-                        type: 'literal',
-                        literal: token.value
-                    }
-                }
-            }
-            else if(token.type === 'block') {
-                if(!token.block) {
-                    throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
-                }
-                if(token.value === '()') {
-                    if(token.block.length !== 1) {
-                        throw new Error(`Expected 1 token in block, got ${token.block.length} at line ${lineState.lineIndex}`);
-                    }
-                    currentObject = parseValue(lineState, new Cursor(token.block[0]));
-                }
-                else if(token.value === '{}') {
-                    currentObject = parseStruct(lineState, new Cursor(token.block),)
-                }
-                else if(token.value === '[]') {
-                    currentObject = parseArray(lineState, new Cursor(token.block));
-                }
-                else {
-                    throw new Error(`Unknown block type: ${token.value} at line ${lineState.lineIndex}`);
-                }
-            }
-            else {
-                throw new Error(`Unknown type: ${token.type} at line ${lineState.lineIndex}`);
             }
 
-            if(!lastObject) {
-                lastObject = currentObject;
-            }
-            else if(lastOperator && currentObject) {
-                const operation = OperationParser.parse(lineState, lastObject, currentObject, lastOperator);
-                lastObject = {
-                    type: operation.type,
-                    value: {
-                        type: 'operation',
-                        operation: operation.value
+            function parseStepValue(token: Token): ValueNode {
+                // parse value
+                let value: ValueNode | undefined;
+
+                if(token.type === 'identifier') {
+                    const field = FieldResolve.resolve(lineState.env.fields, token.value);
+                    if(!field) {
+                        throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
                     }
-                };
-                lastOperator = undefined;
+                    value = {
+                        type: field.type,
+                        value: {
+                            type: 'reference',
+                            reference: token.value
+                        }
+                    }
+                }
+                else if(token.type === 'datatype') {
+                    if(!token.specificType) {
+                        throw new Error(`Expected specific type, got ${token.type} at line ${lineState.lineIndex}`);
+                    }
+                    value = {
+                        type: {
+                            type: 'primitive',
+                            primitive: token.specificType,
+                        },
+                        value: {
+                            type: 'literal',
+                            literal: token.value
+                        }
+                    }
+                }
+                else if(token.type === 'block') {
+                    if(!token.block) {
+                        throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
+                    }
+                    if(token.value === '()') {
+                        value = parseValue(lineState, new Cursor(token.block[0]));
+                    }
+                    else if(token.value === '{}') {
+                        value = parseStruct(lineState, new Cursor(token.block));
+                    }
+                    else if(token.value === '[]') {
+                        value = parseArray(lineState, new Cursor(token.block));
+                    }
+                }
+                else {
+                    throw new Error(`Unexpected token ${token.type} at line ${lineState.lineIndex}`);
+                }
+
+                if(!value) {
+                    throw new Error(`Unexpected token ${token.type} at line ${lineState.lineIndex}`);
+                }
+
+                return value;
             }
-            else {
-                throw new Error(`Unknown error at line ${lineState.lineIndex}`)
-            }
+
+            const value = parseStepValue(token);
+
+            stack.push({
+                consumable: new Consumable(() => value),
+                priority: 0
+            })
         }
     }
 
-    if(!lastObject) {
-        throw new Error(`No object found at line ${lineState.lineIndex}`);
+    // check if last is not operation
+    let lastValue = stack.popSafe().consumable.consume(undefined);
+    if(lastValue.type === 'prototype') {
+        throw new Error(`Unexpected end of expression at line ${lineState.lineIndex}`);
     }
 
-    return lastObject;
+    // return if stack is empty
+    if(stack.size === 0) {
+        return lastValue as ValueNode;
+    }
+
+    // collapse stack
+    while(stack.size > 0) {
+        const item = stack.popSafe();
+        lastValue = item.consumable.consume(lastValue);
+    }
+
+    fs.writeFileSync('./log/collapsed.json', JSON.stringify(lastValue, null, 4));
+
+    // convert to operation
+    return OperationParser.resolvePrototype(lineState, lastValue as OperationPrototype);
 }
 
 function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): ASTNode {
@@ -746,14 +816,14 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     }
 
     // add body
-    func.body = body
+    func.body = body.ast
 
     return {
         type: 'functionDeclaration',
         name: name.value,
         params,
         returnType: func.returnType,
-        body,
+        body: body.ast,
     }
 }
 

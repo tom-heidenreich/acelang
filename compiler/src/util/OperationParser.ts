@@ -1,4 +1,4 @@
-import { AddFloatOperation, AddIntOperation, AssignOperation, ConcatStringOperation, LineState, Operation, Operator, PlusOperation, Type, ValueNode } from "../types";
+import { AddFloatOperation, AddIntOperation, AssignOperation, ConcatStringOperation, LineState, MultiplyFloatOperation, MultiplyIntOperation, MultiplyOperation, Operation, OperationPrototype, Operator, PlusOperation, Type, ValueNode } from "../types";
 import FieldResolve from "./FieldResolve";
 import TypeCheck from "./TypeCheck";
 
@@ -9,11 +9,52 @@ export default class OperationParser {
             case '+': {
                 return handlePlus(lineState, first, second);
             }
+            case '*': {
+                return handleMultiply(lineState, first, second);
+            }
             case '=': {
-                return handleEquals(lineState, first, second);
+                return handleAssign(lineState, first, second);
             }
         }
         throw new Error(`Unknown operator ${operator} at line ${lineState.lineIndex}`);
+    }
+
+    public static resolvePrototype(lineState:LineState, prototype: OperationPrototype): ValueNode {
+        if(!prototype.left || !prototype.right) {
+            throw new Error(`Cannot resolve prototype at line ${lineState.lineIndex}`);
+        }
+
+        // resolve left and right
+        if(prototype.left.type === 'prototype') {
+            prototype.left = OperationParser.resolvePrototype(lineState, prototype.left);
+        }
+        if(prototype.right.type === 'prototype') {
+            prototype.right = OperationParser.resolvePrototype(lineState, prototype.right);
+        }
+
+        const operationNode = OperationParser.parse(lineState, prototype.left, prototype.right, prototype.operator);
+        return {
+            type: operationNode.type,
+            value: {
+                type: 'operation',
+                operation: operationNode.value,
+            },
+        }
+    }
+
+    public static getPriority(operator: Operator): number {
+        switch(operator) {
+            case '+': {
+                return 1;
+            }
+            case '*': {
+                return 2;
+            }
+            case '=': {
+                return -1;
+            }
+        }
+        throw new Error(`Unknown operator ${operator}`);
     }
 }
 
@@ -45,7 +86,7 @@ function handleIntAdd(first: ValueNode, second: ValueNode): { type: Type, value:
             type: 'intAdd',
             left: first.value,
             right: second.value,
-        }
+        },        
     }
 }
 
@@ -59,7 +100,7 @@ function handleFloatAdd(first: ValueNode, second: ValueNode): { type: Type, valu
             type: 'floatAdd',
             left: first.value,
             right: second.value,
-        }
+        },
     }
 }
 
@@ -73,32 +114,80 @@ function handleStringConcat(first: ValueNode, second: ValueNode): { type: Type, 
             type: 'stringConcat',
             left: first.value,
             right: second.value,
-        }
+        },
     }
 }
 
-function handleEquals(lineState: LineState, first: ValueNode, second: ValueNode): { type: Type, value: AssignOperation } {
-    
-    // first has to be a field
+function handleAssign(lineState: LineState, first: ValueNode, second: ValueNode): { type: Type, value: AssignOperation } {
+
+    // first must be a field
     if(first.value.type !== 'reference') {
-        throw new Error(`Expected field reference at line ${lineState.lineIndex}`)
+        throw new Error(`Cannot assign to ${first.value.type} at line ${lineState.lineIndex}`);
     }
     const field = FieldResolve.resolve(lineState.env.fields, first.value.reference);
     if(!field) {
         throw new Error(`Cannot find field ${first.value.reference} at line ${lineState.lineIndex}`);
     }
 
-    // second has to be the same type as the field
-    if(!TypeCheck.matches(lineState.build.types, field.type, second.type)) {
-        throw new Error(`Type mismatch at line ${lineState.lineIndex}`);
+    // second must be the same type as the field
+    if(!TypeCheck.matches(lineState.build.types, second.type, field.type)) {
+        throw new Error(`Cannot assign ${TypeCheck.stringify(second.type)} to ${TypeCheck.stringify(field.type)} at line ${lineState.lineIndex}`);
     }
 
     return {
-        type: field.type,
+        // TODO: should be void
+        // type: {
+        //     type: 'primitive',
+        //     primitive: 'void',
+        // },
+        type: second.type,
         value: {
             type: 'assign',
             left: field,
             right: second.value,
-        }
+        },
+    }
+}
+
+function handleMultiply(lineState: LineState, first: ValueNode, second: ValueNode): { type: Type, value: MultiplyOperation } {
+    const firstType = TypeCheck.resolvePrimitive(lineState.build.types, first.type);
+    const secondType = TypeCheck.resolvePrimitive(lineState.build.types, second.type);
+
+    if(firstType === 'int' && secondType === 'int') {
+        return handleIntMultiply(first, second);
+    }
+    else if((firstType === 'float' || firstType === 'int') && (secondType === 'float' || secondType === 'int')) {
+        return handleFloatMultiply(first, second);
+    }
+    else {
+        throw new Error(`Cannot multiply ${firstType} and ${secondType} at line ${lineState.lineIndex}`);
+    }
+}
+
+function handleIntMultiply(first: ValueNode, second: ValueNode): { type: Type, value: MultiplyIntOperation } {
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'int',
+        },
+        value: {
+            type: 'intMultiply',
+            left: first.value,
+            right: second.value,
+        },
+    }
+}
+
+function handleFloatMultiply(first: ValueNode, second: ValueNode): { type: Type, value: MultiplyFloatOperation } {
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'float',
+        },
+        value: {
+            type: 'floatMultiply',
+            left: first.value,
+            right: second.value,
+        },
     }
 }

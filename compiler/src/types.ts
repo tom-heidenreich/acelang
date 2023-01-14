@@ -124,7 +124,15 @@ export type OperationValue = {
     operation: Operation,
 }
 
-export type Operation = AssignOperation | PlusOperation
+export type Operation = AssignOperation | PlusOperation | MultiplyOperation
+
+export type PrototypeValue = ValueNode | OperationPrototype
+export type OperationPrototype = {
+    type: 'prototype',
+    operator: Operator,
+    left?: PrototypeValue,
+    right?: PrototypeValue,
+}
 
 export type AssignOperation = {
     type: 'assign',
@@ -133,7 +141,6 @@ export type AssignOperation = {
 }
 
 export type PlusOperation = AddIntOperation | AddFloatOperation | ConcatStringOperation
-
 // plus operations
 export type AddIntOperation = {
     type: 'intAdd',
@@ -149,6 +156,20 @@ export type AddFloatOperation = {
 
 export type ConcatStringOperation = {
     type: 'stringConcat',
+    left: Value,
+    right: Value,
+}
+
+export type MultiplyOperation = MultiplyIntOperation | MultiplyFloatOperation
+// multiplication operations
+export type MultiplyIntOperation = {
+    type: 'intMultiply',
+    left: Value,
+    right: Value,
+}
+
+export type MultiplyFloatOperation = {
+    type: 'floatMultiply',
     left: Value,
     right: Value,
 }
@@ -191,19 +212,17 @@ export type ReturnStatement = {
 }
 
 // build
+export type Build = {
+    types: Types,
+    functions: {[name: string]: Function}
+}
+
 export type Environment = {
     fields: FieldEnv,
 }
 
 export type LineState = {
-    build: ModuleMap,
+    build: Build,
     env: Environment,
     lineIndex: number,
-}
-
-// export
-export type ModuleMap = {
-    types: Types,
-    functions: {[name: string]: Function}
-    fields: FieldEnv,
 }
