@@ -507,26 +507,138 @@ function parseSteps(lineState: LineState, cursor: Cursor<Token>): ValueNode {
 
                         stack.pop()
 
-                        const field = FieldResolve.resolve(lineState.env.fields, lastValue.value.reference);
+                        const name = lastValue.value.reference
+                        const field = FieldResolve.resolve(lineState.env.fields, name);
                         if(!field) {
-                            throw new Error(`Unknown field: ${lastValue.value.reference} at line ${lineState.lineIndex}`);
+                            throw new Error(`Unknown field: ${name} at line ${lineState.lineIndex}`);
                         }
                         
                         // do something with field
-                        if(token.type === 'block' && token.value === '()') {
+                        if(token.type === 'block') {
+
+                            if(!token.block) {
+                                throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
+                            }
+
                             // function call
-                            // TODO: implement
-                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
+                            if(token.value === '()') {
+                                
+                                // check if field is function
+                                if(field.type.type !== 'primitive' || field.type.primitive !== 'callable') {
+                                    throw new Error(`Expected function, got ${field.type.type} at line ${lineState.lineIndex}`);
+                                }
+                                const func = lineState.build.functions[name];
+
+                                // parse arguments
+                                const params = func.params
+                                const args = parseArgs(lineState, new Cursor(token.block)).slice(0, params.length);
+
+                                if(!TypeCheck.matchesArgs(lineState.build.types, params, args)) {
+                                    throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
+                                }
+
+                                stack.push({
+                                    consumable: new Consumable(() => {
+                                        const value: Value = {
+                                            type: 'call',
+                                            args: args.map(arg => arg.value),
+                                            reference: name
+                                        }
+                                        return {
+                                            type: func.returnType,
+                                            value
+                                        }
+                                    }),
+                                    priority: 0
+                                })
+                            }
+                            // object access
+                            else if(token.value === '[]') {
+                                
+                                // check if field is object
+                                if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'object')) {
+                                    throw new Error(`Expected object, got ${field.type.type} at line ${lineState.lineIndex}`);
+                                }
+
+                                // parse key
+                                const keyNode = parseValue(lineState, new Cursor(token.block[0]));
+                                const keyValue = keyNode.value;
+                                let key: Key;
+
+                                if(keyValue.type === 'literal') {
+                                    key = keyValue.literal as Key;
+                                } else if(keyValue.type === 'reference') {
+                                    key = keyValue.reference;
+                                }
+                                else {
+                                    throw new Error(`Expected literal or reference, got ${keyValue.type} at line ${lineState.lineIndex}`);
+                                }
+
+                                // key must be string or int
+                                if(!TypeCheck.matchesPrimitive(lineState.build.types, keyNode.type, 'string') && !TypeCheck.matchesPrimitive(lineState.build.types, keyNode.type, 'int')) {
+                                    throw new Error(`Expected string or int, got ${keyNode.type.type} at line ${lineState.lineIndex}`);
+                                }
+
+                                // get type
+                                const type = TypeCheck.resolveObject(lineState.build.types, field.type, key);
+                                if(!type) {
+                                    throw new Error(`Unknown key: ${key} at line ${lineState.lineIndex}`);
+                                }
+
+                                stack.push({
+                                    consumable: new Consumable(() => {
+                                        const value: Value = {
+                                            type: 'access',
+                                            key: keyValue,
+                                            reference: name
+                                        }
+                                        return {
+                                            type,
+                                            value
+                                        }
+                                    }),
+                                    priority: 0
+                                })
+                            }
                         }
-                        else if(token.type === 'block' && token.value === '[]') {
-                            // array access
-                            // TODO: implement
-                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
-                        }
+                        // struct access
                         else if(token.type === 'symbol' && token.value === '.') {
-                            // field access
-                            // TODO: implement
-                            throw new Error(`Not implemented yet at line ${lineState.lineIndex}`);
+
+                            // check if field is object
+                            if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'object')) {
+                                throw new Error(`Expected object, got ${field.type.type} at line ${lineState.lineIndex}`);
+                            };
+                            
+                            // get key token
+                            const keyToken = cursor.next();
+                            if(!keyToken || keyToken.type !== 'identifier') {
+                                throw new Error(`Expected identifier, got ${keyToken?.type} at line ${lineState.lineIndex}`);
+                            }
+                            const key = keyToken.value;
+
+                            // get type
+                            const type = TypeCheck.resolveObject(lineState.build.types, field.type, key);
+                            if(!type) {
+                                throw new Error(`Unknown key: ${key} at line ${lineState.lineIndex}`);
+                            }
+
+                            stack.push({
+                                consumable: new Consumable(() => {
+                                    const value: Value = {
+                                        type: 'access',
+                                        key: {
+                                            type: 'literal',
+                                            literal: key
+                                        },
+                                        reference: name
+                                    }
+                                    return {
+                                        type,
+                                        value
+                                    }
+                                }),
+                                priority: 0
+                            })
                         }
                         else {
                             throw new Error(`Unknown token: ${token.type} at line ${lineState.lineIndex}`);

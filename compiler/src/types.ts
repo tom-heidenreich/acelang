@@ -88,7 +88,7 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | Reference | Struct | ArrayValue | CallValue | OperationValue)
+export type Value = (LiteralValue | Reference | Struct | ArrayValue | CallValue | AccessValue | OperationValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -116,6 +116,13 @@ export type CallValue = {
     type: 'call',
     args: Value[],
     reference: Identifier,
+}
+
+// access
+export type AccessValue = {
+    type: 'access',
+    reference: Identifier,
+    key: Value,
 }
 
 // operation
