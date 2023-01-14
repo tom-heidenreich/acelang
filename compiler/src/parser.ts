@@ -49,7 +49,7 @@ export function parse(content: string, inBlock: boolean = false) {
                 pushBuffer(line, buffer, 'symbol');
                 structure = undefined;
             }
-            continue;
+            else continue;
         }
         if(structure === 'block') {
             if(c === '{') countCurlyBrackets++;
