@@ -11,7 +11,9 @@ const parsed = parse(content)
 fs.writeFileSync('./log/parsed.json', JSON.stringify(parsed, null, 4), 'utf8');
 
 // get ast
-const ast = buildAST(parsed);
+const { ast, map } = buildAST(parsed);
 
 console.log(ast);
 fs.writeFileSync('./log/ast.json', JSON.stringify(ast, null, 4), 'utf8');
+
+fs.writeFileSync('./log/type_map.json', JSON.stringify(map, null, 4), 'utf8');
