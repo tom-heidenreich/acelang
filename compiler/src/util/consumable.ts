@@ -30,4 +30,8 @@ export class Consumable<T, E = void> {
         }
         return this._revert(arg);
     }
+
+    public get isConsumed(): boolean {
+        return this.consumed;
+    }
 }
