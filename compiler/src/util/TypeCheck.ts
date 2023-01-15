@@ -5,6 +5,7 @@ export default class TypeCheck {
     public static matchesPrimitive(types: Types, match: Type, against: DataType): boolean {
         if(against === 'unknown' || against === 'any') return true;
         else if(match.type === 'primitive') {
+            if(match.primitive === 'any' || match.primitive === 'unknown') return true;
             return match.primitive === against;
         }
         else if(match.type === 'reference') {
