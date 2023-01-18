@@ -12,7 +12,8 @@ export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 't
 export const OPERATORS: Operator[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|']
 
-export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
+export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
+export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
 export type Symbol =  Operator | ':' | ',' | '.' | '|'
 export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
@@ -44,7 +45,7 @@ export type Param = {
 export type Function = {
     params: Param[],
     returnType: Type,
-    body: Node[],
+    body: Statement[],
     isSync: boolean,
 }
 
@@ -88,111 +89,74 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | Reference | Struct | ArrayValue | CallValue | AccessValue | OperationValue)
+export type Value = (LiteralValue | ReferenceValue | StructValue | ArrayValue | Expression)
 
 export type LiteralValue = {
     type: 'literal',
-    literal: Literal
+    literal: Literal,
+    literalType: LiteralDataType,
 };
 
-export type Reference = {
+export type ReferenceValue = {
     type: 'reference',
     reference: string,
+    referenceType: Type,
 }
 
 // objects
-export type Struct = {
+export type StructValue = {
     type: 'struct',
-    properties: {[name: string]: Value},
+    properties: {[name: string]: ReferenceValue},
 }
 
 export type ArrayValue = {
     type: 'array',
-    items: Value[],
+    items: ReferenceValue[],
 }
 
-// call
-export type CallValue = {
-    type: 'call',
-    args: Value[],
-    reference: Identifier,
-}
+// expression
+export type Expression = PlusExpression | MultiplyExpression
 
-// access
-export type AccessValue = {
-    type: 'access',
-    reference: Identifier,
-    key: Value,
-}
-
-// operation
-export type OperationValue = {
-    type: 'operation',
-    operation: Operation,
-}
-
-export type Operation = AssignOperation | PlusOperation | MultiplyOperation
-
-export type PrototypeValue = ValueNode | OperationPrototype
-export type OperationPrototype = {
-    type: 'prototype',
-    operator: Operator,
-    left?: PrototypeValue,
-    right?: PrototypeValue,
-}
-
-export type AssignOperation = {
-    type: 'assign',
-    left: Field,
-    right: Value,
-}
-
-export type PlusOperation = AddIntOperation | AddFloatOperation | ConcatStringOperation
-// plus operations
-export type AddIntOperation = {
+export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression
+// plus Expressions
+export type AddIntExpression = {
     type: 'intAdd',
     left: Value,
     right: Value,
 }
 
-export type AddFloatOperation = {
+export type AddFloatExpression = {
     type: 'floatAdd',
     left: Value,
     right: Value,
 }
 
-export type ConcatStringOperation = {
+export type ConcatStringExpression = {
     type: 'stringConcat',
     left: Value,
     right: Value,
 }
 
-export type MultiplyOperation = MultiplyIntOperation | MultiplyFloatOperation
-// multiplication operations
-export type MultiplyIntOperation = {
+export type MultiplyExpression = MultiplyIntExpression | MultiplyFloatExpression
+// multiplication Expressions
+export type MultiplyIntExpression = {
     type: 'intMultiply',
     left: Value,
     right: Value,
 }
 
-export type MultiplyFloatOperation = {
+export type MultiplyFloatExpression = {
     type: 'floatMultiply',
     left: Value,
     right: Value,
 }
-
-// ast
-export type Program = Node[]
-
-// nodes
-export type ASTNode = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | Value
 
 export type ValueNode = {
     type: Type,
     value: Value,
 }
 
-export type Node = ValueNode | ASTNode
+export type Statement = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | SyncStatement | ExpressionStatement
 
 export type VariableDeclaration = {
     type: 'variableDeclaration',
@@ -211,11 +175,22 @@ export type FunctionDeclaration = {
     name: Identifier,
     params: Param[],
     returnType: Type,
-    body: Program,
+    body: Statement[],
 }
+
 export type ReturnStatement = {
     type: 'returnStatement',
     value: Value,
+}
+
+export type SyncStatement = {
+    type: 'syncStatement',
+    body: Statement[],
+}
+
+export type ExpressionStatement = {
+    type: 'expressionStatement',
+    expression: Value,
 }
 
 // build

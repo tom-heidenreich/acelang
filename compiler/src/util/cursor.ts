@@ -66,6 +66,21 @@ export default class Cursor<T> {
     public hasOnlyOne(): boolean {
         return this.remainingLength === 1;
     }
+
+    public split(predicate: string | ((value: T) => boolean)): Cursor<T>[] {
+        if(typeof predicate === 'string') return this.split(value => value === predicate);
+        const cursors = [];
+        while(!this.done) {
+            const cursor = this.until(predicate);
+            if(cursor.remainingLength > 0) cursors.push(cursor);
+            if(!this.done) this.next();
+        }
+        return cursors;
+    }
+
+    public toString(value: (value: T) => string): string {
+        return this.asList().map(value).join('');
+    }
 }
 
 export class WriteCursor<T> {

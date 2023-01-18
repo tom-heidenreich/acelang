@@ -28,6 +28,9 @@ export default class TypeCheck {
     public static matches(types: Types, match: Type, against: Type, againstValue?: Literal): boolean {
 
         // match
+        if(match.type === 'primitive') {
+            if(match.primitive === 'any' || match.primitive === 'unknown') return true;
+        }
         if(match.type === 'union') {
             return match.oneOf.some(type => TypeCheck.matches(types, type, against, againstValue));
         }

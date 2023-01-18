@@ -1,12 +1,9 @@
-import { Node, Token, Environment, DATATYPES, Types, Type, Value, StructType, Struct, ArrayValue, Key, Operation, Operator, LineState, Param, Fields, PlusOperation, ASTNode, Program, ValueNode, OperationPrototype, PrototypeValue, Build } from "./types";
-import { Consumable } from "./util/consumable";
+import { Token, Environment, DATATYPES, Types, Type, StructType, LineState, Param, Fields, Build, Statement } from "./types";
 import Cursor, { WriteCursor } from "./util/cursor";
 import FieldResolve from "./util/FieldResolve";
-import OperationParser from "./util/OperationParser";
-import Stack from "./util/stack";
 import TypeCheck from "./util/TypeCheck";
 
-import * as fs from 'fs'
+import Values from "./util/values";
 
 export function buildAST(tokens: Token[][]) {
 
@@ -20,10 +17,64 @@ export function buildAST(tokens: Token[][]) {
     
     const build: Build = {
         types: defaultTypes,
-        functions: {},
+        functions: {
+            // built in functions
+            print: {
+                params: [{
+                    name: 'value',
+                    type: {
+                        type: 'primitive',
+                        primitive: 'any',
+                    },
+                }],
+                returnType: {
+                    type: 'primitive',
+                    primitive: 'void',
+                },
+                isSync: true,
+                body: [],
+            },
+            wait: {
+                params: [
+                    {
+                        name: 'value',
+                        type: {
+                            type: 'primitive',
+                            primitive: 'int',
+                        }
+                    }
+                ],
+                returnType: {
+                    type: 'primitive',
+                    primitive: 'void',
+                },
+                isSync: true,
+                body: [],
+            }
+        },
     }
 
-    const { ast, env } = parseEnvironment(build, tokens)
+    const { tree, env } = parseEnvironment(build, tokens, {
+        fields: {
+            local: {},
+            parent: {
+                local: {
+                    print: {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'callable',
+                        }
+                    },
+                    wait: {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'callable',
+                        }
+                    }
+                },
+            }
+        },
+    })
 
     // clean functions
     const functions: {
@@ -42,7 +93,7 @@ export function buildAST(tokens: Token[][]) {
         })
     }
 
-    return { ast, map: {
+    return { tree, map: {
         types: build.types,
         fields: env.fields.local,
         functions,
@@ -57,25 +108,24 @@ function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Environment,
         },
     }
 
-    const ast: Program = [] 
+    const tree: Statement[] = [] 
 
     let lineIndex = 0
     for (const line of tokens) {
         const lineState: LineState = {
-            // TODO: rename build to map
             build,
             env,
             lineIndex: lineIndex++,
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        ast.push(parseLine({ lineState, cursor, wrapperName }))
+        tree.push(parseLine({ lineState, cursor, wrapperName }))
     }
 
-    return { ast, env }
+    return { tree, env }
 }
 
-function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; cursor: Cursor<Token>; wrapperName?: string; }): Node {
+function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; cursor: Cursor<Token>; wrapperName?: string; }): Statement {
 
     const token = cursor.peek()
     if(token.type === 'keyword') {
@@ -85,10 +135,14 @@ function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; c
             case 'var': return parseVar(lineState, cursor)
             case 'func': return parseFunc(lineState, cursor)
             case 'return': return parseReturn(lineState, cursor, wrapperName)
+            case 'sync': return parseSync(lineState, cursor)
         }
     }
     // parse steps
-    return parseSteps(lineState, cursor).value
+    return {
+        type: 'expressionStatement',
+        expression: Values.parseExpression(lineState, cursor).value
+    }
 }
 
 // functions
@@ -126,17 +180,6 @@ function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
     }
 
     return params;
-}
-
-function parseArgs(lineState: LineState, cursor: Cursor<Token[]>) {
-
-    const value: ValueNode[] = []
-
-    while(!cursor.done) {
-        value.push(parseValue(lineState, new Cursor(cursor.next())))
-    }
-
-    return value;
 }
 
 // type
@@ -283,464 +326,7 @@ function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
     }
 }
 
-// value
-function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
-
-    const items: Value[] = []
-    let type: Type | undefined;
-
-    while(!cursor.done) {
-        
-        const node = parseValue(lineState, new Cursor(cursor.next()))
-        if(!type) {
-            type = node.type;
-        }
-        else if(!TypeCheck.matchesValue(lineState.build.types, type, node)) {
-            throw new Error(`Expected type ${TypeCheck.stringify(type)}, 
-            got ${TypeCheck.stringify(node.type)} at line ${lineState.lineIndex}`);
-        }
-        items.push(node.value);
-    }
-
-    if(!type) {
-        throw new Error(`Expected at least one value, got 0 at line ${lineState.lineIndex}`);
-    }
-
-    return {
-        type: {
-            type: 'array',
-            items: type,
-        },
-        value: {
-            type: 'array',
-            items,
-        }
-    };
-}
-
-function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
-    
-    const type: StructType = {
-        type: 'struct',
-        properties: {}
-    }
-    const value: Struct = {
-        type: 'struct',
-        properties: {}
-    }
-
-    while(!cursor.done) {
-        const lineCursor = new Cursor(cursor.next());
-
-        const keyToken = lineCursor.next();
-        let key: Key;
-
-        if(keyToken.type === 'identifier') {
-            key = keyToken.value;
-        }
-        else if(keyToken.type === 'datatype') {
-            if(keyToken.specificType !== 'string' && keyToken.specificType !== 'int') {
-                throw new Error(`Expected string or number, got ${keyToken.specificType} at line ${lineState.lineIndex}`);
-            }
-            key = keyToken.value;
-        }
-        else {
-            throw new Error(`Expected identifier or datatype, got ${keyToken.type} at line ${lineState.lineIndex}`);
-        }
-
-        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
-            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineState.lineIndex}`);
-        }
-        lineCursor.next();
-
-        const {type: propertyType, value: propertyValue} = parseValue(lineState, lineCursor);
-
-        type.properties[key] = propertyType;
-        value.properties[key] = propertyValue;
-    }
-
-    return {
-        type,
-        value
-    };
-}
-
-function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
-
-    if(cursor.hasOnlyOne()) {
-        const token = cursor.next();
-
-        if(token.type === 'datatype') {
-            if(!token.specificType) {
-                throw new Error(`Unknown datatype: ${token.value} at line ${lineState.lineIndex}`);
-            }
-            return {
-                type: {
-                    type: 'primitive',
-                    primitive: token.specificType
-                },
-                value: {
-                    type: 'literal',
-                    literal: token.value
-                }
-            }
-        }
-        else if(token.type === 'identifier') {
-
-            const field = FieldResolve.resolve(lineState.env.fields, token.value);
-            if(!field) {
-                throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
-            }
-
-            return {
-                type: field.type,
-                value: {
-                    type: 'reference',
-                    reference: token.value
-                }
-            }
-        }
-        else if(token.type === 'block') {
-            if(!token.block) {
-                throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
-            }
-            if(token.value === '()') {
-                if(token.block.length !== 1) {
-                    throw new Error(`Expected 1 token in block, got ${token.block.length} at line ${lineState.lineIndex}`);
-                }
-                return parseValue(lineState, new Cursor(token.block[0]));
-            }
-            else if(token.value === '{}') {
-                return parseStruct(lineState, new Cursor(token.block),)
-            }
-            else if(token.value === '[]') {
-                return parseArray(lineState, new Cursor(token.block));
-            }
-            else {
-                throw new Error(`Unknown block type: ${token.value} at line ${lineState.lineIndex}`);
-            }
-        }
-        else {
-            throw new Error(`Unknown type: ${token.type} at line ${lineState.lineIndex}`);
-        }
-    }
-    else {
-        return parseSteps(lineState, cursor);
-    }
-}
-
-// steps
-function parseSteps(lineState: LineState, cursor: Cursor<Token>): ValueNode {
-     
-    type StackItem = {
-        consumable: Consumable<PrototypeValue | undefined, PrototypeValue>,
-        priority: number,
-    }
-    const stack = new Stack<StackItem>();
-
-    while(!cursor.done) {
-        const token = cursor.next();
-
-        if(token.type === 'operator') {
-
-            const operator = token.value as Operator;
-            const priority = OperationParser.getPriority(operator);
-
-            // get last item
-            const lastItem = stack.pop();
-            
-            if(!lastItem) {
-                throw new Error(`Expected value, got ${token.type} at line ${lineState.lineIndex}`);
-            }
-            const lastValue = lastItem.consumable.consume(undefined);
-
-            // get last operation
-            const lastOperation = stack.peek;
-            // give value to last operation if it has higher priority
-            if(lastOperation && lastOperation.priority > priority) {
-                const operation = stack.popSafe();
-                const consumedOperation = operation.consumable.consume(lastValue);
-
-                stack.push({
-                    consumable: new Consumable(() => consumedOperation),
-                    priority: operation.priority
-                });
-
-                // create new operation consumable
-                stack.push({
-                    consumable: new Consumable(value => {
-                        return {
-                            type: 'prototype',
-                            operator,
-                            right: value
-                        } as OperationPrototype
-                    }),
-                    priority
-                })  
-            }
-            else {
-                // create new operation consumable
-                stack.push({
-                    consumable: new Consumable(value => {
-                        return {
-                            type: 'prototype',
-                            operator,
-                            left: lastValue,
-                            right: value
-                        } as OperationPrototype
-                    }),
-                    priority
-                })
-            }
-        }
-        else {
-
-            // get last item
-            const lastItem = stack.peek;
-
-            if(lastItem) {
-                const lastValue = stack.peek.consumable.consume(undefined);
-                // check if last value is not operation
-                if(lastValue.type !== 'prototype') {
-
-                    if(lastValue.value.type === 'reference') {
-
-                        stack.pop()
-
-                        const name = lastValue.value.reference
-                        const field = FieldResolve.resolve(lineState.env.fields, name);
-                        if(!field) {
-                            throw new Error(`Unknown field: ${name} at line ${lineState.lineIndex}`);
-                        }
-                        
-                        // do something with field
-                        if(token.type === 'block') {
-
-                            if(!token.block) {
-                                throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
-                            }
-
-                            // function call
-                            if(token.value === '()') {
-                                
-                                // check if field is function
-                                if(field.type.type !== 'primitive' || field.type.primitive !== 'callable') {
-                                    throw new Error(`Expected function, got ${field.type.type} at line ${lineState.lineIndex}`);
-                                }
-                                const func = lineState.build.functions[name];
-
-                                // parse arguments
-                                const params = func.params
-                                const args = parseArgs(lineState, new Cursor(token.block)).slice(0, params.length);
-
-                                if(!TypeCheck.matchesArgs(lineState.build.types, params, args)) {
-                                    throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
-                                }
-
-                                stack.push({
-                                    consumable: new Consumable(() => {
-                                        const value: Value = {
-                                            type: 'call',
-                                            args: args.map(arg => arg.value),
-                                            reference: name
-                                        }
-                                        return {
-                                            type: func.returnType,
-                                            value
-                                        }
-                                    }),
-                                    priority: 0
-                                })
-                            }
-                            // object access
-                            else if(token.value === '[]') {
-                                
-                                // check if field is object
-                                if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'object')) {
-                                    throw new Error(`Expected object, got ${field.type.type} at line ${lineState.lineIndex}`);
-                                }
-
-                                // parse key
-                                const keyNode = parseValue(lineState, new Cursor(token.block[0]));
-                                const keyValue = keyNode.value;
-                                let key: Key;
-
-                                if(keyValue.type === 'literal') {
-                                    key = keyValue.literal as Key;
-                                } else if(keyValue.type === 'reference') {
-                                    key = keyValue.reference;
-                                }
-                                else {
-                                    throw new Error(`Expected literal or reference, got ${keyValue.type} at line ${lineState.lineIndex}`);
-                                }
-
-                                // key must be string or int
-                                if(!TypeCheck.matchesPrimitive(lineState.build.types, keyNode.type, 'string') && !TypeCheck.matchesPrimitive(lineState.build.types, keyNode.type, 'int')) {
-                                    throw new Error(`Expected string or int, got ${keyNode.type.type} at line ${lineState.lineIndex}`);
-                                }
-
-                                // get type
-                                const type = TypeCheck.resolveObject(lineState.build.types, field.type, key);
-                                if(!type) {
-                                    throw new Error(`Unknown key: ${key} at line ${lineState.lineIndex}`);
-                                }
-
-                                stack.push({
-                                    consumable: new Consumable(() => {
-                                        const value: Value = {
-                                            type: 'access',
-                                            key: keyValue,
-                                            reference: name
-                                        }
-                                        return {
-                                            type,
-                                            value
-                                        }
-                                    }),
-                                    priority: 0
-                                })
-                            }
-                        }
-                        // struct access
-                        else if(token.type === 'symbol' && token.value === '.') {
-
-                            // check if field is object
-                            if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'object')) {
-                                throw new Error(`Expected object, got ${field.type.type} at line ${lineState.lineIndex}`);
-                            };
-                            
-                            // get key token
-                            const keyToken = cursor.next();
-                            if(!keyToken || keyToken.type !== 'identifier') {
-                                throw new Error(`Expected identifier, got ${keyToken?.type} at line ${lineState.lineIndex}`);
-                            }
-                            const key = keyToken.value;
-
-                            // get type
-                            const type = TypeCheck.resolveObject(lineState.build.types, field.type, key);
-                            if(!type) {
-                                throw new Error(`Unknown key: ${key} at line ${lineState.lineIndex}`);
-                            }
-
-                            stack.push({
-                                consumable: new Consumable(() => {
-                                    const value: Value = {
-                                        type: 'access',
-                                        key: {
-                                            type: 'literal',
-                                            literal: key
-                                        },
-                                        reference: name
-                                    }
-                                    return {
-                                        type,
-                                        value
-                                    }
-                                }),
-                                priority: 0
-                            })
-                        }
-                        else {
-                            throw new Error(`Unknown token: ${token.type} at line ${lineState.lineIndex}`);
-                        }
-                        continue
-                    }
-                } else {
-                    // revert consume
-                    lastItem.consumable.revert(undefined);
-                }
-            }
-
-            function parseStepValue(token: Token): ValueNode {
-                // parse value
-                let value: ValueNode | undefined;
-
-                if(token.type === 'identifier') {
-                    const field = FieldResolve.resolve(lineState.env.fields, token.value);
-                    if(!field) {
-                        throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
-                    }
-                    value = {
-                        type: field.type,
-                        value: {
-                            type: 'reference',
-                            reference: token.value
-                        }
-                    }
-                }
-                else if(token.type === 'datatype') {
-                    if(!token.specificType) {
-                        throw new Error(`Expected specific type, got ${token.type} at line ${lineState.lineIndex}`);
-                    }
-                    value = {
-                        type: {
-                            type: 'primitive',
-                            primitive: token.specificType,
-                        },
-                        value: {
-                            type: 'literal',
-                            literal: token.value
-                        }
-                    }
-                }
-                else if(token.type === 'block') {
-                    if(!token.block) {
-                        throw new Error(`Expected block, got ${token.type} at line ${lineState.lineIndex}`);
-                    }
-                    if(token.value === '()') {
-                        value = parseValue(lineState, new Cursor(token.block[0]));
-                    }
-                    else if(token.value === '{}') {
-                        value = parseStruct(lineState, new Cursor(token.block));
-                    }
-                    else if(token.value === '[]') {
-                        value = parseArray(lineState, new Cursor(token.block));
-                    }
-                }
-                else {
-                    throw new Error(`Unexpected token ${token.type} at line ${lineState.lineIndex}`);
-                }
-
-                if(!value) {
-                    throw new Error(`Unexpected token ${token.type} at line ${lineState.lineIndex}`);
-                }
-
-                return value;
-            }
-
-            const value = parseStepValue(token);
-
-            stack.push({
-                consumable: new Consumable(() => value),
-                priority: 0
-            })
-        }
-    }
-
-    // check if last is not operation
-    let lastValue = stack.popSafe().consumable.consume(undefined);
-    if(lastValue.type === 'prototype') {
-        throw new Error(`Unexpected end of expression at line ${lineState.lineIndex}`);
-    }
-
-    // return if stack is empty
-    if(stack.size === 0) {
-        return lastValue as ValueNode;
-    }
-
-    // collapse stack
-    while(stack.size > 0) {
-        const item = stack.popSafe();
-        lastValue = item.consumable.consume(lastValue);
-    }
-
-    fs.writeFileSync('./log/collapsed.json', JSON.stringify(lastValue, null, 4));
-
-    // convert to operation
-    return OperationParser.resolvePrototype(lineState, lastValue as OperationPrototype);
-}
-
-function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): ASTNode {
+function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): Statement {
 
     // name
     const name = cursor.next()
@@ -771,7 +357,7 @@ function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: 
         }
 
         // value
-        const valueToken = parseValue(lineState, cursor)
+        const valueToken = Values.parseValue(lineState, cursor)
         const value = valueToken.value
 
         // dynamic type
@@ -830,7 +416,7 @@ function parseVar(lineState: LineState, cursor: Cursor<Token>) {
     return parseDeclaration(lineState, cursor, false)
 }
 
-function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean = false): ASTNode {
+function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean = false): Statement {
 
     // name
     const name = cursor.next()
@@ -928,18 +514,18 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     }
 
     // add body
-    func.body = body.ast
+    func.body = body.tree
 
     return {
         type: 'functionDeclaration',
         name: name.value,
         params,
         returnType: func.returnType,
-        body: body.ast,
+        body: body.tree,
     }
 }
 
-function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string): ASTNode {
+function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string): Statement {
 
     if(!wrapperName) {
         throw new Error(`Unexpected return at line ${lineState.lineIndex}`)
@@ -958,7 +544,7 @@ function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: 
     const func = lineState.build.functions[wrapperName]
 
     // value
-    const valueToken = parseValue(lineState, cursor)
+    const valueToken = Values.parseValue(lineState, cursor)
     const value = valueToken.value
 
     // check if types match
@@ -973,5 +559,39 @@ function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: 
     return {
         type: 'returnStatement',
         value,
+    }
+}
+
+function parseSync(lineState: LineState, cursor: Cursor<Token>): Statement {
+
+    // check if next token is function
+    const token = cursor.next()
+    if(token.type === 'keyword' && token.value === 'func') {
+        return parseFunc(lineState, cursor, true)
+    }
+
+    if(token.type !== 'block' || token.value !== '{}') {
+        throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+    }
+
+    if(!token.block) {
+        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    }
+
+    // create new env
+    const env = {
+        fields: {
+            local: {},
+            parent: lineState.env.fields,
+        },
+        run: []
+    }
+    
+    // parse body
+    const body = parseEnvironment(lineState.build, token.block, env)
+
+    return {
+        type: 'syncStatement',
+        body: body.tree,
     }
 }

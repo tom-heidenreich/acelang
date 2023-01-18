@@ -48,8 +48,6 @@ if (myVar == "hello world") {
     console.log("hello world")
 } else if (myVar == "hello") {
     console.log("hello")
-} elif (myVar == "world") {
-    console.log("world")
 } else {
     console.log("not hello world")
 }
@@ -107,7 +105,6 @@ sync func myFunc4() {
     console.log(value)
 }
 ```
-`note: calling a function without sync keyword in a synchronized block will be executed asynchronously`
 
 ### class
 ```
@@ -124,17 +121,17 @@ class myClass {
     }
 
     # methods
-    public func myFunc() {
+    public myFunc() {
         console.log(this.myVar)
     }
 
     # methods with parameters)
-    public func myFunc(myVar: string) {
+    public myFunc(myVar: string) {
         console.log(myVar)
     }
 
     # static methods
-    public static func myFunc2() {
+    public static myFunc2() {
         console.log("hello world")
     }
 }
@@ -150,7 +147,7 @@ class myClass2 extends myClass {
     }
 
     # override methods
-    public func myFunc() {
+    public myFunc() {
         console.log("hello world")
     }
 }
@@ -240,147 +237,8 @@ func e() {
 const f = a()
 ```
 
-```json
-{
-    "fields": {
-        "a": {
-            "type": {
-                "type": "primitive",
-                "primitive": "string"
-            },
-            "address": "0x0000"
-        },
-        "b": {
-            "type": {
-                "type": "primitive",
-                "primitive": "string"
-            },
-            "address": "0x0000"
-        },
-        "c": {
-            "type": {
-                "type": "primitive",
-                "primitive": "int"
-            },
-            "address": "0x0001"
-        },
-        "d": {
-            "type": {
-                "type": "primitive",
-                "primitive": "int"
-            },
-            "address": "0x0002"
-        },
-        "e": {
-            "type": {
-                "type": "callable"
-            },
-            "instructions": {
-                "fields": {
-                    "a": {
-                        "type": {
-                            "type": "primitive",
-                            "primitive": "int"
-                        },
-                        "address": "0x0003"
-                    }
-                },
-                "run": [
-                    {
-                        "type": "malloc",
-                        "address": "0x0003",
-                        "size": 32
-                    },
-                    {
-                        "type": "move",
-                        "to": "0x0003",
-                        "value": "1"
-                    },
-                    {
-                        "type": "add",
-                        "to": "0x0003",
-                        "value": "1"
-                    },
+# Runtime
 
-                    {
-                        "type": "malloc",
-                        "address": "0x0004",
-                        "size": 32
-                    },
-                    {
-                        "type": "move",
-                        "to": "0x0004",
-                        "from": "0x0003"
-                    }
-                ]
-            }
-        },
-        "f": {
-            "type": {
-                "type": "primitive",
-                "primitive": "int"
-            },
-            "address": "0x0005"
-        }
-    },
-    "run": [
-        {
-            "type": "malloc",
-            "address": "0x0000",
-            "size": 32
-        },
-        {
-            "type": "move",
-            "to": "0x0000",
-            "value": "hello"
-        },
+## Memory
 
-        {
-            "type": "malloc",
-            "address": "0x0001",
-            "size": 32
-        },
-        {
-            "type": "move",
-            "to": "0x0001",
-            "value": "1"
-        },
-        {
-            "type": "add",
-            "to": "0x0001",
-            "value": "1"
-        },
-
-        {
-            "type": "malloc",
-            "address": "0x0002",
-            "size": 32
-        },
-        {
-            "type": "move",
-            "to": "0x0002",
-            "from": "0x0001"
-        },
-        {
-            "type": "add",
-            "to": "0x0002",
-            "value": "1"
-        },
-
-        {
-            "type": "malloc",
-            "address": "0x0005",
-            "size": 32
-        },
-        {
-            "type": "run",
-            "field": "e"
-        },
-        {
-            "type": "move",
-            "to": "0x0005",
-            "from": "0x0004"
-        }
-    ]
-}
-```
+* First bit shows if value is ready or not
