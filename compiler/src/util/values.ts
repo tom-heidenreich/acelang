@@ -1,4 +1,3 @@
-import jsep from "jsep";
 import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode, ReferenceValue } from "../types";
 import Cursor from "./cursor";
 import ExpressionParser from "./ExpressionParser";
@@ -6,7 +5,7 @@ import FieldResolve from "./FieldResolve";
 import TypeCheck from "./TypeCheck";
 
 function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
-
+    
     if(cursor.hasOnlyOne()) {
         const token = cursor.next();
 
@@ -38,7 +37,6 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
                 value: {
                     type: 'reference',
                     reference: token.value,
-                    referenceType: field.type
                 }
             }
         }
@@ -67,7 +65,7 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
         }
     }
     else {
-        return parseExpression(lineState, cursor);
+        return ExpressionParser.parse(lineState, cursor);
     }
 }
 
@@ -93,26 +91,6 @@ function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
         throw new Error(`Expected at least one value, got 0 at line ${lineState.lineIndex}`);
     }
 
-    const itemReferences: ReferenceValue[] = items.map((item, index) => {
-        if(item.type === 'reference') {
-            return item;
-        }
-        else {
-            const reference = `__array_item_${lineState.lineIndex}_${index} (anon)`;
-
-            lineState.env.fields.local[reference] = {
-                // type cannot be undefined here
-                type: type || { type: 'primitive', primitive: 'void' },
-            }
-
-            return {
-                type: 'reference',
-                reference,
-                referenceType: type || { type: 'primitive', primitive: 'void' }
-            }
-        }
-    });
-
     return {
         type: {
             type: 'array',
@@ -120,7 +98,7 @@ function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
         },
         value: {
             type: 'array',
-            items: itemReferences,
+            items,
         }
     };
 }
@@ -160,20 +138,10 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
         }
         lineCursor.next();
 
-        const { type: propertyType } = parseValue(lineState, lineCursor);
-
-        // create new anonymous field
-        const reference = `__struct_property_${lineState.lineIndex}_${key} (anon)`;
-        lineState.env.fields.local[reference] = {
-            type: propertyType
-        }
+        const { type: propertyType, value: propertyValue } = parseValue(lineState, lineCursor);
 
         type.properties[key] = propertyType;
-        value.properties[key] = {
-            type: 'reference',
-            reference,
-            referenceType: propertyType
-        };
+        value.properties[key] = propertyValue
     }
 
     return {
@@ -182,16 +150,9 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
     };
 }
 
-function parseExpression(lineState: LineState, cursor: Cursor<Token>): ValueNode {
-    const jsepExp = jsep(cursor.toString(token => token.value));
-    console.log(jsepExp);
-    return ExpressionParser.parse(lineState, jsepExp)
-}
-
 const Values = {
     parseValue,
     parseArray,
-    parseStruct,
-    parseExpression
+    parseStruct
 }
 export default Values 

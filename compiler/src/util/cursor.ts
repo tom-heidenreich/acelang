@@ -81,6 +81,11 @@ export default class Cursor<T> {
     public toString(value: (value: T) => string): string {
         return this.asList().map(value).join('');
     }
+
+    public reset() {
+        this.cursor = 0;
+        return this
+    }
 }
 
 export class WriteCursor<T> {

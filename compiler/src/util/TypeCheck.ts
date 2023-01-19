@@ -78,10 +78,10 @@ export default class TypeCheck {
         return false;
     }
 
-    public static matchesArgs(types: Types, params: Param[], args: ValueNode[]) {
+    public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
         if(args.length < params.length) return false;
         for(let i = 0; i < params.length; i++) {
-            if(!TypeCheck.matchesValue(types, params[i].type, args[i])) return false;
+            if(!TypeCheck.matchesValue(types, params[i], args[i])) return false;
         }
         return true;
     }
@@ -92,6 +92,7 @@ export default class TypeCheck {
         }
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
+            console.log(type, key.value.literal.toString(), type.properties[key.value.literal.toString()]);
             return type.properties[key.value.literal.toString()];
         }
         else if(type.type === 'map') {
@@ -114,12 +115,8 @@ export default class TypeCheck {
     }
 
     public static resolvePrimitive(types: Types, type: Type): DataType {
-        if(type.type === 'primitive') {
-            return type.primitive;
-        }
-        else if(type.type === 'reference') {
-            return TypeCheck.resolvePrimitive(types, types[type.reference]);
-        }
+        if(type.type === 'primitive') return type.primitive;
+        else if(type.type === 'reference') return TypeCheck.resolvePrimitive(types, types[type.reference]);
         else if(type.type === 'union') {
             const resolvedTypes: DataType[] = [] 
             for(const oneOfType of type.oneOf) {
@@ -130,9 +127,8 @@ export default class TypeCheck {
             else if(resolvedTypes.length === 1) return resolvedTypes[0];
             else return 'any';
         }
-        else if(type.type === 'struct' || type.type === 'array') {
-            return 'object';
-        }
+        else if(type.type === 'struct' || type.type === 'array') return 'object';
+        else if(type.type === 'callable') return 'callable';
         return 'unknown';
     }
 

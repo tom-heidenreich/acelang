@@ -43,8 +43,6 @@ export type Param = {
 }
 
 export type Callable = {
-    params: Param[],
-    returnType: Type,
     body: Statement[],
     isSync: boolean,
 }
@@ -82,12 +80,18 @@ export type ArrayType = {
 
 export type ObjectType = StructType | ArrayType | MapType
 
+export type CallableType = {
+    type: 'callable',
+    params: Type[],
+    returnType: Type,
+}
+
 export type PrimitiveType = {
     type: 'primitive',
     primitive: DataType
 }
 
-export type Type = (PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType)
+export type Type = PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType | CallableType
 
 export type Types = {
     [name: string]: Type,
@@ -105,18 +109,17 @@ export type LiteralValue = {
 export type ReferenceValue = {
     type: 'reference',
     reference: string,
-    referenceType: Type,
 }
 
 // objects
 export type StructValue = {
     type: 'struct',
-    properties: {[name: string]: ReferenceValue},
+    properties: {[name: string]: Value},
 }
 
 export type ArrayValue = {
     type: 'array',
-    items: ReferenceValue[],
+    items: Value[],
 }
 
 // expression
@@ -124,13 +127,13 @@ export type Expression = PlusExpression | MultiplyExpression | CallExpression | 
 
 export type CallExpression = {
     type: 'call',
-    callable: ReferenceValue,
+    callable: Value,
     args: Value[],
 }
 
 export type MemberExpression = {
     type: 'member',
-    target: ReferenceValue,
+    target: Value,
     property: Value
 }
 

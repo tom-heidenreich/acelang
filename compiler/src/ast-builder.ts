@@ -1,5 +1,6 @@
-import { Token, Environment, DATATYPES, Types, Type, StructType, LineState, Param, Fields, Build, Statement } from "./types";
+import { Token, Environment, DATATYPES, Types, Type, StructType, LineState, Fields, Build, Statement, Param } from "./types";
 import Cursor, { WriteCursor } from "./util/cursor";
+import ExpressionParser from "./util/ExpressionParser";
 import FieldResolve from "./util/FieldResolve";
 import TypeCheck from "./util/TypeCheck";
 
@@ -20,34 +21,10 @@ export function buildAST(tokens: Token[][]) {
         callables: {
             // built in functions
             print: {
-                params: [{
-                    name: 'value',
-                    type: {
-                        type: 'primitive',
-                        primitive: 'any',
-                    },
-                }],
-                returnType: {
-                    type: 'primitive',
-                    primitive: 'void',
-                },
                 isSync: true,
                 body: [],
             },
             wait: {
-                params: [
-                    {
-                        name: 'value',
-                        type: {
-                            type: 'primitive',
-                            primitive: 'int',
-                        }
-                    }
-                ],
-                returnType: {
-                    type: 'primitive',
-                    primitive: 'void',
-                },
                 isSync: true,
                 body: [],
             }
@@ -61,14 +38,28 @@ export function buildAST(tokens: Token[][]) {
                 local: {
                     print: {
                         type: {
-                            type: 'primitive',
-                            primitive: 'callable',
+                            type: 'callable',
+                            params: [{
+                                type: 'primitive',
+                                primitive: 'any',
+                            }],
+                            returnType: {
+                                type: 'primitive',
+                                primitive: 'void',
+                            },
                         }
                     },
                     wait: {
                         type: {
-                            type: 'primitive',
-                            primitive: 'callable',
+                            type: 'callable',
+                            params: [{
+                                type: 'primitive',
+                                primitive: 'int',
+                            }],
+                            returnType: {
+                                type: 'primitive',
+                                primitive: 'void',
+                            },
                         }
                     }
                 },
@@ -76,27 +67,9 @@ export function buildAST(tokens: Token[][]) {
         },
     })
 
-    // clean functions
-    const functions: {
-        name: string,
-        params: Param[],
-        returnType: Type,
-        isSync: boolean,
-    }[] = []
-    for (const name in build.callables) {
-        const func = build.callables[name]
-        functions.push({
-            name: name,
-            params: func.params,
-            returnType: func.returnType,
-            isSync: func.isSync,
-        })
-    }
-
     return { tree, map: {
         types: build.types,
         fields: env.fields.local,
-        functions,
     } }
 }
 
@@ -141,7 +114,7 @@ function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; c
     // parse steps
     return {
         type: 'expressionStatement',
-        expression: Values.parseExpression(lineState, cursor).value
+        expression: ExpressionParser.parse(lineState, cursor).value
     }
 }
 
@@ -477,11 +450,6 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
 
     // add function to build
     lineState.build.callables[name.value] = {
-        params,
-        returnType: {
-            type: 'primitive',
-            primitive: 'unknown',
-        },
         body: [],
         isSync,
     }
@@ -489,8 +457,12 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     // add field
     lineState.env.fields.local[name.value] = {
         type: {
-            type: 'primitive',
-            primitive: 'callable',
+            type: 'callable',
+            params: params.map(param => param.type),
+            returnType: {
+                type: 'primitive',
+                primitive: 'unknown',
+            },
         }
     }
 
@@ -498,7 +470,11 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     const body = parseEnvironment(lineState.build, bodyToken.block, env, name.value)
 
     // check if body has return
-    const func = lineState.build.callables[name.value]
+    const func = lineState.env.fields.local[name.value].type
+    if(func.type !== 'callable') {
+        throw new Error(`Unexpected type ${func.type} at line ${lineState.lineIndex}`)
+    }
+
     if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
         // will return void
         func.returnType = {
@@ -514,7 +490,7 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     }
 
     // add body
-    func.body = body.tree
+    lineState.build.callables[name.value].body = body.tree
 
     return {
         type: 'functionDeclaration',
@@ -536,19 +512,17 @@ function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: 
     if(!field) {
         throw new Error(`No function found at line ${lineState.lineIndex}`)
     }
-    // check if field is callable
-    if(!TypeCheck.matchesPrimitive(lineState.build.types, field.type, 'callable')) {
-        throw new Error(`Field ${wrapperName} is not callable at line ${lineState.lineIndex}`)
+    const func = field.type
+    if(func.type !== 'callable') {
+        throw new Error(`Unexpected type ${field.type.type} at line ${lineState.lineIndex}`)
     }
-    // get function
-    const func = lineState.build.callables[wrapperName]
 
     // value
     const valueToken = Values.parseValue(lineState, cursor)
     const value = valueToken.value
 
     // check if types match
-    if(TypeCheck.matchesPrimitive(lineState.build.types, func.returnType, 'unknown')) {
+    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
         // dynamic type
         func.returnType = valueToken.type
     }
