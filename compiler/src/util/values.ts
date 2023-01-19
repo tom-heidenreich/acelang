@@ -184,7 +184,7 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
 
 function parseExpression(lineState: LineState, cursor: Cursor<Token>): ValueNode {
     const jsepExp = jsep(cursor.toString(token => token.value));
-    // parse expression
+    console.log(jsepExp);
     return ExpressionParser.parse(lineState, jsepExp)
 }
 

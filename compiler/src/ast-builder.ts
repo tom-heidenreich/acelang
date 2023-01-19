@@ -17,7 +17,7 @@ export function buildAST(tokens: Token[][]) {
     
     const build: Build = {
         types: defaultTypes,
-        functions: {
+        callables: {
             // built in functions
             print: {
                 params: [{
@@ -83,8 +83,8 @@ export function buildAST(tokens: Token[][]) {
         returnType: Type,
         isSync: boolean,
     }[] = []
-    for (const name in build.functions) {
-        const func = build.functions[name]
+    for (const name in build.callables) {
+        const func = build.callables[name]
         functions.push({
             name: name,
             params: func.params,
@@ -476,7 +476,7 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     }
 
     // add function to build
-    lineState.build.functions[name.value] = {
+    lineState.build.callables[name.value] = {
         params,
         returnType: {
             type: 'primitive',
@@ -498,7 +498,7 @@ function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean 
     const body = parseEnvironment(lineState.build, bodyToken.block, env, name.value)
 
     // check if body has return
-    const func = lineState.build.functions[name.value]
+    const func = lineState.build.callables[name.value]
     if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
         // will return void
         func.returnType = {
@@ -541,7 +541,7 @@ function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: 
         throw new Error(`Field ${wrapperName} is not callable at line ${lineState.lineIndex}`)
     }
     // get function
-    const func = lineState.build.functions[wrapperName]
+    const func = lineState.build.callables[wrapperName]
 
     // value
     const valueToken = Values.parseValue(lineState, cursor)

@@ -42,7 +42,7 @@ export type Param = {
     type: Type,
 }
 
-export type Function = {
+export type Callable = {
     params: Param[],
     returnType: Type,
     body: Statement[],
@@ -70,12 +70,17 @@ export type StructType = {
     properties: Types
 }
 
+export type MapType = {
+    type: 'map',
+    values: Type
+}
+
 export type ArrayType = {
     type: 'array',
     items: Type
 }
 
-export type ObjectType = StructType | ArrayType
+export type ObjectType = StructType | ArrayType | MapType
 
 export type PrimitiveType = {
     type: 'primitive',
@@ -115,7 +120,19 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression
+
+export type CallExpression = {
+    type: 'call',
+    callable: ReferenceValue,
+    args: Value[],
+}
+
+export type MemberExpression = {
+    type: 'member',
+    target: ReferenceValue,
+    property: Value
+}
 
 export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression
 // plus Expressions
@@ -196,7 +213,7 @@ export type ExpressionStatement = {
 // build
 export type Build = {
     types: Types,
-    functions: {[name: string]: Function}
+    callables: {[name: string]: Callable}
 }
 
 export type Environment = {

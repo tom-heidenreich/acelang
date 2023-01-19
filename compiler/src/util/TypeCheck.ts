@@ -2,22 +2,26 @@ import { DataType, Key, Param, Literal, Type, Types, ValueNode } from "../types"
 
 export default class TypeCheck {
 
-    public static matchesPrimitive(types: Types, match: Type, against: DataType): boolean {
-        if(against === 'unknown' || against === 'any') return true;
-        else if(match.type === 'primitive') {
-            if(match.primitive === 'any' || match.primitive === 'unknown') return true;
-            return match.primitive === against;
+    public static matchesPrimitive(types: Types, match: Type, ...against: DataType[]): boolean {
+        if(against.length === 0) return false;
+        else if(against.length > 1) return against.some(type => TypeCheck.matchesPrimitive(types, match, type));
+        else {
+            if(against[0] === 'unknown' || against[0] === 'any') return true;
+            else if(match.type === 'primitive') {
+                if(match.primitive === 'any' || match.primitive === 'unknown') return true;
+                return match.primitive === against[0];
+            }
+            else if(match.type === 'reference') {
+                return TypeCheck.matchesPrimitive(types, types[match.reference], against[0]);
+            }
+            else if(match.type === 'union') {
+                return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against[0]));
+            }
+            else if(match.type === 'struct' || match.type === 'array') {
+                return against[0] === 'object';
+            }
+            return false;
         }
-        else if(match.type === 'reference') {
-            return TypeCheck.matchesPrimitive(types, types[match.reference], against);
-        }
-        else if(match.type === 'union') {
-            return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against));
-        }
-        else if(match.type === 'struct' || match.type === 'array') {
-            return against === 'object';
-        }
-        return false;
     }
 
     public static matchesValue(types: Types, match: Type, against: ValueNode): boolean {
@@ -82,12 +86,16 @@ export default class TypeCheck {
         return true;
     }
 
-    public static resolveObject(types: Types, type: Type, key: Key): Type | undefined {
+    public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'reference') {
             return TypeCheck.resolveObject(types, types[type.reference], key);
         }
         else if(type.type === 'struct') {
-            return type.properties[key];
+            if(key.value.type !== 'literal') return undefined;
+            return type.properties[key.value.literal.toString()];
+        }
+        else if(type.type === 'map') {
+            return type.values;
         }
         else if(type.type === 'array') {
             return type.items;
