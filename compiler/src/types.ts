@@ -1,45 +1,39 @@
+export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block'
+
 export type Token = {
     value: string;
-    type: 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block';
+    type: TokenType;
     specificType?: DataType;
     block?: Token[][];
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type']
-export const SYMBOLS: Symbol[] = ['=', ':', ',', '.', '|']
-export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!']
+export const OPERATORS: Operator[] = ['=', '+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
+export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|']
 
-export type DataType = 'string' | 'int' | 'float' | 'void' | 'unknown' | 'callable' | 'object' | 'any';
+export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
+export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type';
-export type Symbol = '=' | ':' | ',' | '.' | '|'
-export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' ;
+export type Symbol =  Operator | ':' | ',' | '.' | '|'
+export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
 export type Identifier = string;
-export type Primitive = string | number | boolean;
+export type Literal = string | number | boolean;
 export type Key = string | number;
 
-// keywords
-export type Const = {
-    type: 'const',
-    name: string,
-    value: Value,
+// fields
+export type Field = {
+    type: Type,
 }
 
-export type Var = {
-    type: 'var',
-    name: string,
-    value?: Value,
+export type Fields = {
+    [name: string]: Field
 }
 
-export type Return = {
-    type: 'return',
-    value?: Value,
-}
-
-export type Sync = {
-    type: 'sync',
-    instructions: Instructions,
+export type FieldEnv = {
+    parent?: FieldEnv,
+    local: Fields,
 }
 
 // functions
@@ -48,30 +42,9 @@ export type Param = {
     type: Type,
 }
 
-export type Function = {
-    params: Param[],
-    returnType: Type,
-    body: Instructions,
+export type Callable = {
+    body: Statement[],
     isSync: boolean,
-}
-
-export type Functions = {
-    [name: string]: Function,
-}
-
-// fields
-export type Field = {
-    type: Type,
-    reference?: Identifier,
-}
-
-export type Fields = {
-    [name: string]: Field
-}
-
-export type FieldInstructions = {
-    parent?: FieldInstructions,
-    local: Fields,
 }
 
 // types
@@ -82,7 +55,7 @@ export type ReferenceType = {
 
 export type LiteralType = {
     type: 'literal',
-    literal: Primitive
+    literal: Literal
 }
 
 export type UnionType = {
@@ -95,72 +68,51 @@ export type StructType = {
     properties: Types
 }
 
+export type MapType = {
+    type: 'map',
+    values: Type
+}
+
 export type ArrayType = {
     type: 'array',
     items: Type
 }
 
-export type ObjectType = StructType | ArrayType
+export type ObjectType = StructType | ArrayType | MapType
+
+export type CallableType = {
+    type: 'callable',
+    params: Type[],
+    returnType: Type,
+}
 
 export type PrimitiveType = {
     type: 'primitive',
     primitive: DataType
 }
 
-export type Type = (PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType)
+export type Type = PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType | CallableType
 
 export type Types = {
     [name: string]: Type,
 }
 
 // values
-export type Value = (PrimitiveValue | Execution | Reference | Struct | ArrayValue)
-export type ValueResult = {
-    value: Value,
-    type: Type,
-}
+export type Value = (LiteralValue | ReferenceValue | StructValue | ArrayValue | Expression)
 
-export type PrimitiveValue = {
-    type: 'primitive',
-    primitive: Primitive
+export type LiteralValue = {
+    type: 'literal',
+    literal: Literal,
+    literalType: LiteralDataType,
 };
 
-export type Reference = {
+export type ReferenceValue = {
     type: 'reference',
     reference: string,
 }
 
-// steps
-export type Steps = {
-    type: 'steps',
-    value: Step[]
-}
-export type Step = Operation
-
-// operations
-export type Operation = PlusOperation
-
-export type PlusOperation = AddInt | AddFloat | ConcatString
-export type AddInt = {
-    type: 'intAdd',
-    left: Execution,
-    right: Execution,
-}
-
-export type AddFloat = {
-    type: 'floatAdd',
-    left: Execution,
-    right: Execution,
-}
-
-export type ConcatString = {
-    type: 'stringConcat',
-    left: Execution,
-    right: Execution,
-}
-
 // objects
-export type Struct = {
+export type StructValue = {
     type: 'struct',
     properties: {[name: string]: Value},
 }
@@ -170,41 +122,109 @@ export type ArrayValue = {
     items: Value[],
 }
 
-// execution
-export type Execution = PrimitiveValue | Executable | Operation
-export type Executable = Call | Access | Set
+// expression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression
 
-export type ExecutionResult = {
-    type: Type,
-    value: Execution,
-}
-
-export type Call = {
+export type CallExpression = {
     type: 'call',
-    address: Identifier,
-    args: Value[]
+    callable: Value,
+    args: Value[],
 }
 
-export type Access = {
-    type: 'access',
-    address: Identifier,
-    key: Primitive,
+export type MemberExpression = {
+    type: 'member',
+    target: Value,
+    property: Value
 }
 
-export type Set = {
-    type: 'set',
-    address: Identifier,
+export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression
+// plus Expressions
+export type AddIntExpression = {
+    type: 'intAdd',
+    left: Value,
+    right: Value,
+}
+
+export type AddFloatExpression = {
+    type: 'floatAdd',
+    left: Value,
+    right: Value,
+}
+
+export type ConcatStringExpression = {
+    type: 'stringConcat',
+    left: Value,
+    right: Value,
+}
+
+export type MultiplyExpression = MultiplyIntExpression | MultiplyFloatExpression
+// multiplication Expressions
+export type MultiplyIntExpression = {
+    type: 'intMultiply',
+    left: Value,
+    right: Value,
+}
+
+export type MultiplyFloatExpression = {
+    type: 'floatMultiply',
+    left: Value,
+    right: Value,
+}
+
+export type ValueNode = {
+    type: Type,
     value: Value,
+}
+
+export type Statement = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | SyncStatement | ExpressionStatement
+
+export type VariableDeclaration = {
+    type: 'variableDeclaration',
+    name: Identifier,
+    value?: Value,
+}
+
+export type ConstantDeclaration = {
+    type: 'constantDeclaration',
+    name: Identifier,
+    value: Value,
+}
+
+export type FunctionDeclaration = {
+    type: 'functionDeclaration',
+    name: Identifier,
+    params: Param[],
+    returnType: Type,
+    body: Statement[],
+}
+
+export type ReturnStatement = {
+    type: 'returnStatement',
+    value: Value,
+}
+
+export type SyncStatement = {
+    type: 'syncStatement',
+    body: Statement[],
+}
+
+export type ExpressionStatement = {
+    type: 'expressionStatement',
+    expression: Value,
 }
 
 // build
 export type Build = {
-    functions: Functions,
     types: Types,
-    main: Instructions,
+    callables: {[name: string]: Callable}
 }
 
-export type Instructions = {
-    fields: FieldInstructions,
-    run: (Const | Var | Sync | Return | Executable)[],
+export type Environment = {
+    fields: FieldEnv,
+}
+
+export type LineState = {
+    build: Build,
+    env: Environment,
+    lineIndex: number,
 }

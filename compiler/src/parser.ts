@@ -1,12 +1,22 @@
-import StringBuffer from './buffer';
-import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator } from './types';
+import StringBuffer from './util/buffer';
+import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator, TokenType } from './types';
 
 // TODO: refactor whole file
 
 function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
-        const exType = KEYWORDS.includes(value as Keyword) ? 'keyword' : !type ? 'identifier' : type;
+        if(value.trim() === '') return;
+        let exType: TokenType | undefined = type;
+        if(type === 'symbol') {
+            // check if it's an operator
+            if(OPERATORS.includes(value as Operator)) {
+                exType = 'operator';
+            }
+        }
+        else exType = KEYWORDS.includes(value as Keyword) ? 'keyword' : !type ? 'identifier' : type;
+        if(!exType) throw new Error(`Unknown token type: ${value}`)
+
         line.push({
             value,
             type: exType,
@@ -22,7 +32,7 @@ export function parse(content: string, inBlock: boolean = false) {
 
     let buffer = new StringBuffer();
 
-    let structure: 'string' | 'int' | 'float' | 'comment' | 'block' | undefined;
+    let structure: 'string' | 'int' | 'float' | 'comment' | 'block' | 'symbol' | undefined;
 
     let bracketType: '(' | '{' | '[' | undefined;
     let countParenthesis = 0;
@@ -33,6 +43,13 @@ export function parse(content: string, inBlock: boolean = false) {
         if(structure === 'comment') {
             if(c === '\n') structure = undefined;
             continue;
+        }
+        if(structure === 'symbol') {
+            if(!SYMBOLS.includes(c as Symbol)) {
+                pushBuffer(line, buffer, 'symbol');
+                structure = undefined;
+            }
+            else continue;
         }
         if(structure === 'block') {
             if(c === '{') countCurlyBrackets++;
@@ -157,23 +174,12 @@ export function parse(content: string, inBlock: boolean = false) {
             continue;
         }
         if(SYMBOLS.includes(c as Symbol)) {
-            if(!structure) pushBuffer(line, buffer);
-            else pushBuffer(line, buffer, 'datatype', structure);
-            structure = undefined;
-            line.push({
-                value: c,
-                type: 'symbol'
-            });
-            continue;
-        }
-        if(OPERATORS.includes(buffer.toString() + c as Operator)) {
-            if(!structure) pushBuffer(line, buffer);
-            else pushBuffer(line, buffer, 'datatype', structure);
-            structure = undefined;
-            line.push({
-                value: c,
-                type: 'operator'
-            });
+            if(structure !== 'symbol') {
+                if(!structure) pushBuffer(line, buffer);
+                else pushBuffer(line, buffer, 'datatype', structure);
+                structure = 'symbol';
+            }
+            buffer.append(c);
             continue;
         }
         else buffer.append(c);

@@ -1,32 +1,40 @@
-import { DataType, Key, Primitive, Type, Types, ValueResult } from "../types";
+import { DataType, Key, Param, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
-    public static matchesPrimitive(types: Types, match: Type, against: DataType): boolean {
-        if(against === 'unknown' || against === 'any') return true;
-        else if(match.type === 'primitive') {
-            return match.primitive === against;
+    public static matchesPrimitive(types: Types, match: Type, ...against: DataType[]): boolean {
+        if(against.length === 0) return false;
+        else if(against.length > 1) return against.some(type => TypeCheck.matchesPrimitive(types, match, type));
+        else {
+            if(against[0] === 'unknown' || against[0] === 'any') return true;
+            else if(match.type === 'primitive') {
+                if(match.primitive === 'any' || match.primitive === 'unknown') return true;
+                return match.primitive === against[0];
+            }
+            else if(match.type === 'reference') {
+                return TypeCheck.matchesPrimitive(types, types[match.reference], against[0]);
+            }
+            else if(match.type === 'union') {
+                return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against[0]));
+            }
+            else if(match.type === 'struct' || match.type === 'array') {
+                return against[0] === 'object';
+            }
+            return false;
         }
-        else if(match.type === 'reference') {
-            return TypeCheck.matchesPrimitive(types, types[match.reference], against);
-        }
-        else if(match.type === 'union') {
-            return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against));
-        }
-        else if(match.type === 'struct' || match.type === 'array') {
-            return against === 'object';
-        }
-        return false;
     }
 
-    public static matchesValue(types: Types, match: Type, against: ValueResult): boolean {
-        const againstValue = against.value.type === 'primitive' ? against.value.primitive : undefined;
+    public static matchesValue(types: Types, match: Type, against: ValueNode): boolean {
+        const againstValue = against.value.type === 'literal' ? against.value.literal : undefined;
         return TypeCheck.matches(types, match, against.type, againstValue);
     }
 
-    public static matches(types: Types, match: Type, against: Type, againstValue?: Primitive): boolean {
+    public static matches(types: Types, match: Type, against: Type, againstValue?: Literal): boolean {
 
         // match
+        if(match.type === 'primitive') {
+            if(match.primitive === 'any' || match.primitive === 'unknown') return true;
+        }
         if(match.type === 'union') {
             return match.oneOf.some(type => TypeCheck.matches(types, type, against, againstValue));
         }
@@ -70,12 +78,25 @@ export default class TypeCheck {
         return false;
     }
 
-    public static resolveObject(types: Types, type: Type, key: Key): Type | undefined {
+    public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
+        if(args.length < params.length) return false;
+        for(let i = 0; i < params.length; i++) {
+            if(!TypeCheck.matchesValue(types, params[i], args[i])) return false;
+        }
+        return true;
+    }
+
+    public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'reference') {
             return TypeCheck.resolveObject(types, types[type.reference], key);
         }
         else if(type.type === 'struct') {
-            return type.properties[key];
+            if(key.value.type !== 'literal') return undefined;
+            console.log(type, key.value.literal.toString(), type.properties[key.value.literal.toString()]);
+            return type.properties[key.value.literal.toString()];
+        }
+        else if(type.type === 'map') {
+            return type.values;
         }
         else if(type.type === 'array') {
             return type.items;
@@ -94,12 +115,8 @@ export default class TypeCheck {
     }
 
     public static resolvePrimitive(types: Types, type: Type): DataType {
-        if(type.type === 'primitive') {
-            return type.primitive;
-        }
-        else if(type.type === 'reference') {
-            return TypeCheck.resolvePrimitive(types, types[type.reference]);
-        }
+        if(type.type === 'primitive') return type.primitive;
+        else if(type.type === 'reference') return TypeCheck.resolvePrimitive(types, types[type.reference]);
         else if(type.type === 'union') {
             const resolvedTypes: DataType[] = [] 
             for(const oneOfType of type.oneOf) {
@@ -110,13 +127,12 @@ export default class TypeCheck {
             else if(resolvedTypes.length === 1) return resolvedTypes[0];
             else return 'any';
         }
-        else if(type.type === 'struct' || type.type === 'array') {
-            return 'object';
-        }
+        else if(type.type === 'struct' || type.type === 'array') return 'object';
+        else if(type.type === 'callable') return 'callable';
         return 'unknown';
     }
 
-    public static stringify(type: Type): Primitive {
+    public static stringify(type: Type): Literal {
         if(type.type === 'primitive') {
             return type.primitive;
         }
@@ -134,6 +150,29 @@ export default class TypeCheck {
         }
         else if(type.type === 'literal') {
             return type.literal;
+        }
+        return 'unknown';
+    }
+
+    public static toPrimitive(types: Types, type: Type): DataType {
+        if(type.type === 'primitive') {
+            return type.primitive;
+        }
+        else if(type.type === 'reference') {
+            return TypeCheck.toPrimitive(types, types[type.reference]);
+        }
+        else if(type.type === 'union') {
+            const resolvedTypes: DataType[] = [] 
+            for(const oneOfType of type.oneOf) {
+                const resolved = TypeCheck.toPrimitive(types, oneOfType);
+                if(resolvedTypes.indexOf(resolved) === -1) resolvedTypes.push(resolved);
+            }
+            if(resolvedTypes.length === 0) return 'unknown';
+            else if(resolvedTypes.length === 1) return resolvedTypes[0];
+            else return 'any';
+        }
+        else if(type.type === 'struct' || type.type === 'array') {
+            return 'object';
         }
         return 'unknown';
     }

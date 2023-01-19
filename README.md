@@ -48,8 +48,6 @@ if (myVar == "hello world") {
     console.log("hello world")
 } else if (myVar == "hello") {
     console.log("hello")
-} elif (myVar == "world") {
-    console.log("world")
 } else {
     console.log("not hello world")
 }
@@ -107,7 +105,6 @@ sync func myFunc4() {
     console.log(value)
 }
 ```
-`note: calling a function without sync keyword in a synchronized block will be executed asynchronously`
 
 ### class
 ```
@@ -124,17 +121,17 @@ class myClass {
     }
 
     # methods
-    public func myFunc() {
+    public myFunc() {
         console.log(this.myVar)
     }
 
     # methods with parameters)
-    public func myFunc(myVar: string) {
+    public myFunc(myVar: string) {
         console.log(myVar)
     }
 
     # static methods
-    public static func myFunc2() {
+    public static myFunc2() {
         console.log("hello world")
     }
 }
@@ -150,7 +147,7 @@ class myClass2 extends myClass {
     }
 
     # override methods
-    public func myFunc() {
+    public myFunc() {
         console.log("hello world")
     }
 }
@@ -210,3 +207,38 @@ type NumberList = (int | float)[]
     }
 }
 ```
+
+## New Instruction Design
+
+```
+# will create field 'a', malloc 0x0000 and move 'hello' to 0x0000
+const a = "hello"
+
+# will create field 'b' with a pointer to 0x0000
+const b = a
+
+# will create field 'c', malloc 0x0001, move '1' to 0x0001, add '2' to 0x0001
+const c = 1 + 2
+
+# will create field 'd', (somehow recognize it's not a pointer, ) malloc 0x0002, move 0x0001 to 0x0002, add '1' to 0x0002
+const d = c + 1
+
+# will create field 'e'
+func e() {
+
+    # will create field 'a' in 'e', malloc 0x0003, move '1' to 0x0003, add '1' to 0x0003
+    const a = 1 + 1
+
+    # will move 0x0003 to 0xffff (return cache) 
+    return a
+}
+
+# will create field 'f', malloc 0x0005, run 'e' and move 0xffff to 0x0005 
+const f = a()
+```
+
+# Runtime
+
+## Memory
+
+* First bit shows if value is ready or not
