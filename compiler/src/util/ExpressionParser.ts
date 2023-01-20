@@ -1,8 +1,7 @@
 import { LineState, Operator, Token, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
-import FieldResolve from "./FieldResolve";
 import TypeCheck from "./TypeCheck";
-import Values from "./values";
+import Values from "../parser/values";
 
 export default class ExpressionParser {
 

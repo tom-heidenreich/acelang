@@ -1,8 +1,8 @@
-import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode, ReferenceValue } from "../types";
-import Cursor from "./cursor";
-import ExpressionParser from "./ExpressionParser";
-import FieldResolve from "./FieldResolve";
-import TypeCheck from "./TypeCheck";
+import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode } from "../types";
+import Cursor from "../util/cursor";
+import ExpressionParser from "../util/ExpressionParser";
+import FieldResolve from "../util/FieldResolve";
+import TypeCheck from "../util/TypeCheck";
 
 function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
     
