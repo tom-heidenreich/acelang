@@ -97,8 +97,7 @@ export function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: b
         fields: {
             local: paramFields,
             parent: lineState.env.fields,
-        },
-        run: []
+        }
     }
 
     // add function to build

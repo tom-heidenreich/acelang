@@ -24,8 +24,7 @@ export function parseSync(lineState: LineState, cursor: Cursor<Token>): Statemen
         fields: {
             local: {},
             parent: lineState.env.fields,
-        },
-        run: []
+        }
     }
     
     // parse body
