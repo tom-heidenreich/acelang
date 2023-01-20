@@ -1,4 +1,4 @@
-import { LineState, StructType, Token, Type, Types } from "../types";
+import { LineState, Statement, StructType, Token, Type, Types } from "../types";
 import Cursor, { WriteCursor } from "../util/cursor";
 
 function parseStructType(lineState: LineState, cursor: Cursor<Token[]>): StructType {
@@ -142,4 +142,26 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
             oneOf: types
         }
     }
+}
+
+export function parseTypeStatement(lineState: LineState, cursor: Cursor<Token>) {
+
+    const name = cursor.next();
+    
+    if(name.type !== 'identifier') {
+        throw new Error(`Expected identifier, got ${name.type} at line ${lineState.lineIndex}`);
+    }
+    // check if type already exists
+    if(lineState.build.types[name.value]) {
+        throw new Error(`Type already exists: ${name.value} at line ${lineState.lineIndex}`);
+    }
+
+    if(cursor.peek().type !== 'symbol' || cursor.peek().value !== '=') {
+        throw new Error(`Expected symbol '=', got ${cursor.peek().type} at line ${lineState.lineIndex}`);
+    }
+    cursor.next();
+
+    const type = parseType(lineState, cursor);
+
+    lineState.build.types[name.value] = type;
 }

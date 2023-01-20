@@ -3,6 +3,7 @@ import Cursor from "../util/cursor"
 import ExpressionParser from "../util/ExpressionParser"
 import { parseFunc, parseReturn } from "./functions"
 import { parseSync } from "./sync"
+import { parseTypeStatement } from "./types"
 import { parseConst, parseVar } from "./vars"
 
 export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Environment, wrapperName?: string) {
@@ -24,13 +25,13 @@ export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Envir
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        tree.push(parseLine({ lineState, cursor, wrapperName }))
+        tree.push(parseLine({ lineState, cursor, wrapperName })!)
     }
 
     return { tree, env }
 }
 
-function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; cursor: Cursor<Token>; wrapperName?: string; }): Statement {
+function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; cursor: Cursor<Token>; wrapperName?: string; }): Statement | void {
 
     const token = cursor.peek()
     if(token.type === 'keyword') {
@@ -41,6 +42,7 @@ function parseLine({ lineState, cursor, wrapperName }: { lineState: LineState; c
             case 'func': return parseFunc(lineState, cursor)
             case 'return': return parseReturn(lineState, cursor, wrapperName)
             case 'sync': return parseSync(lineState, cursor)
+            case 'type': return parseTypeStatement(lineState, cursor)
         }
     }
     // parse steps
