@@ -33,7 +33,7 @@ var myVar2: string
 const myConst = "hello world"
 ```
 
-### if-else
+### if-else ✔
 ```ace
 if (myVar == "hello world") {
     console.log("hello world")
@@ -42,7 +42,7 @@ if (myVar == "hello world") {
 }
 ```
 
-### if-else if
+### if-else if ✔
 ```ace
 if (myVar == "hello world") {
     console.log("hello world")
@@ -153,7 +153,7 @@ class myClass2 extends myClass {
 }
 ```
 
-### types ➖
+### types ✔
 ```ace
 # unions
 type number = int | float
