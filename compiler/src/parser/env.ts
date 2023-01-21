@@ -29,9 +29,10 @@ export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Envir
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        tree.push(parseLine({ lineState, cursor, wrapperName, pushBefore: statement => {
+        const statement = parseLine({ lineState, cursor, wrapperName, pushBefore: statement => {
             tree.push(statement)
-        }})!)
+        }})
+        if(statement) tree.push(statement)
     }
     if(isIfElseChain) {
         isIfElseChain = false
