@@ -1,6 +1,8 @@
 import { Build, Environment, LineState, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import ExpressionParser from "../util/ExpressionParser"
+import { parseBreakStatement } from "./break"
+import { parseContinueStatement } from "./continue"
 import { parseFunc, parseReturn } from "./functions"
 import { parseIfStatement } from "./if"
 import { parseSync } from "./sync"
@@ -76,6 +78,8 @@ function parseLine({ lineState, cursor, wrappers, pushBefore }: { lineState: Lin
             }
             case 'else': throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
             case 'while': return parseWhileStatement(lineState, cursor, wrappers)
+            case 'break': return parseBreakStatement(lineState, cursor, wrappers)
+            case 'continue': return parseContinueStatement(lineState, cursor, wrappers)
         }
     }
     // parse steps
