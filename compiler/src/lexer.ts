@@ -8,7 +8,7 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
         const value = buffer.clear()
         if(value.trim() === '') return;
         let exType: TokenType | undefined = type;
-        if(type === 'symbol') {
+        if(type === 'symbol') {  
             // check if it's an operator
             if(OPERATORS.includes(value as Operator)) {
                 exType = 'operator';
@@ -49,7 +49,10 @@ export function parse(content: string, inBlock: boolean = false) {
                 pushBuffer(line, buffer, 'symbol');
                 structure = undefined;
             }
-            else continue;
+            else {
+                buffer.append(c);
+                continue;
+            }
         }
         if(structure === 'block') {
             if(c === '{') countCurlyBrackets++;
