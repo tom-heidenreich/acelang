@@ -1,10 +1,10 @@
-import { LineState, Statement, Token } from "../types"
+import { LineState, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import Values from "./values";
 
-export function parseWhileStatement(lineState: LineState, cursor: Cursor<Token>): Statement {
+export function parseWhileStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
     
     const condition = cursor.next()
     if(condition.type !== 'block' || condition.value !== '()') {
@@ -34,9 +34,17 @@ export function parseWhileStatement(lineState: LineState, cursor: Cursor<Token>)
             parent: lineState.env.fields,
         }
     }
+    // create new wrappers
+    const newWrappers = {
+        current: {
+            breakable: true,
+            continuable: true,
+        },
+        parent: wrappers,
+    }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env)
+    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 

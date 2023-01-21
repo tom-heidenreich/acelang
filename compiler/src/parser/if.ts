@@ -1,10 +1,10 @@
-import { IfStatement, LineState, Statement, Token } from "../types";
+import { IfStatement, LineState, Statement, Token, Wrappers } from "../types";
 import Cursor from "../util/cursor";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import Values from "./values";
 
-export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<Token>>): IfStatement {
+export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
 
     // if statement
     const cursor = cursors.next()
@@ -36,9 +36,16 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
             parent: lineState.env.fields,
         }
     }
+    // create new wrappers
+    const newWrappers = {
+        current: {
+            breakable: true,
+        },
+        parent: wrappers,
+    }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env)
+    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 
@@ -64,7 +71,7 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
     }
 }
 
-function parseElseIfStatement(lineState: LineState, cursor: Cursor<Token>): IfStatement {
+function parseElseIfStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): IfStatement {
     
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
@@ -76,10 +83,10 @@ function parseElseIfStatement(lineState: LineState, cursor: Cursor<Token>): IfSt
         throw new Error(`Unexpected token ${ifKeyword.type} ${ifKeyword.value} at line ${lineState.lineIndex}`)
     }
     
-    return parseIfStatement(lineState, new Cursor([cursor]))
+    return parseIfStatement(lineState, new Cursor([cursor]), wrappers)
 }
 
-function parseElseStatement(lineState: LineState, cursor: Cursor<Token>): Statement[] {
+function parseElseStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement[] {
 
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
@@ -99,9 +106,16 @@ function parseElseStatement(lineState: LineState, cursor: Cursor<Token>): Statem
             parent: lineState.env.fields,
         }
     }
+    // create new wrappers
+    const newWrappers = {
+        current: {
+            breakable: true,
+        },
+        parent: wrappers,
+    }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env)
+    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 

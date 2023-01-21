@@ -1,10 +1,11 @@
-import { Fields, LineState, Param, Statement, Token, Type } from "../types"
+import { Fields, LineState, Param, Statement, Token, Type, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck";
 import Values from "./values";
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
+import WrapperResolve from "../util/WrapperResolve";
 
 function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
 
@@ -42,7 +43,7 @@ function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
     return params;
 }
 
-export function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: boolean = false): Statement {
+export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lineState: LineState; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): Statement {
 
     // name
     const name = cursor.next()
@@ -118,8 +119,17 @@ export function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: b
         }
     }
 
+    // create new wrappers
+    const newWrappers: Wrappers = {
+        current: {
+            returnable: true,
+            returnableField: lineState.env.fields.local[name.value]
+        },
+        parent: wrappers,
+    }
+
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, name.value)
+    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
 
     // check if body has return
     const func = lineState.env.fields.local[name.value].type
@@ -153,14 +163,19 @@ export function parseFunc(lineState: LineState, cursor: Cursor<Token>, isSync: b
     }
 }
 
-export function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapperName?: string): Statement {
+export function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
 
-    if(!wrapperName) {
+    if(!wrappers) {
+        throw new Error(`Unexpected return at line ${lineState.lineIndex}`)
+    }
+    
+    // check if returnable
+    if(!WrapperResolve.is(wrappers, 'returnable')) {
         throw new Error(`Unexpected return at line ${lineState.lineIndex}`)
     }
 
     // check if function exists
-    const field = FieldResolve.resolve(lineState.env.fields, wrapperName)
+    const field = WrapperResolve.resolveReturnableField(wrappers)
     if(!field) {
         throw new Error(`No function found at line ${lineState.lineIndex}`)
     }

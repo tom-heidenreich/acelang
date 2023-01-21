@@ -1,4 +1,4 @@
-import { LineState, Statement, Token } from "../types"
+import { LineState, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import { parseEnvironment } from "./env"
 import { parseFunc } from "./functions"
@@ -8,7 +8,7 @@ export function parseSync(lineState: LineState, cursor: Cursor<Token>): Statemen
     // check if next token is function
     const token = cursor.next()
     if(token.type === 'keyword' && token.value === 'func') {
-        return parseFunc(lineState, cursor, true)
+        return parseFunc({ lineState, cursor, isSync: true })
     }
 
     if(token.type !== 'block' || token.value !== '{}') {

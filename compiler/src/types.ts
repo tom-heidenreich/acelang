@@ -233,6 +233,19 @@ export type ExpressionStatement = {
     expression: Value,
 }
 
+// wrapper
+export type Wrappers = {
+    current: Wrapper,
+    parent?: Wrappers,
+}
+
+export type Wrapper = {
+    returnable?: boolean,
+    returnableField?: Field,
+    breakable?: boolean,
+    continuable?: boolean,
+}
+
 // build
 export type Build = {
     types: Types,
