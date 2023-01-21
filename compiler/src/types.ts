@@ -8,13 +8,13 @@ export type Token = {
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
-export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else']
+export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else';
+export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
@@ -182,7 +182,7 @@ export type ValueNode = {
     value: Value,
 }
 
-export type Statement = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | SyncStatement | ExpressionStatement | IfStatement
+export type Statement = VariableDeclaration | ConstantDeclaration | FunctionDeclaration | ReturnStatement | SyncStatement | ExpressionStatement | IfStatement | WhileStatement
 
 export type VariableDeclaration = {
     type: 'variableDeclaration',
@@ -220,6 +220,12 @@ export type IfStatement = {
     body: Statement[],
     elseIf?: IfStatement[],
     else?: Statement[],
+}
+
+export type WhileStatement = {
+    type: 'whileStatement',
+    condition: Value,
+    body: Statement[],
 }
 
 export type ExpressionStatement = {

@@ -6,6 +6,7 @@ import { parseIfStatement } from "./if"
 import { parseSync } from "./sync"
 import { parseTypeStatement } from "./types"
 import { parseConst, parseVar } from "./vars"
+import { parseWhileStatement } from "./while"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
@@ -74,6 +75,7 @@ function parseLine({ lineState, cursor, wrapperName, pushBefore }: { lineState: 
                 return
             }
             case 'else': throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+            case 'while': return parseWhileStatement(lineState, cursor)
         }
     }
     // parse steps

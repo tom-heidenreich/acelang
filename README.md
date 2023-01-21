@@ -81,7 +81,7 @@ for (var i = 0; i < 10; i++) {
 }
 ```
 
-### while loop
+### while loop ✔
 ```ace
 var i = 0
 while (i < 10) {
