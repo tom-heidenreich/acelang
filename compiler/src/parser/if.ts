@@ -46,9 +46,11 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
     const elseIf: IfStatement[] = []
     let elseStatement: Statement[] | undefined
     while(!cursors.done) {
-        if(!cursors.hasOnlyOne()) elseIf.push(parseElseIfStatement(lineState, cursors.next()))
+        const next = cursors.next()
+        const peek = next.peek(1)
+        if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(lineState, next))
         else {
-            elseStatement = parseElseStatement(lineState, cursors.next())
+            elseStatement = parseElseStatement(lineState, next)
             break
         }
     }
@@ -69,7 +71,7 @@ function parseElseIfStatement(lineState: LineState, cursor: Cursor<Token>): IfSt
         throw new Error(`Unexpected token ${keyword.type} ${keyword.value} at line ${lineState.lineIndex}`)
     }
 
-    const ifKeyword = cursor.peek()
+    const ifKeyword = cursor.next()
     if(ifKeyword.type !== 'keyword' || ifKeyword.value !== 'if') {
         throw new Error(`Unexpected token ${ifKeyword.type} ${ifKeyword.value} at line ${lineState.lineIndex}`)
     }
