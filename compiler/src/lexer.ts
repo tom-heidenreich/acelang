@@ -58,8 +58,8 @@ export function parse(content: string, inBlock: boolean = false) {
             if(c === '{') countCurlyBrackets++;
             else if(c === '(') countParenthesis++;
             else if(c === '[') countSquareBrackets++;
-            else if(c === '}' && bracketType === '{') {
-                if(--countCurlyBrackets === 0) {
+            else if(c === '}' && countCurlyBrackets > 0) {
+                if(--countCurlyBrackets === 0 && bracketType === '{') {
                     bracketType = undefined;
                     structure = undefined;
                     line.push({
@@ -70,8 +70,8 @@ export function parse(content: string, inBlock: boolean = false) {
                     continue;
                 }
             }
-            else if(c === ')' && bracketType === '(') {
-                if(--countParenthesis === 0) {
+            else if(c === ')' && countParenthesis > 0) {
+                if(--countParenthesis === 0 && bracketType === '(') {
                     bracketType = undefined;
                     structure = undefined;
                     line.push({
@@ -82,8 +82,8 @@ export function parse(content: string, inBlock: boolean = false) {
                     continue;
                 }
             }
-            else if(c === ']' && bracketType === '[') {
-                if(--countSquareBrackets === 0) {
+            else if(c === ']' && countSquareBrackets > 0) {
+                if(--countSquareBrackets === 0 && bracketType === '[') {
                     bracketType = undefined;
                     structure = undefined;
                     line.push({
