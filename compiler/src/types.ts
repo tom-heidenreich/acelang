@@ -123,7 +123,7 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | EqualsExpression
 
 export type CallExpression = {
     type: 'call',
@@ -167,6 +167,12 @@ export type MultiplyIntExpression = {
 
 export type MultiplyFloatExpression = {
     type: 'floatMultiply',
+    left: Value,
+    right: Value,
+}
+
+export type EqualsExpression = {
+    type: 'equals',
     left: Value,
     right: Value,
 }

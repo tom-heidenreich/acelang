@@ -60,7 +60,7 @@ export default class ExpressionParser {
             case '*':
                 return 2;
             default:
-                return -1;
+                return 0;
         }
     }
 
@@ -68,6 +68,7 @@ export default class ExpressionParser {
         switch(operator) {
             case '+': return parsePlusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
+            case '==': return parseEqualsExpression(lineState, left, right);
             default: throw new Error(`Unknown operator: ${operator} at line ${lineState.lineIndex}`);
         }
     }
@@ -254,5 +255,19 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
     }
     else {
         throw new Error(`Cannot multiply ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+    }
+}
+
+function parseEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'boolean'
+        },
+        value: {
+            type: 'equals',
+            left: left.value,
+            right: right.value
+        }
     }
 }
