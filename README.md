@@ -74,10 +74,11 @@ func myFunc3(myVar: string): string {
 }
 ```
 
-### for loop
+### for loop ✔
 ```ace
-for (var i = 0; i < 10; i++) {
-    console.log(i)
+const myArray = ["hello", "world"]
+for item of myArray {
+    console.log(item)
 }
 ```
 

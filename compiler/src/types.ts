@@ -8,13 +8,13 @@ export type Token = {
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
-export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue']
+export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue'
+export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
@@ -192,7 +192,8 @@ export type Statement = (
     IfStatement |
     WhileStatement |
     BreakStatement |
-    ContinueStatement
+    ContinueStatement |
+    ForStatement
 )
 
 export type VariableDeclaration = {
@@ -236,6 +237,13 @@ export type IfStatement = {
 export type WhileStatement = {
     type: 'whileStatement',
     condition: Value,
+    body: Statement[],
+}
+
+export type ForStatement = {
+    type: 'forStatement',
+    iterable: Value,
+    variable: Identifier,
     body: Statement[],
 }
 
