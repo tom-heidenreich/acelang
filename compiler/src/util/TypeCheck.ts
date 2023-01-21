@@ -78,6 +78,11 @@ export default class TypeCheck {
         return false;
     }
 
+    public static resolveReferences(types: Types, type: Type): Type {
+        if(type.type === 'reference') return TypeCheck.resolveReferences(types, types[type.reference]);
+        else return type;
+    }
+
     public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
         if(args.length < params.length) return false;
         for(let i = 0; i < params.length; i++) {
