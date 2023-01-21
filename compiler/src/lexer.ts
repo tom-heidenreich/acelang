@@ -14,7 +14,12 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
                 exType = 'operator';
             }
         }
-        else exType = KEYWORDS.includes(value as Keyword) ? 'keyword' : !type ? 'identifier' : type;
+        else if(KEYWORDS.includes(value as Keyword)) exType = 'keyword';
+        else if(value === 'true' || value === 'false') {
+            exType = 'datatype';
+            specificType = 'boolean';
+        }
+        else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
         line.push({
