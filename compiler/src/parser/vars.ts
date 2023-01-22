@@ -5,7 +5,7 @@ import TypeCheck from "../util/TypeCheck"
 import Values from "./values"
 import { parseType } from "./types"
 
-function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): Statement {
+export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): Statement {
 
     // name
     const name = cursor.next()

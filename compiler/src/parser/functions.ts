@@ -7,7 +7,7 @@ import { parseEnvironment } from "./env";
 import { parseType } from "./types";
 import WrapperResolve from "../util/WrapperResolve";
 
-function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
+export function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
 
     const params: Param[] = [];
 
@@ -101,12 +101,6 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
         }
     }
 
-    // add function to build
-    lineState.build.callables[name.value] = {
-        body: [],
-        isSync,
-    }
-
     // add field
     lineState.env.fields.local[name.value] = {
         type: {
@@ -151,8 +145,11 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
         throw new Error(`No return type found at line ${lineState.lineIndex}`)
     }
 
-    // add body
-    lineState.build.callables[name.value].body = body.tree
+    // add function to build
+    lineState.build.callables[name.value] = {
+        body: body.tree,
+        isSync,
+    }
 
     return {
         type: 'functionDeclaration',
