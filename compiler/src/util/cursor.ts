@@ -31,7 +31,7 @@ export default class Cursor<T> {
     public remaining(): Cursor<T> {
         const cursor = this.cursor;
         this.cursor = this.array.length;
-        return new Cursor(this.array, cursor);
+        return new Cursor(this.array.slice(cursor));
     }
 
     public get remainingLength() {
