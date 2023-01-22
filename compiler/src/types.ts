@@ -11,13 +11,13 @@ export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', '
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor']
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
-export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
+export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor';
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
-export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
+export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
 export type Identifier = string;

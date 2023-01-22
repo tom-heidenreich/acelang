@@ -125,44 +125,63 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 }
             }
         }
-        // member access
-        else if(token.type === 'symbol' && token.value === '.') {
+        else if(token.type === 'symbol') {
+            // member access
+            if(token.value === '.') {
+                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
-            if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+                const property = cursor.next();
+                if(property.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`)
 
-            const property = cursor.next();
-            if(property.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`)
+                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
+                    throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
+                }
 
-            if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
-                throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
-            }
+                const propertyNode: ValueNode = {
+                    type: {
+                        type: 'primitive',
+                        primitive: 'string'
+                    },
+                    value: {
+                        type: 'literal',
+                        literal: property.value,
+                        literalType: 'string'
+                    }
+                }
+                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, propertyNode)
+                if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
 
-            const propertyNode: ValueNode = {
-                type: {
-                    type: 'primitive',
-                    primitive: 'string'
-                },
-                value: {
-                    type: 'literal',
-                    literal: property.value,
-                    literalType: 'string'
+                lastValue = {
+                    type: propertyType,
+                    value: {
+                        type: 'member',
+                        target: lastValue.value,
+                        property: propertyNode.value
+                    }
                 }
             }
-            const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, propertyNode)
-            if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
+            // undefined check
+            else if(token.value === '?') {
+                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
-            lastValue = {
-                type: propertyType,
-                value: {
-                    type: 'member',
-                    target: lastValue.value,
-                    property: propertyNode.value
+                lastValue = {
+                    type: {
+                        type: 'primitive',
+                        primitive: 'boolean'
+                    },
+                    value: {
+                        type: 'equals',
+                        left: lastValue.value,
+                        right: {
+                            type: 'undefined',
+                        }
+                    }
                 }
             }
         }
         // value
         else {
-            if(lastValue) throw new Error(`Unexpected value at line ${lineState.lineIndex}`);
+            if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at line ${lineState.lineIndex}`);
             const value = Values.parseValue(lineState, new Cursor([token]));
             lastValue = value;
         }

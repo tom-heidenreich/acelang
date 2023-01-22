@@ -107,7 +107,7 @@ sync func myFunc4() {
 }
 ```
 
-### class
+### class ✔
 ```ace
 class myClass {
 
@@ -170,3 +170,9 @@ type UserNumberMap = { [key: string]: number }
 # arrays with unions
 type NumberList = (int | float)[]
 ```
+
+### undefined check
+```ace
+if(myVar?) {
+    console.log("not undefined")
+}
