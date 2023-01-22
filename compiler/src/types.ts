@@ -196,6 +196,7 @@ export type ValueNode = {
 
 // statements
 export type Statement = (
+    MultiStatement |
     VariableDeclaration |
     ConstantDeclaration |
     FunctionDeclaration |
@@ -209,6 +210,11 @@ export type Statement = (
     ForStatement |
     ClassDeclarationStatement
 )
+
+export type MultiStatement = {
+    type: 'multiStatement',
+    statements: Statement[],
+}
 
 export type VariableDeclaration = {
     type: 'variableDeclaration',

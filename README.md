@@ -201,7 +201,7 @@ import myModule from "./myModule.ts"
 export myVar
 ```
 
-### Desctructuring
+### Desctructuring ✔
 ```ace
 # struct
 const myStruct = {
