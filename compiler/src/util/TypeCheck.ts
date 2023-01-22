@@ -20,6 +20,9 @@ export default class TypeCheck {
             else if(match.type === 'struct' || match.type === 'array') {
                 return against[0] === 'object';
             }
+            else if(match.type === 'literal' && match.literal === 'undefined') {
+                return against[0] === 'undefined';
+            }
             return false;
         }
     }

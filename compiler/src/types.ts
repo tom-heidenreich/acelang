@@ -7,14 +7,14 @@ export type Token = {
     block?: Token[][];
 }
 
-export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
+export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor']
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
-export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
+export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor';
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
@@ -106,13 +106,17 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | ReferenceValue | StructValue | ArrayValue | Expression)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression)
 
 export type LiteralValue = {
     type: 'literal',
     literal: Literal,
     literalType: LiteralDataType,
 };
+
+export type UndefinedValue = {
+    type: 'undefined',
+}
 
 export type ReferenceValue = {
     type: 'reference',
