@@ -77,6 +77,10 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
         if(!type) {
             throw new Error(`No type found at line ${lineState.lineIndex}`)
         }
+        // type has to include undefined
+        if(!TypeCheck.matchesPrimitive(lineState.build.types, type, 'undefined')) {
+            throw new Error(`Type ${TypeCheck.stringify(type)} does not include undefined at line ${lineState.lineIndex}`)
+        }
 
         // add field
         lineState.env.fields.local[name.value] = {
