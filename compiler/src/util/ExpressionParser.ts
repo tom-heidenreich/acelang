@@ -80,7 +80,6 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
     while(!cursor.done) {
         const token = cursor.next();
-        // console.log(token);
         
         if(token.type === 'block') {
 

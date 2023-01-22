@@ -92,12 +92,12 @@ export default class TypeCheck {
     }
 
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
-        if(type.type === 'reference') {
+        if(type.type === 'primitive' && type.primitive === 'any') return type;
+        else if(type.type === 'reference') {
             return TypeCheck.resolveObject(types, types[type.reference], key);
         }
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
-            console.log(type, key.value.literal.toString(), type.properties[key.value.literal.toString()]);
             return type.properties[key.value.literal.toString()];
         }
         else if(type.type === 'map') {
