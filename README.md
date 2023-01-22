@@ -171,8 +171,46 @@ type UserNumberMap = { [key: string]: number }
 type NumberList = (int | float)[]
 ```
 
-### undefined check
+### undefined check ✔
 ```ace
 if(myVar?) {
     console.log("not undefined")
 }
+```
+
+### Imports
+```ace
+# import module
+import myModule from "./myModule.ace"
+# import module with alias
+import myModule as myAlias from "./myModule.ace"
+```
+
+### Javascript Imports
+```ace
+import myModule from "./myModule.js"
+```
+
+### Typescript Imports
+```ace
+import myModule from "./myModule.ts"
+```
+
+### Exports
+```ace
+export myVar
+```
+
+### Desctructuring
+```ace
+# struct
+const myStruct = {
+    name: "hello",
+    age: 10,
+}
+const { name, age } = myStruct
+
+# array
+const myArray = ["hello", "world"]
+const [first, second] = myArray
+```
