@@ -1,5 +1,5 @@
 import StringBuffer from './util/buffer';
-import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator, TokenType } from './types';
+import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator, TokenType, MODIFIERS, Modifier } from './types';
 
 // TODO: refactor whole file
 
@@ -15,6 +15,7 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
             }
         }
         else if(KEYWORDS.includes(value as Keyword)) exType = 'keyword';
+        else if(MODIFIERS.includes(value as Modifier)) exType = 'modifier';
         else if(value === 'true' || value === 'false') {
             exType = 'datatype';
             specificType = 'boolean';

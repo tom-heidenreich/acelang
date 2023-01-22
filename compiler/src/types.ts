@@ -1,4 +1,4 @@
-export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'block'
+export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
 export type Token = {
     value: string;
@@ -9,18 +9,25 @@ export type Token = {
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
 export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of']
+export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
 export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of';
+export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
 export type Identifier = string;
 export type Literal = string | number | boolean;
 export type Key = string | number;
+export type Modifiers = {
+    isPublic: boolean,
+    isStatic: boolean,
+    isAbstract: boolean,
+}
 
 // fields
 export type Field = {
@@ -182,6 +189,7 @@ export type ValueNode = {
     value: Value,
 }
 
+// statements
 export type Statement = (
     VariableDeclaration |
     ConstantDeclaration |
