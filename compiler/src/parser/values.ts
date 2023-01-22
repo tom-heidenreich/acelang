@@ -150,9 +150,20 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
     };
 }
 
+function stringify(value: Value): string {
+    switch(value.type) {
+        case 'literal': return value.literal.toString();
+        case 'reference': return value.reference;
+        case 'array': return `[${value.items.map(stringify).join(', ')}]`;
+        case 'struct': return `{${Object.entries(value.properties).map(([key, value]) => `${key}: ${stringify(value)}`).join(', ')}}`;
+    }
+    throw new Error(`Unknown value type: ${value}`);
+}
+
 const Values = {
     parseValue,
     parseArray,
-    parseStruct
+    parseStruct,
+    stringify,
 }
 export default Values 
