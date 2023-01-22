@@ -24,6 +24,7 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
             exType = 'datatype';
             specificType = 'boolean';
         }
+        else if(SYMBOLS.includes(value as Symbol)) exType = 'symbol';
         else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
