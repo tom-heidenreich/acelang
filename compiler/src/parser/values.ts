@@ -61,7 +61,7 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             }
         }
         else {
-            throw new Error(`Unknown type: ${token.type} at line ${lineState.lineIndex}`);
+            throw new Error(`Unknown type: ${token.type} ${token.value} at line ${lineState.lineIndex}`);
         }
     }
     else {

@@ -43,7 +43,7 @@ export function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
     return params;
 }
 
-export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lineState: LineState; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): Statement {
+export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lineState: LineState; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
 
     // name
     const name = cursor.next()
@@ -102,15 +102,16 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     }
 
     // add field
+    const functionType: Type = {
+        type: 'callable',
+        params: params.map(param => param.type),
+        returnType: {
+            type: 'primitive',
+            primitive: 'unknown',
+        },
+    }
     lineState.env.fields.local[name.value] = {
-        type: {
-            type: 'callable',
-            params: params.map(param => param.type),
-            returnType: {
-                type: 'primitive',
-                primitive: 'unknown',
-            },
-        }
+        type: functionType
     }
 
     // create new wrappers
@@ -152,11 +153,14 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     }
 
     return {
-        type: 'functionDeclaration',
-        name: name.value,
-        params,
-        returnType: func.returnType,
-        body: body.tree,
+        type: functionType,
+        statement: {
+            type: 'functionDeclaration',
+            name: name.value,
+            params,
+            returnType: func.returnType,
+            body: body.tree,
+        }
     }
 }
 
@@ -182,7 +186,7 @@ export function parseReturn(lineState: LineState, cursor: Cursor<Token>, wrapper
     }
 
     // value
-    const valueToken = Values.parseValue(lineState, cursor)
+    const valueToken = Values.parseValue(lineState, cursor.remaining())
     const value = valueToken.value
 
     // check if types match

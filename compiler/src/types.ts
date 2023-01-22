@@ -8,14 +8,14 @@ export type Token = {
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any']
-export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of']
+export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor']
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of';
+export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor';
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '='
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
@@ -24,9 +24,10 @@ export type Identifier = string;
 export type Literal = string | number | boolean;
 export type Key = string | number;
 export type Modifiers = {
-    isPublic: boolean,
-    isStatic: boolean,
-    isAbstract: boolean,
+    access?: 'public' | 'private',
+    isStatic?: boolean,
+    isAbstract?: boolean,
+    isFinal?: boolean,
 }
 
 // fields
@@ -201,7 +202,8 @@ export type Statement = (
     WhileStatement |
     BreakStatement |
     ContinueStatement |
-    ForStatement
+    ForStatement |
+    ClassDeclarationStatement
 )
 
 export type VariableDeclaration = {
@@ -268,6 +270,41 @@ export type ExpressionStatement = {
     expression: Value,
 }
 
+// class statements
+export type ClassDeclarationStatement = {
+    type: 'classDeclaration',
+    name: Identifier,
+    body: ClassStatement[],
+} 
+
+export type ClassStatement = (
+    ClassAttributeDeclaration |
+    ClassFunctionDeclaration |
+    ClassConstructorDeclaration
+)
+
+export type ClassAttributeDeclaration = {
+    type: 'classAttributeDeclaration',
+    name: Identifier,
+    value?: Value,
+    modifiers: Modifiers,
+}
+
+export type ClassFunctionDeclaration = {
+    type: 'classFunctionDeclaration',
+    name: Identifier,
+    params: Param[],
+    returnType: Type,
+    body: Statement[],
+    modifiers: Modifiers,
+}
+
+export type ClassConstructorDeclaration = {
+    type: 'classConstructorDeclaration',
+    params: Param[],
+    body: Statement[],
+}
+
 // wrapper
 export type Wrappers = {
     current: Wrapper,
@@ -279,6 +316,7 @@ export type Wrapper = {
     returnableField?: Field,
     breakable?: boolean,
     continuable?: boolean,
+    class?: boolean,
 }
 
 // build

@@ -5,7 +5,7 @@ import TypeCheck from "../util/TypeCheck"
 import Values from "./values"
 import { parseType } from "./types"
 
-export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): Statement {
+export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, isConst: boolean = false): { statement: Statement, type: Type } {
 
     // name
     const name = cursor.next()
@@ -54,14 +54,20 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
         }
         
         if(isConst) return {
-            type: 'constantDeclaration',
-            name: name.value,
-            value,
+            type,
+            statement: {
+                type: 'constantDeclaration',
+                name: name.value,
+                value,
+            }
         }
         else return {
-            type: 'variableDeclaration',
-            name: name.value,
-            value,
+            type,
+            statement: {
+                type: 'variableDeclaration',
+                name: name.value,
+                value,
+            }
         }
 
     }
@@ -78,8 +84,11 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
         }
 
         return {
-            type: 'variableDeclaration',
-            name: name.value,
+            type,
+            statement: {
+                type: 'variableDeclaration',
+                name: name.value,
+            }
         }
     }
     else {
@@ -88,9 +97,9 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
 }
 
 export function parseConst(lineState: LineState, cursor: Cursor<Token>) {
-    return parseDeclaration(lineState, cursor, true)
+    return parseDeclaration(lineState, cursor, true).statement
 }
 
 export function parseVar(lineState: LineState, cursor: Cursor<Token>) {
-    return parseDeclaration(lineState, cursor, false)
+    return parseDeclaration(lineState, cursor, false).statement
 }
