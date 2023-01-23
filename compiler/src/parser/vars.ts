@@ -105,7 +105,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
                     }
                 })
             }
-            else if(resolved.type === 'map') {
+            else if(resolved.type === 'object') {
                 names.forEach(name => {
                     lineState.env.fields.local[name] = {
                         type: resolved.values,
@@ -201,7 +201,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
                     }
                 })
             }
-            else if(resolved.type === 'map') {
+            else if(resolved.type === 'object') {
                 names.forEach(name => {
                     lineState.env.fields.local[name] = {
                         type: resolved.values,

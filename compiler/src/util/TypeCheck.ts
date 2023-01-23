@@ -17,7 +17,7 @@ export default class TypeCheck {
             else if(match.type === 'union') {
                 return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against[0]));
             }
-            else if(match.type === 'struct' || match.type === 'array' || match.type === 'map' || match.type === 'class') {
+            else if(match.type === 'struct' || match.type === 'array' || match.type === 'object' || match.type === 'class') {
                 return against[0] === 'object';
             }
             else if(match.type === 'literal' && match.literal === 'undefined') {
@@ -103,7 +103,7 @@ export default class TypeCheck {
             if(key.value.type !== 'literal') return undefined;
             return type.properties[key.value.literal.toString()];
         }
-        else if(type.type === 'map') {
+        else if(type.type === 'object') {
             return type.values;
         }
         else if(type.type === 'array') {

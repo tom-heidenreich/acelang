@@ -76,8 +76,8 @@ export type StructType = {
     properties: Types
 }
 
-export type MapType = {
-    type: 'map',
+export type ObjectType = {
+    type: 'object',
     values: Type
 }
 
@@ -85,8 +85,6 @@ export type ArrayType = {
     type: 'array',
     items: Type
 }
-
-export type ObjectType = StructType | ArrayType | MapType
 
 export type CallableType = {
     type: 'callable',
@@ -106,7 +104,7 @@ export type PrimitiveType = {
     primitive: DataType
 }
 
-export type Type = PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType
+export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType
 
 export type Types = {
     [name: string]: Type,

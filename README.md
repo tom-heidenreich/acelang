@@ -170,8 +170,8 @@ type User = {
 }
 # arrays
 type FriendList = User[]
-# map
-type UserNumberMap = { [key: string]: number }
+# object
+type UserNumberObject = { [key: string]: number }
 # arrays with unions
 type NumberList = (int | float)[]
 ```
