@@ -8,14 +8,52 @@ export type Token = {
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
-export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor', 'new']
+export const KEYWORDS: Keyword[] = [
+    'const',
+    'var',
+    'func',
+    'sync',
+    'return',
+    'type',
+    'if',
+    'else',
+    'while',
+    'break',
+    'continue',
+    'for',
+    'of',
+    'class',
+    'constructor',
+    'new',
+    'export',
+    'as'
+]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor' | 'new';
+export type Keyword = (
+    'const' |
+    'var' |
+    'func' |
+    'sync' |
+    'return' |
+    'type' |
+    'if' |
+    'else' |
+    'while' |
+    'break' |
+    'continue' |
+    'for' |
+    'of' |
+    'class' |
+    'constructor' |
+    'new' |
+    'export' |
+    'as'
+)
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
@@ -219,7 +257,8 @@ export type Statement = (
     BreakStatement |
     ContinueStatement |
     ForStatement |
-    ClassDeclarationStatement
+    ClassDeclarationStatement |
+    ExportStatement
 )
 
 export type MultiStatement = {
@@ -284,6 +323,13 @@ export type BreakStatement = {
 
 export type ContinueStatement = {
     type: 'continueStatement',
+}
+
+export type ExportStatement = {
+    type: 'exportStatement',
+    name: Identifier,
+    value: Value,
+    exportType?: Type
 }
 
 export type ExpressionStatement = {

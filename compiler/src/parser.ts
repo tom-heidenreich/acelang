@@ -1,5 +1,5 @@
 import { parseEnvironment } from "./parser/env";
-import { Token, DATATYPES, Types, Build } from "./types";
+import { Token, DATATYPES, Types, Build, Value } from "./types";
 
 export function parseToTree(tokens: Token[][]) {
 
@@ -26,7 +26,7 @@ export function parseToTree(tokens: Token[][]) {
         },
     }
 
-    const { tree, env } = parseEnvironment(build, tokens, {
+    const { tree, typeModule } = parseEnvironment(build, tokens, {
         fields: {
             local: {},
             parent: {
@@ -62,8 +62,5 @@ export function parseToTree(tokens: Token[][]) {
         },
     })
 
-    return { tree, map: {
-        types: build.types,
-        fields: env.fields.local,
-    } }
+    return { tree, typeModule }
 }
