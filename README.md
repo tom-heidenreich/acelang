@@ -138,6 +138,11 @@ class myClass {
 }
 ```
 
+### Create object ✔
+```ace
+const myObject = new myClass("hello world")
+```
+
 ### inheritance
 ```ace
 class myClass2 extends myClass {

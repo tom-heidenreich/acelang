@@ -8,14 +8,14 @@ export type Token = {
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
-export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor']
+export const KEYWORDS: Keyword[] = ['const', 'var', 'func', 'sync', 'return', 'type', 'if', 'else', 'while', 'break', 'continue', 'for', 'of', 'class', 'constructor', 'new']
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
 export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
-export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor';
+export type Keyword = 'const' | 'var' | 'func' | 'sync' | 'return' | 'type' | 'if' | 'else' | 'while' | 'break' | 'continue' | 'for' | 'of' | 'class' | 'constructor' | 'new';
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'
 export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
@@ -94,12 +94,19 @@ export type CallableType = {
     returnType: Type,
 }
 
+export type ClassType = {
+    type: 'class',
+    params: Type[],
+    statics: Types,
+    object: Type,
+}
+
 export type PrimitiveType = {
     type: 'primitive',
     primitive: DataType
 }
 
-export type Type = PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType | CallableType
+export type Type = PrimitiveType | UnionType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType
 
 export type Types = {
     [name: string]: Type,
@@ -135,11 +142,17 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | EqualsExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | EqualsExpression | InstantiationExpression
 
 export type CallExpression = {
     type: 'call',
     callable: Value,
+    args: Value[],
+}
+
+export type InstantiationExpression = {
+    type: 'instantiation',
+    className: Identifier,
     args: Value[],
 }
 

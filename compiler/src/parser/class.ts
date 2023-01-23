@@ -13,6 +13,15 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
     const name = nameToken.value
 
+    // check if field already exists
+    if(lineState.env.fields.local[name]) {
+        throw new Error(`Field ${name} already exists at line ${lineState.lineIndex}`)
+    }
+    // check if type already exists
+    if(lineState.build.types[name]) {
+        throw new Error(`Type ${name} already exists at line ${lineState.lineIndex}`)
+    }
+
     // get class body
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
@@ -48,18 +57,18 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     // parse class body
     let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers)
 
-    // create type of class
-    const privateClassType: Type = classToPrivateType(body.tree)
-
-    // add type to build
-    lineState.build.types[name] = classToType(body.tree)
+    // add type to build (temporarily)
+    lineState.build.types[name] = classToPrivateType(body.tree)
 
     // create new env
     const env2 = {
         fields: {
             local: {
                 this: {
-                    type: privateClassType,
+                    type: {
+                        type: 'reference',
+                        reference: name,
+                    } as Type,
                 }
             },
             parent: lineState.env.fields,
@@ -67,6 +76,15 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
     // parse class body TODO: should only check types
     body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers)
+
+    // add real type to build
+    const classType = classToType(body.tree)
+    lineState.build.types[name] = classType
+
+    // add static to fields
+    lineState.env.fields.local[name] = {
+        type: classToStaticType(body.tree, classType),
+    }
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 
@@ -199,5 +217,31 @@ function classToPrivateType(statements: { statement: ClassStatement, type: Type 
     return {
         type: 'struct',
         properties: struct,
+    }
+}
+
+function classToStaticType(statements: { statement: ClassStatement, type: Type }[], objectType: Type): Type {
+
+    let params: Type[] = []
+    const properties: {
+        [key: string]: Type
+    } = {}
+
+    for(const statement of statements) {
+        if(statement.statement.type === 'classConstructorDeclaration') {
+            params = statement.statement.params.map(param => param.type)
+            continue
+        }
+        const modifiers = statement.statement.modifiers
+        if(modifiers.access === 'public' && modifiers.isStatic) {
+            properties[statement.statement.name] = statement.type
+        }
+    }
+
+    return {
+        type: 'class',
+        params,
+        statics: properties,
+        object: objectType,
     }
 }
