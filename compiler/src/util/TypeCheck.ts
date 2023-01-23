@@ -1,4 +1,4 @@
-import { DataType, Key, Param, Literal, Type, Types, ValueNode } from "../types";
+import { DataType, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 

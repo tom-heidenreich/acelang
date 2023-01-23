@@ -1,4 +1,4 @@
-import { LineState, Statement, StructType, Token, Type, Types } from "../types";
+import { LineState, StructType, Token, Type, Types } from "../types";
 import Cursor, { WriteCursor } from "../util/cursor";
 
 function parseStructType(lineState: LineState, cursor: Cursor<Token[]>): StructType {

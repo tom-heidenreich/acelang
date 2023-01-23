@@ -1,4 +1,4 @@
-import { LineState, Statement, Token, Wrappers } from "../types"
+import { LineState, Statement, Token } from "../types"
 import Cursor from "../util/cursor"
 import { parseEnvironment } from "./env"
 import { parseFunc } from "./functions"

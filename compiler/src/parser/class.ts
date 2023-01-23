@@ -1,4 +1,4 @@
-import { ClassStatement, Field, Fields, FunctionDeclaration, LineState, Modifiers, Statement, Token, Type, VariableDeclaration, Wrappers } from "../types";
+import { ClassStatement, Fields, FunctionDeclaration, LineState, Modifiers, Statement, Token, Type, VariableDeclaration, Wrappers } from "../types";
 import Cursor from "../util/cursor";
 import { parseClassEnv, parseEnvironment } from "./env";
 import { parseFunc, parseParams } from "./functions";
