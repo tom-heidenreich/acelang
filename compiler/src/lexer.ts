@@ -36,7 +36,7 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
     }
 }
 
-export function parse(content: string, inBlock: boolean = false) {
+export function lex(content: string, inBlock: boolean = false) {
 
     const result: Token[][] = []
     const line: Token[] = []
@@ -76,7 +76,7 @@ export function parse(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '{}',
                         type: 'block',
-                        block: parse(buffer.clear(), true)
+                        block: lex(buffer.clear(), true)
                     });
                     continue;
                 }
@@ -88,7 +88,7 @@ export function parse(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '()',
                         type: 'block',
-                        block: parse(buffer.clear(), true)
+                        block: lex(buffer.clear(), true)
                     });
                     continue;
                 }
@@ -100,7 +100,7 @@ export function parse(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '[]',
                         type: 'block',
-                        block: parse(buffer.clear(), true)
+                        block: lex(buffer.clear(), true)
                     });
                     continue;
                 }

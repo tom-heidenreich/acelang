@@ -183,12 +183,10 @@ if(myVar?) {
 }
 ```
 
-### Imports
+### Imports ✔
 ```ace
 # import module
 import myModule from "./myModule.ace"
-# import module with alias
-import myModule as myAlias from "./myModule.ace"
 ```
 
 ### Javascript Imports
@@ -201,7 +199,7 @@ import myModule from "./myModule.js"
 import myModule from "./myModule.ts"
 ```
 
-### Exports
+### Exports ✔
 ```ace
 export myVar
 ```

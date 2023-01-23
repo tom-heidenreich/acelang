@@ -1,12 +1,15 @@
 import path from 'path';
 import * as fs from 'fs';
-import { parse } from './lexer';
+import { lex } from './lexer';
 import { parseToTree } from './parser';
 
-// read the file
-const content = fs.readFileSync(path.join(__dirname, '..', '..', 'index.ace'), 'utf8');
+process.env.FILE_EXTENSION = 'ace';
+process.env.WORK_DIR = path.join(__dirname, '..', '..')
 
-const tokens = parse(content)
+// read the file
+const content = fs.readFileSync(path.join(process.env.WORK_DIR, 'index.ace'), 'utf8');
+
+const tokens = lex(content)
 
 fs.writeFileSync('./log/tokens.json', JSON.stringify(tokens, null, 4), 'utf8');
 

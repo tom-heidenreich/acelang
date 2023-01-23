@@ -12,6 +12,7 @@ import { parseConst, parseVar } from "./vars"
 import { parseWhileStatement } from "./while"
 import { parseClassAttribute, parseClassConstructor, parseClassFunc, parseClassStatement } from "./class"
 import { parseExportStatement } from "./export"
+import { parseImportStatement } from "./import"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
@@ -101,6 +102,7 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
             case 'continue': return parseContinueStatement(lineState, cursor, wrappers)
             case 'class': return parseClassStatement(lineState, cursor)
             case 'export': return parseExportStatement(lineState, cursor, wrappers)
+            case 'import': return parseImportStatement(lineState, cursor, wrappers)
         }
         throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
     }
