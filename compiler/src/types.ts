@@ -28,7 +28,8 @@ export const KEYWORDS: Keyword[] = [
     'export',
     'as',
     'import',
-    'from'
+    'from',
+    'extends'
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
@@ -56,7 +57,8 @@ export type Keyword = (
     'export' |
     'as' |
     'import' |
-    'from'
+    'from' |
+    'extends'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'
@@ -138,7 +140,8 @@ export type ClassType = {
     type: 'class',
     params: Type[],
     statics: Types,
-    object: Type,
+    publicType: StructType,
+    privateType: StructType,
 }
 
 export type PrimitiveType = {

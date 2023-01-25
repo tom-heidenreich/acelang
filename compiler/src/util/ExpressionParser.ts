@@ -203,7 +203,7 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             if(!TypeCheck.matchesArgs(lineState.build.types, resolvedType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
 
             lastValue = {
-                type: resolvedType.object,
+                type: resolvedType.publicType,
                 value: {
                     type: 'instantiation',
                     className: className.value,

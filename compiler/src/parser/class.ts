@@ -1,5 +1,7 @@
-import { ClassStatement, Fields, FunctionDeclaration, LineState, Modifiers, Statement, Token, Type, VariableDeclaration, Wrappers } from "../types";
+import { ClassStatement, ClassType, Fields, FunctionDeclaration, LineState, Modifiers, Statement, StructType, Token, Type, VariableDeclaration, Wrappers } from "../types";
 import Cursor from "../util/cursor";
+import FieldResolve from "../util/FieldResolve";
+import TypeCheck from "../util/TypeCheck";
 import { parseClassEnv, parseEnvironment } from "./env";
 import { parseFunc, parseParams } from "./functions";
 import { parseDeclaration } from "./vars";
@@ -20,6 +22,28 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     // check if type already exists
     if(lineState.build.types[name]) {
         throw new Error(`Type ${name} already exists at line ${lineState.lineIndex}`)
+    }
+
+    // inheritance
+    let parentType: ClassType | undefined
+    // check if extends
+    const extendsToken = cursor.peek()
+    if(extendsToken && extendsToken.type === 'keyword' && extendsToken.value === 'extends') {
+        cursor.next()
+        const parentNameToken = cursor.next()
+        if(parentNameToken.type !== 'identifier') {
+            throw new Error(`Unexpected token ${parentNameToken.type} ${parentNameToken.value} at line ${lineState.lineIndex}`)
+        }
+        const parentName = parentNameToken.value
+        const parentField = FieldResolve.resolve(lineState.env.fields, parentName)
+        if(!parentField) {
+            throw new Error(`Field ${parentName} does not exist at line ${lineState.lineIndex}`)
+        }
+        const fieldType = TypeCheck.resolveReferences(lineState.build.types, parentField.type)
+        if(fieldType.type !== 'class') {
+            throw new Error(`Field ${parentName} is not a class at line ${lineState.lineIndex}`)
+        }
+        parentType = fieldType
     }
 
     // get class body
@@ -57,8 +81,9 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     // parse class body
     let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers)
 
+    const privateType = classToPrivateType(body.tree, parentType)
     // add type to build (temporarily)
-    lineState.build.types[name] = classToPrivateType(body.tree)
+    lineState.build.types[name] = privateType
 
     // create new env
     const env2 = {
@@ -78,12 +103,12 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers)
 
     // add real type to build
-    const classType = classToType(body.tree)
-    lineState.build.types[name] = classType
+    const publicType = classToPublicType(body.tree, parentType)
+    lineState.build.types[name] = publicType
 
     // add static to fields
     lineState.env.fields.local[name] = {
-        type: classToStaticType(body.tree, classType),
+        type: classToStaticType(body.tree, publicType, privateType, parentType),
     }
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
@@ -183,11 +208,13 @@ export function parseClassConstructor(lineState: LineState, cursor: Cursor<Token
     }
 }
 
-function classToType(statements: { statement: ClassStatement, type: Type }[]): Type {
+function classToPublicType(statements: { statement: ClassStatement, type: Type }[], parentType?: ClassType): StructType {
 
     const struct: {
         [key: string]: Type
-    } = {}
+    } = {
+        ...parentType?.publicType.properties,
+    }
 
     for(const statement of statements) {
         if(statement.statement.type === 'classConstructorDeclaration') continue;
@@ -203,11 +230,14 @@ function classToType(statements: { statement: ClassStatement, type: Type }[]): T
     }
 }
 
-function classToPrivateType(statements: { statement: ClassStatement, type: Type }[]): Type {
+function classToPrivateType(statements: { statement: ClassStatement, type: Type }[], parentType?: ClassType): StructType {
 
     const struct: {
         [key: string]: Type
-    } = {}
+    } = {
+        ...parentType?.publicType.properties,
+        ...parentType?.privateType.properties,
+    }
 
     for(const statement of statements) {
         if(statement.statement.type === 'classConstructorDeclaration') continue;
@@ -220,12 +250,14 @@ function classToPrivateType(statements: { statement: ClassStatement, type: Type 
     }
 }
 
-function classToStaticType(statements: { statement: ClassStatement, type: Type }[], objectType: Type): Type {
+function classToStaticType(statements: { statement: ClassStatement, type: Type }[], publicType: StructType, privateType: StructType, parentType?: ClassType): Type {
 
     let params: Type[] = []
     const properties: {
         [key: string]: Type
-    } = {}
+    } = {
+        ...parentType?.statics,
+    }
 
     for(const statement of statements) {
         if(statement.statement.type === 'classConstructorDeclaration') {
@@ -242,6 +274,7 @@ function classToStaticType(statements: { statement: ClassStatement, type: Type }
         type: 'class',
         params,
         statics: properties,
-        object: objectType,
+        publicType,
+        privateType
     }
 }
