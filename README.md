@@ -217,3 +217,39 @@ const { name, age } = myStruct
 const myArray = ["hello", "world"]
 const [first, second] = myArray
 ```
+
+### Spread
+```ace
+const myArray = ["hello", "world"]
+const myArray2 = [...myArray, "hello world"]
+```
+
+### Rest
+```ace
+func myFunc(...myArray: string[]) {
+    console.log(myArray)
+}
+```
+
+### Optionals
+```ace
+# type
+type User = {
+    name: string,
+    age?: number,   # synonym for age: number | undefined
+}
+
+# function
+func myFunc(age?: number) {
+    if(age?) {
+        print(age)
+    }
+}
+```
+
+### Value as type
+```ace
+type myType = string | int
+const firstVar: myType = "hello world"
+const secondVar = fristVar as string
+```
