@@ -253,3 +253,15 @@ type myType = string | int
 const firstVar: myType = "hello world"
 const secondVar = fristVar as string
 ```
+
+### Default values
+```ace
+func myFunc(myVar: string = "hello world") {
+    console.log(myVar)
+}
+```
+
+### Debug
+```ace
+debug myVar
+```
