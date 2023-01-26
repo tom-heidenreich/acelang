@@ -247,7 +247,7 @@ func myFunc(age?: number) {
 }
 ```
 
-### Value as type
+### Value as type ✔
 ```ace
 type myType = string | int
 const firstVar: myType = "hello world"

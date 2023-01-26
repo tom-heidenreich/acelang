@@ -29,7 +29,8 @@ export const KEYWORDS: Keyword[] = [
     'as',
     'import',
     'from',
-    'extends'
+    'extends',
+    'as',
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
@@ -58,7 +59,8 @@ export type Keyword = (
     'as' |
     'import' |
     'from' |
-    'extends'
+    'extends' |
+    'as'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'

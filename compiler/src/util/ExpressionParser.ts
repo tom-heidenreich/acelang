@@ -3,6 +3,8 @@ import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import Values from "../parser/values";
 import FieldResolve from "./FieldResolve";
+import { parseType } from "../parser/types";
+import Logger from "./logger";
 
 export default class ExpressionParser {
 
@@ -85,7 +87,11 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
         if(token.type === 'block') {
 
             if(!token.block) throw new Error(`Unexpected end of block at line ${lineState.lineIndex}`);
-            if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`)
+            if(!lastValue) {
+                if(token.block.length !== 1) throw new Error(`Expected end of block at line ${lineState.lineIndex}`)
+                lastValue = Values.parseValue(lineState, new Cursor(token.block[0]));
+                continue;
+            }
 
             // function call
             if(token.value === '()') {
@@ -180,34 +186,50 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 }
             }
         }
-        else if(token.type === 'keyword' && token.value === 'new') {
-            if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at line ${lineState.lineIndex}`);
+        else if(token.type === 'keyword') {
+            if(token.value === 'new') {
+                if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at line ${lineState.lineIndex}`);
 
-            const className = cursor.next();
-            if(className.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`);
+                const className = cursor.next();
+                if(className.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`);
 
-            const argsToken = cursor.next();
-            if(argsToken.type !== 'block' || argsToken.value !== '()') throw new Error(`Expected end of block at line ${lineState.lineIndex}`);
-            else if(!argsToken.block) throw new Error(`Unexpected end of block at line ${lineState.lineIndex}`);
+                const argsToken = cursor.next();
+                if(argsToken.type !== 'block' || argsToken.value !== '()') throw new Error(`Expected end of block at line ${lineState.lineIndex}`);
+                else if(!argsToken.block) throw new Error(`Unexpected end of block at line ${lineState.lineIndex}`);
 
-            const args = argsToken.block.map(block => Values.parseValue(lineState, new Cursor(block)));
+                const args = argsToken.block.map(block => Values.parseValue(lineState, new Cursor(block)));
 
-            // get class
-            const classField = FieldResolve.resolve(lineState.env.fields, className.value);
-            if(!classField) throw new Error(`Unknown class ${className.value} at line ${lineState.lineIndex}`);
-            const resolvedType = TypeCheck.resolveReferences(lineState.build.types, classField.type);
+                // get class
+                const classField = FieldResolve.resolve(lineState.env.fields, className.value);
+                if(!classField) throw new Error(`Unknown class ${className.value} at line ${lineState.lineIndex}`);
+                const resolvedType = TypeCheck.resolveReferences(lineState.build.types, classField.type);
 
-            if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
+                if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
 
-            // check args
-            if(!TypeCheck.matchesArgs(lineState.build.types, resolvedType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
+                // check args
+                if(!TypeCheck.matchesArgs(lineState.build.types, resolvedType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
 
-            lastValue = {
-                type: resolvedType.publicType,
-                value: {
-                    type: 'instantiation',
-                    className: className.value,
-                    args: args.map(arg => arg.value)
+                lastValue = {
+                    type: resolvedType.publicType,
+                    value: {
+                        type: 'instantiation',
+                        className: className.value,
+                        args: args.map(arg => arg.value)
+                    }
+                }
+            }
+            else if(token.value === 'as') {
+                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+
+                const type = parseType(lineState, cursor.remaining());
+
+                if(!TypeCheck.matches(lineState.build.types, lastValue.type, type)) {
+                    throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
+                }
+
+                lastValue = {
+                    type: type,
+                    value: lastValue.value
                 }
             }
         }
