@@ -1,4 +1,4 @@
-import { Build, ClassStatement, Environment, LineState, Modifiers, Statement, Token, Type, Value, ValueNode, Wrappers } from "../types"
+import { Build, ClassStatement, Environment, LineState, Modifiers, Statement, Token, Type, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import ExpressionParser from "../util/ExpressionParser"
 import { parseBreakStatement } from "./break"
@@ -13,6 +13,7 @@ import { parseWhileStatement } from "./while"
 import { parseClassAttribute, parseClassConstructor, parseClassFunc, parseClassStatement } from "./class"
 import { parseExportStatement } from "./export"
 import { parseImportStatement } from "./import"
+import { parseDebug } from "./debug"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
@@ -85,6 +86,7 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
     if(token.type === 'keyword') {
         cursor.next()
         switch(token.value) {
+            case 'debug': return parseDebug(lineState, cursor)
             case 'const': return parseConst(lineState, cursor)
             case 'var': return parseVar(lineState, cursor)
             case 'func': return parseFunc({ lineState, cursor, wrappers }).statement

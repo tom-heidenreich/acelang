@@ -9,6 +9,7 @@ export type Token = {
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
 export const KEYWORDS: Keyword[] = [
+    'debug',
     'const',
     'var',
     'func',
@@ -39,6 +40,7 @@ export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|', '?']
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
 export type Keyword = (
+    'debug' |
     'const' |
     'var' |
     'func' |
