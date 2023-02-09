@@ -99,6 +99,17 @@ sync {
 }
 ```
 
+### monitor ✔
+```ace
+sync (myVar1, myVar2) {
+    myVar1 = myVar2
+}
+sync {
+    # will wait until first sync block is finished
+    print(myVar1)
+}
+```
+
 ### synchronized function ✔
 ```ace
 sync func myFunc4() {

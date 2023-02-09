@@ -304,6 +304,7 @@ export type ReturnStatement = {
 
 export type SyncStatement = {
     type: 'syncStatement',
+    lockedFields: Identifier[],
     body: Statement[],
 }
 
