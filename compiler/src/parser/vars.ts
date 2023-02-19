@@ -121,47 +121,26 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
                 type,
             }
         }
-        
-        if(isConst) {
-            if(names.length === 1) return {
-                type,
-                statement: {
-                    type: 'constantDeclaration',
-                    name: names[0],
-                    value
-                }
-            }
-            else return {
-                type,
-                statement: {
-                    type: 'multiStatement',
-                    statements: names.map(name => ({
-                        type: 'constantDeclaration',
-                        name,
-                        value
-                    }))
-                }
+
+        if(names.length === 1) return {
+            type,
+            statement: {
+                type: 'variableDeclaration',
+                name: names[0],
+                value,
+                valueType: type
             }
         }
-        else {
-            if(names.length === 1) return {
-                type,
-                statement: {
+        else return {
+            type,
+            statement: {
+                type: 'multiStatement',
+                statements: names.map(name => ({
                     type: 'variableDeclaration',
-                    name: names[0],
-                    value
-                }
-            }
-            else return {
-                type,
-                statement: {
-                    type: 'multiStatement',
-                    statements: names.map(name => ({
-                        type: 'variableDeclaration',
-                        name,
-                        value
-                    }))
-                }
+                    name,
+                    value,
+                    valueType: type!
+                }))
             }
         }
 
@@ -223,6 +202,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
             statement: {
                 type: 'variableDeclaration',
                 name: names[0],
+                valueType: type
             }
         }
         else return {
@@ -232,6 +212,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
                 statements: names.map(name => ({
                     type: 'variableDeclaration',
                     name,
+                    valueType: type!
                 }))
             }
         }

@@ -258,7 +258,6 @@ export type ValueNode = {
 export type Statement = (
     MultiStatement |
     VariableDeclaration |
-    ConstantDeclaration |
     FunctionDeclaration |
     ReturnStatement |
     SyncStatement |
@@ -281,12 +280,7 @@ export type VariableDeclaration = {
     type: 'variableDeclaration',
     name: Identifier,
     value?: Value,
-}
-
-export type ConstantDeclaration = {
-    type: 'constantDeclaration',
-    name: Identifier,
-    value: Value,
+    valueType: Type,
 }
 
 export type FunctionDeclaration = {
