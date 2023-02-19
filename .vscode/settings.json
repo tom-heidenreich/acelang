@@ -1,6 +1,0 @@
-{
-    "files.associations": {
-        "threads.h": "c",
-        "windows.h": "c"
-    }
-}
