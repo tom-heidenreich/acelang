@@ -4,6 +4,7 @@ node_modules
 # build
 *.exe
 dist
+build
 
 # log
 log
