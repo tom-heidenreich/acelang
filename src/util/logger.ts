@@ -1,4 +1,7 @@
+import * as fs from 'fs';
+
 type Color = 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray'
+type LogType = 'log' | 'error' | 'warn' | 'info'
 
 function getColorCode(color?: Color): string {
     if (!color) return '0'
@@ -17,23 +20,40 @@ function getColorCode(color?: Color): string {
 
 export default class Logger {
 
-    public static log(message: string, options?: { name?: string, color?: Color }, ...args: string[]): void {
+    private readonly logToFile: boolean = false;
+    private readonly logFile: string;
+
+    private readonly isSilent: boolean = false;
+
+    constructor(logToFile: boolean = false, logFile: string = 'log.txt', isSilent: boolean = false) {
+        this.isSilent = isSilent;
+        this.logToFile = logToFile;
+        this.logFile = logFile;
+    }
+
+    public log(message: string, options: { name?: string, color?: Color, type: LogType } = { type: 'log' }, ...args: string[]): void {
+        if(this.isSilent && options.type !== 'error') return;
+        
         const date = new Date();
         const time = `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
-        const name = options?.name ? `[${options.name}]` : '';
+        const name = options.name ? `[${options.name}]` : '';
         const color = getColorCode(options?.color)
         console.log(`\x1b[${color}m[${time}]${name} ${message}\x1b[0m`, ...args);
+        
+        if(this.logToFile) {
+            fs.appendFileSync(this.logFile, `<${options.type}> [${time}]${name} ${message}\n`);
+        }
     }
 
-    public static error(message: string, options?: { name?: string }, ...args: string[]): void {
-        Logger.log(message, { ...options, color: 'red' }, ...args);
+    public error(message: string, options?: { name?: string }, ...args: string[]): void {
+        this.log(message, { ...options, color: 'red', type: 'error' }, ...args);
     }
 
-    public static warn(message: string, options?: { name?: string }, ...args: string[]): void {
-        Logger.log(message, { ...options, color: 'yellow' }, ...args);
+    public warn(message: string, options?: { name?: string }, ...args: string[]): void {
+        this.log(message, { ...options, color: 'yellow', type: 'warn' }, ...args);
     }
 
-    public static info(message: string, options?: { name?: string }, ...args: string[]): void {
-        Logger.log(message, { ...options, color: 'blue' }, ...args);
+    public info(message: string, options?: { name?: string }, ...args: string[]): void {
+        this.log(message, { ...options, color: 'blue', type: 'info' }, ...args);
     }
 }
