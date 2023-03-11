@@ -1,9 +1,10 @@
 import StringBuffer from './util/buffer';
 import { DataType, Keyword, KEYWORDS, SYMBOLS, Token, Symbol, OPERATORS, Operator, TokenType, MODIFIERS, Modifier } from './types';
+import Logger from './util/logger';
 
 // TODO: refactor whole file
 
-function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
+function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
         if(value.trim() === '') return;
@@ -28,6 +29,8 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
         else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
+        LOGGER.log(`Pushed token: ${value} (${exType}) ${specificType ? `(${specificType})` : ''}`, { detail: 2 });
+
         line.push({
             value,
             type: exType,
@@ -36,7 +39,7 @@ function pushBuffer(line: Token[], buffer: StringBuffer, type?: 'datatype' | 'sy
     }
 }
 
-export function lex(content: string, inBlock: boolean = false) {
+export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
 
     const result: Token[][] = []
     const line: Token[] = []
@@ -57,7 +60,7 @@ export function lex(content: string, inBlock: boolean = false) {
         }
         if(structure === 'symbol') {
             if(!SYMBOLS.includes(c as Symbol)) {
-                pushBuffer(line, buffer, 'symbol');
+                pushBuffer(LOGGER, line, buffer, 'symbol');
                 structure = undefined;
             }
             else {
@@ -76,7 +79,7 @@ export function lex(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '{}',
                         type: 'block',
-                        block: lex(buffer.clear(), true)
+                        block: lex(buffer.clear(), LOGGER, true)
                     });
                     continue;
                 }
@@ -88,7 +91,7 @@ export function lex(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '()',
                         type: 'block',
-                        block: lex(buffer.clear(), true)
+                        block: lex(buffer.clear(), LOGGER, true)
                     });
                     continue;
                 }
@@ -100,7 +103,7 @@ export function lex(content: string, inBlock: boolean = false) {
                     line.push({
                         value: '[]',
                         type: 'block',
-                        block: lex(buffer.clear(), true)
+                        block: lex(buffer.clear(), LOGGER, true)
                     });
                     continue;
                 }
@@ -111,28 +114,28 @@ export function lex(content: string, inBlock: boolean = false) {
         if(c === '{') {
             countCurlyBrackets++;
             bracketType = '{';
-            pushBuffer(line, buffer);
+            pushBuffer(LOGGER, line, buffer);
             structure = 'block';
             continue;
         }
         if(c === '(') {
             countParenthesis++;
             bracketType = '(';
-            pushBuffer(line, buffer);
+            pushBuffer(LOGGER, line, buffer);
             structure = 'block';
             continue;
         }
         if(c === '[') {
             countSquareBrackets++;
             bracketType = '[';
-            pushBuffer(line, buffer);
+            pushBuffer(LOGGER, line, buffer);
             structure = 'block';
             continue;
         }
         if(c === '"') {
             if(structure === 'string') {
                 structure = undefined;
-                pushBuffer(line, buffer, 'datatype', 'string');
+                pushBuffer(LOGGER, line, buffer, 'datatype', 'string');
             }
             else structure = 'string';
             continue;
@@ -146,14 +149,14 @@ export function lex(content: string, inBlock: boolean = false) {
             continue;
         }
         if(c === ' ' || c === '\t') {
-            if(!structure) pushBuffer(line, buffer);
-            else pushBuffer(line, buffer, 'datatype', structure);
+            if(!structure) pushBuffer(LOGGER, line, buffer);
+            else pushBuffer(LOGGER, line, buffer, 'datatype', structure);
             structure = undefined;
             continue;
         }
         if(c === '\n' || c == '\r' || c === ';' || (c === ',' && inBlock)) {
-            if(!structure) pushBuffer(line, buffer);
-            else pushBuffer(line, buffer, 'datatype', structure);
+            if(!structure) pushBuffer(LOGGER, line, buffer);
+            else pushBuffer(LOGGER, line, buffer, 'datatype', structure);
             structure = undefined;
             if(line.length > 0) result.push(line.splice(0));
             continue;
@@ -169,8 +172,8 @@ export function lex(content: string, inBlock: boolean = false) {
                 continue;
             }
             else {
-                if(!structure) pushBuffer(line, buffer);
-                else pushBuffer(line, buffer, 'datatype', structure);
+                if(!structure) pushBuffer(LOGGER, line, buffer);
+                else pushBuffer(LOGGER, line, buffer, 'datatype', structure);
                 structure = undefined;
             }
         }
@@ -182,15 +185,15 @@ export function lex(content: string, inBlock: boolean = false) {
             else structure = undefined;
         }
         if(!isNaN(Number(c))) {
-            pushBuffer(line, buffer);
+            pushBuffer(LOGGER, line, buffer);
             structure = 'int';
             buffer.append(c);
             continue;
         }
         if(SYMBOLS.includes(c as Symbol)) {
             if(structure !== 'symbol') {
-                if(!structure) pushBuffer(line, buffer);
-                else pushBuffer(line, buffer, 'datatype', structure);
+                if(!structure) pushBuffer(LOGGER, line, buffer);
+                else pushBuffer(LOGGER, line, buffer, 'datatype', structure);
                 structure = 'symbol';
             }
             buffer.append(c);
@@ -198,8 +201,8 @@ export function lex(content: string, inBlock: boolean = false) {
         }
         else buffer.append(c);
     }
-    if(structure === 'int' || structure === 'float' || structure === 'string') pushBuffer(line, buffer, 'datatype', structure)
-    else pushBuffer(line, buffer);
+    if(structure === 'int' || structure === 'float' || structure === 'string') pushBuffer(LOGGER, line, buffer, 'datatype', structure)
+    else pushBuffer(LOGGER, line, buffer);
     if(line.length > 0) result.push(line);
     return result;
 }

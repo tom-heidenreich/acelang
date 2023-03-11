@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import path from 'path';
 import { lex } from "../lexer";
 import { parseToTree } from "../parser";
+import Logger from "../util/logger";
 
 export function parseImportStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
     if(wrappers) throw new Error(`Unexpected import at line ${lineState.lineIndex}`)
@@ -61,7 +62,7 @@ export function parseImportStatement(lineState: LineState, cursor: Cursor<Token>
     const contents = fs.readFileSync(filePath, 'utf8');
 
     // lex file contents
-    const tokens = lex(contents)
+    const tokens = lex(contents, new Logger())
 
     // parse file contents
     const { tree, typeModule } = parseToTree(tokens)
