@@ -7,6 +7,8 @@
         "strict": true,
         "skipLibCheck": true,
         "rootDir": "src",
-        "outDir": "build",
-    }
+        "outDir": "lib",
+        "declaration": true,
+    },
+    "exclude": ["node_modules", "lib"]
 }
