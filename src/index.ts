@@ -1,21 +1,59 @@
 import path from 'path';
+import { program } from 'commander';
+import interpret from './interpreter/interpret';
 import * as fs from 'fs';
-import { lex } from './lexer';
-import { parseToTree } from './parser';
+import Logger from './util/logger';
 
 process.env.FILE_EXTENSION = 'ace';
 process.env.WORK_DIR = path.join(__dirname, '..', '..')
 
-// read the file
-const content = fs.readFileSync(path.join(process.env.WORK_DIR, 'index.ace'), 'utf8');
+// read command line arguments
+program
+    .version('0.0.1')
+    .name('ACE')
+    .usage('[options] <file>')
 
-const tokens = lex(content)
+program.command('compile <file>')
+    .description('compile a file')
 
-fs.writeFileSync('./log/tokens.json', JSON.stringify(tokens, null, 4), 'utf8');
+    .option('-r, --run', 'run the file', false)
+    .option('-d, --debug', 'run the file in debug mode', false)
+    .option('-l, --log', 'log the output to a file', false)
+    .option('-o, --output <file>', 'output the result to a file')
+    .option('-s, --silent', 'do not log the output to the console', false)
+    .option('-w, --watch', 'watch the file for changes', false)
+    .action((file, options) => {
+        console.log(file);
+        console.log(options);
+    })
 
-// get ast
-const { tree, typeModule } = parseToTree(tokens);
+program.command('run <file>')
+    .description('run a file')
 
-fs.writeFileSync('./log/parsed.json', JSON.stringify(tree, null, 4), 'utf8');
+    .option('--details <level>', 'set the log detail level', '0')
+    .option('-l, --log', 'log the output to a file', false)
+    .option('-s, --silent', 'do not log the output to the console', false)
+    .option('-w, --watch', 'watch the file for changes', false)
+    .action((file, options) => {
+        if(options.details) options.details = parseInt(options.details);
+        
+        const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
+        // create log file if log is enabled
+        if(options?.log) fs.writeFileSync('log.txt', '');
 
-fs.writeFileSync('./log/module.json', JSON.stringify(typeModule, null, 4), 'utf8');
+        const action = () => interpret('./', file, LOGGER);
+
+        if(options.watch) {
+            LOGGER.info(`Watching file ${file}`);
+            fs.watchFile(path.join(file), { interval: 1000 }, () => {
+                LOGGER.info(`Found changes in ${file}`);
+                LOGGER.log(`> Re-interpreting...`);
+                LOGGER.log(``);
+                action();
+            })
+        }
+
+        action();
+    })
+
+program.parse(process.argv);
