@@ -183,7 +183,7 @@ export default class TypeCheck {
             else if(resolvedTypes.length === 1) return resolvedTypes[0];
             else return 'any';
         }
-        else if(type.type === 'struct' || type.type === 'array') {
+        else if(type.type === 'struct' || type.type === 'array' || type.type === 'object' || type.type === 'class') {
             return 'object';
         }
         return 'unknown';
