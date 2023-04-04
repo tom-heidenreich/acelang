@@ -3,6 +3,7 @@ import path from 'path';
 import { lex } from '../lexer';
 import { parseToTree } from '../parser';
 import Logger from '../util/logger';
+import Runtime from './runtime';
 
 export type InterpretOptions = {
     details?: number;
@@ -11,7 +12,7 @@ export type InterpretOptions = {
     watch?: boolean;
 }
 
-export default function interpret(work_dir: string, file_name: string, LOGGER: Logger) {
+export default async function interpret(work_dir: string, file_name: string, LOGGER: Logger) {
 
     // read the file
     LOGGER.info(`Reading file ${file_name}`);
@@ -29,5 +30,17 @@ export default function interpret(work_dir: string, file_name: string, LOGGER: L
 
     LOGGER.log(`Found ${tree.length} statements`);
 
+    // start runtime
     LOGGER.info(`Starting runtime`);
+    const runtime = new Runtime();
+
+    // run the code
+    await runtime.run({
+        statements: tree
+    });
+
+    console.log('=======================');
+    console.log('Collect garbage');
+    runtime.collectGarbage();
+    runtime.printDebug();
 }
