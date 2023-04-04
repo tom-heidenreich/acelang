@@ -1,4 +1,4 @@
-import { LineState, Operator, Token, ValueNode } from "../types";
+import { LineState, Operator, Token, Type, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import Values from "../parser/values";
@@ -126,6 +126,7 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                     type: propertyType,
                     value: {
                         type: 'member',
+                        targetType: lastValue.type,
                         target: lastValue.value,
                         property: property.value
                     }
@@ -162,6 +163,7 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                     type: propertyType,
                     value: {
                         type: 'member',
+                        targetType: lastValue.type,
                         target: lastValue.value,
                         property: propertyNode.value
                     }

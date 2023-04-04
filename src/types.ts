@@ -124,6 +124,7 @@ export type StructType = {
     properties: Types
 }
 
+// TODO: check if this should be named map
 export type ObjectType = {
     type: 'object',
     values: Type
@@ -205,6 +206,7 @@ export type InstantiationExpression = {
 
 export type MemberExpression = {
     type: 'member',
+    targetType: Type,
     target: Value,
     property: Value
 }
