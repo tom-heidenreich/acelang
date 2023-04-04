@@ -271,8 +271,3 @@ func myFunc(myVar: string = "hello world") {
     console.log(myVar)
 }
 ```
-
-### Debug
-```ace
-debug myVar
-```
