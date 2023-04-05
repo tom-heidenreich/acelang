@@ -5,6 +5,8 @@ const RESERVED_NAMES = {
     'return': '_sys::return'
 }
 
+const TIMEOUT = 10
+
 export default class Runtime {
 
     private context: Context;
@@ -131,6 +133,54 @@ function floatMultiply(first: RuntimeMemoryType, second: RuntimeMemoryType): Run
     const firstFloat = FromBits.float64(first);
     const secondFloat = FromBits.float64(second);
     return ToBits.float64(firstFloat * secondFloat);
+}
+
+function intLessThan(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstInt = FromBits.int64(first);
+    const secondInt = FromBits.int64(second);
+    return ToBits.boolean(firstInt < secondInt);
+}
+
+function intLessThanEquals(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstInt = FromBits.int64(first);
+    const secondInt = FromBits.int64(second);
+    return ToBits.boolean(firstInt <= secondInt);
+}
+
+function intGreaterThan(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstInt = FromBits.int64(first);
+    const secondInt = FromBits.int64(second);
+    return ToBits.boolean(firstInt > secondInt);
+}
+
+function intGreaterThanEquals(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstInt = FromBits.int64(first);
+    const secondInt = FromBits.int64(second);
+    return ToBits.boolean(firstInt >= secondInt);
+}
+
+function floatLessThan(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstFloat = FromBits.float64(first);
+    const secondFloat = FromBits.float64(second);
+    return ToBits.boolean(firstFloat < secondFloat);
+}
+
+function floatLessThanEquals(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstFloat = FromBits.float64(first);
+    const secondFloat = FromBits.float64(second);
+    return ToBits.boolean(firstFloat <= secondFloat);
+}
+
+function floatGreaterThan(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstFloat = FromBits.float64(first);
+    const secondFloat = FromBits.float64(second);
+    return ToBits.boolean(firstFloat > secondFloat);
+}
+
+function floatGreaterThanEquals(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstFloat = FromBits.float64(first);
+    const secondFloat = FromBits.float64(second);
+    return ToBits.boolean(firstFloat >= secondFloat);
 }
 
 type ValueResolvePromise = Promise<RuntimeMemoryType>
@@ -317,6 +367,94 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 const leftData = await objects.get(left);
                 const rightData = await objects.get(right);
                 resolve(floatMultiply(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'intLessThan': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(intLessThan(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'intLessThanEquals': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(intLessThanEquals(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'intGreaterThan': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(intGreaterThan(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'intGreaterThanEquals': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(intGreaterThanEquals(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'floatLessThan': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(floatLessThan(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'floatLessThanEquals': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(floatLessThanEquals(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'floatGreaterThan': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(floatGreaterThan(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'floatGreaterThanEquals': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(floatGreaterThanEquals(leftData, rightData));
             }));
             return address;
         }
