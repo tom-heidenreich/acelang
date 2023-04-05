@@ -188,4 +188,8 @@ export default class TypeCheck {
         }
         return 'unknown';
     }
+
+    public static isNumber(type: Type): boolean {
+        return type.type === 'primitive' && (type.primitive === 'float' || type.primitive === 'int');
+    }
 }
