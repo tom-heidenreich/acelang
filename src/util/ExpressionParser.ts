@@ -58,12 +58,9 @@ export default class ExpressionParser {
 
     private static getPrecedence(op: Operator): number {
         switch(op) {
-            case '+':
-                return 1;
-            case '*':
-                return 2;
-            default:
-                return 0;
+            case '+': return 1;
+            case '*': return 2;
+            default: return 0;
         }
     }
 
