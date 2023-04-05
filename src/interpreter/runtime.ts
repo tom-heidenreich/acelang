@@ -12,8 +12,6 @@ export default class Runtime {
     private context: Context;
     public readonly objects: Objects;
 
-    private contextStack: Context[] = [];
-
     constructor() {
         this.context = new Context();
         this.objects = new Objects();
@@ -21,24 +19,35 @@ export default class Runtime {
 
     public run({ statements, context, shouldContinue }: { statements: Statement[], context?: Context, shouldContinue?: () => boolean }): Promise<void> {
         return new Promise<void>(async resolve => {
+
             if(!context) context = this.context;
             console.log(context.local);
+
             if(statements.length === 1) {
-                const statement = statements[0];
-                if (statement.type === 'multiStatement') return resolve(await this.run({ statements: statement.statements, context, shouldContinue }));
-                switch(statement.type) {
-                    case 'variableDeclaration': return resolve(await parseVariableDeclaration(statement, context, this));
-                    case 'syncStatement': {
-                        const newContext = new Context(context, true);
-                        this.contextStack.push(context);
-                        resolve(await this.run({ statements: statement.body, context: newContext }));
-                        this.contextStack.pop();
-                        return;
+                const statementPromise = new Promise<void>(async resolve => {
+                    if(!context) context = this.context;
+                    const statement = statements[0];
+                    if (statement.type === 'multiStatement') return resolve(await this.run({ statements: statement.statements, context, shouldContinue }));
+                    switch(statement.type) {
+                        case 'variableDeclaration': return resolve(await parseVariableDeclaration(statement, context, this));
+                        case 'syncStatement': {
+                            const newContext = new Context(context, true);
+                            resolve(await this.run({ statements: statement.body, context: newContext }));
+                            return;
+                        }
+                        case 'functionDeclaration': return resolve(await parseFunctionDeclaration(statement, context, this));
+                        case 'returnStatement': return resolve(await parseReturnStatement(statement, context, this));
                     }
-                    case 'functionDeclaration': return resolve(await parseFunctionDeclaration(statement, context, this));
-                    case 'returnStatement': return resolve(await parseReturnStatement(statement, context, this));
-                }
-                throw new Error(`Statement type ${statement.type} is not implemented`);
+                    throw new Error(`Statement type ${statement.type} is not implemented`);
+                })
+
+                if(context.isSync) return resolve(await statementPromise);
+                const timeout = setTimeout(resolve, TIMEOUT);
+                statementPromise.then(() => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+                return;
             }
 
             for(const statement of statements) {
@@ -60,7 +69,7 @@ export default class Runtime {
 
     public collectGarbage() {
         // TODO: currently collects items in arrays or structs as well
-        const context = this.contextStack[this.contextStack.length - 1] || this.context;
+        const context = this.context;
         const usedAddresses = new Set<number>();
         const collect = (context: Context) => {
             for(const address of context.local.values()) usedAddresses.add(address);
