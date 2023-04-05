@@ -381,7 +381,7 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
         return {
             type: {
                 type: 'primitive',
-                primitive: 'float'
+                primitive: 'boolean'
             },
             value: {
                 type: 'floatLessThan',
@@ -394,7 +394,7 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
         return {
             type: {
                 type: 'primitive',
-                primitive: 'int'
+                primitive: 'boolean'
             },
             value: {
                 type: 'intLessThan',
@@ -423,7 +423,7 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
         return {
             type: {
                 type: 'primitive',
-                primitive: 'float'
+                primitive: 'boolean'
             },
             value: {
                 type: 'floatGreaterThan',
@@ -436,7 +436,7 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
         return {
             type: {
                 type: 'primitive',
-                primitive: 'int'
+                primitive: 'boolean'
             },
             value: {
                 type: 'intGreaterThan',
@@ -465,7 +465,7 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
         return {
             type: {
                 type: 'primitive',
-                primitive: 'float'
+                primitive: 'boolean'
             },
             value: {
                 type: 'floatLessThanEquals',
@@ -478,7 +478,7 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
         return {
             type: {
                 type: 'primitive',
-                primitive: 'int'
+                primitive: 'boolean'
             },
             value: {
                 type: 'intLessThanEquals',
@@ -507,7 +507,7 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
         return {
             type: {
                 type: 'primitive',
-                primitive: 'float'
+                primitive: 'boolean'
             },
             value: {
                 type: 'floatGreaterThanEquals',
@@ -520,7 +520,7 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
         return {
             type: {
                 type: 'primitive',
-                primitive: 'int'
+                primitive: 'boolean'
             },
             value: {
                 type: 'intGreaterThanEquals',
