@@ -190,7 +190,7 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression | AssignExpression
 
 export type CallExpression = {
     type: 'call',
@@ -209,6 +209,12 @@ export type MemberExpression = {
     targetType: Type,
     target: Value,
     property: Value
+}
+
+export type AssignExpression = {
+    type: 'assign',
+    target: Value,
+    value: Value,
 }
 
 export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression

@@ -135,8 +135,30 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             }
         }
         else if(token.type === 'symbol') {
+            // assing
+            if(token.value === '=') {
+                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+
+                const valueNode = Values.parseValue(lineState, cursor.remaining());
+
+                if(!TypeCheck.matches(lineState.build.types, lastValue.type, valueNode.type)) {
+                    throw new Error(`Cannot assign ${valueNode.type} to ${lastValue.type} at line ${lineState.lineIndex}`);
+                }
+
+                return {
+                    type: {
+                        type: 'primitive',
+                        primitive: 'void'
+                    },
+                    value: {
+                        type: 'assign',
+                        target: lastValue.value,
+                        value: valueNode.value
+                    }
+                }
+            }
             // member access
-            if(token.value === '.') {
+            else if(token.value === '.') {
                 if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
                 const property = cursor.next();
