@@ -190,7 +190,7 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ComparisonExpression | InstantiationExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression
 
 export type CallExpression = {
     type: 'call',
@@ -245,8 +245,8 @@ export type MultiplyFloatExpression = {
     right: Value,
 }
 
-// comparison Expressions
-export type ComparisonExpression = EqualsExpression | LessThanExpression | LessThanEqualsExpression | GreaterThanExpression | GreaterThanEqualsExpression
+// conditional Expressions
+export type ConditionalExpression = EqualsExpression | ComparisonExpression
 
 export type EqualsExpression = {
     type: 'equals',
@@ -254,29 +254,74 @@ export type EqualsExpression = {
     right: Value,
 }
 
-export type LessThanExpression = {
-    type: 'lessThan',
+// comparison Expressions
+export type ComparisonExpression = (
+    IntLessThanExpression |
+    IntLessThanEqualsExpression |
+    IntGreaterThanExpression |
+    IntGreaterThanEqualsExpression |
+    FloatLessThanExpression |
+    FloatLessThanEqualsExpression |
+    FloatGreaterThanExpression |
+    FloatFreaterThanEqualsExpression
+)
+
+export type IntLessThanExpression = {
+    type: 'intLessThan',
     left: Value,
     right: Value,
 }
 
-export type LessThanEqualsExpression = {
-    type: 'lessThanEquals',
+export type IntLessThanEqualsExpression = {
+    type: 'intLessThanEquals',
     left: Value,
     right: Value,
 }
 
-export type GreaterThanExpression = {
-    type: 'greaterThan',
+export type IntGreaterThanExpression = {
+    type: 'intGreaterThan',
     left: Value,
     right: Value,
 }
 
 
-export type GreaterThanEqualsExpression = {
-    type: 'greaterThanEquals',
+export type IntGreaterThanEqualsExpression = {
+    type: 'intGreaterThanEquals',
     left: Value,
     right: Value,
+}
+
+export type FloatLessThanExpression = {
+    type: 'floatLessThan',
+    left: Value,
+    right: Value,
+}
+
+export type FloatLessThanEqualsExpression = {
+    type: 'floatLessThanEquals',
+    left: Value,
+    right: Value,
+}
+
+export type FloatGreaterThanExpression = {
+    type: 'floatGreaterThan',
+    left: Value,
+    right: Value,
+}
+
+
+export type FloatFreaterThanEqualsExpression = {
+    type: 'floatGreaterThanEquals',
+    left: Value,
+    right: Value,
+}
+
+// cast Expressions
+export type CastExpression = {
+    type: 'cast',
+    value: Value,
+    targetType: DataType,
+    currentType: DataType,
 }
 
 export type ValueNode = {

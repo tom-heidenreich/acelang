@@ -1,5 +1,5 @@
 import { Statement, VariableDeclaration, Value, FunctionDeclaration, ReturnStatement } from "../types";
-import { FromBits, ToBits, findIndexOfArrayInArray } from "./bit_utils";
+import { Convert, FromBits, ToBits, findIndexOfArrayInArray } from "./bit_utils";
 
 const RESERVED_NAMES = {
     'return': '_sys::return'
@@ -235,6 +235,35 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 buffer.push(valueAddresses[i]);
             }
             return objects.dynamicAllocate(ToBits.int8Array(buffer));
+        }
+        case 'cast': {
+            const target = parseAsyncValue({ value: value.value, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const targetData = await objects.get(target);
+                switch(value.currentType) {
+                    case 'int': {
+                        switch(value.targetType) {
+                            case 'float': return resolve(Convert.int64tofloat64(targetData));
+                            case 'string': return resolve(Convert.int64tostring(targetData));
+                        }
+                    }
+                    case 'float': {
+                        switch(value.targetType) {
+                            case 'int': return resolve(Convert.float64toint64(targetData));
+                            case 'string': return resolve(Convert.float64tostring(targetData));
+                        }
+                    }
+                    case 'string': {
+                        switch(value.targetType) {
+                            case 'int': return resolve(Convert.stringtoint64(targetData));
+                            case 'float': return resolve(Convert.stringtofloat64(targetData));
+                        }
+                    }
+                }
+                throw new Error(`Cannot cast ${value.currentType} to ${value.targetType}`);
+            }));
+            return address;
         }
         case 'intAdd': {
             const left = parseAsyncValue({ value: value.left, objects, context, runtime });

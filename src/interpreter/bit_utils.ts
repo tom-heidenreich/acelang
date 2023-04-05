@@ -63,6 +63,27 @@ export const FromBits = {
     string: (value: RuntimeMemoryType): string => String.fromCharCode(...FromBits.int16Array(value))
 }
 
+export const Convert = {
+    int64tofloat64: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.float64(FromBits.int64(value));
+    },
+    float64toint64: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.int64(FromBits.float64(value));
+    },
+    int64tostring: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.string(FromBits.int64(value).toString());
+    },
+    stringtoint64: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.int64(parseInt(FromBits.string(value)));
+    },
+    float64tostring: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.string(FromBits.float64(value).toString());
+    },
+    stringtofloat64: (value: RuntimeMemoryType): RuntimeMemoryType => {
+        return ToBits.float64(parseFloat(FromBits.string(value)));
+    }
+}
+
 export function findIndexOfArrayInArray(target: RuntimeMemoryType, search: RuntimeMemoryType): number {
     for (let i = 0; i < target.length - search.length + 1; i++) {
         let match = true;
