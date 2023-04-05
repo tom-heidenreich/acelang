@@ -190,7 +190,7 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | EqualsExpression | InstantiationExpression
+export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ComparisonExpression | InstantiationExpression
 
 export type CallExpression = {
     type: 'call',
@@ -245,8 +245,36 @@ export type MultiplyFloatExpression = {
     right: Value,
 }
 
+// comparison Expressions
+export type ComparisonExpression = EqualsExpression | LessThanExpression | LessThanEqualsExpression | GreaterThanExpression | GreaterThanEqualsExpression
+
 export type EqualsExpression = {
     type: 'equals',
+    left: Value,
+    right: Value,
+}
+
+export type LessThanExpression = {
+    type: 'lessThan',
+    left: Value,
+    right: Value,
+}
+
+export type LessThanEqualsExpression = {
+    type: 'lessThanEquals',
+    left: Value,
+    right: Value,
+}
+
+export type GreaterThanExpression = {
+    type: 'greaterThan',
+    left: Value,
+    right: Value,
+}
+
+
+export type GreaterThanEqualsExpression = {
+    type: 'greaterThanEquals',
     left: Value,
     right: Value,
 }

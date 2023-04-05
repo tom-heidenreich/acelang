@@ -72,6 +72,10 @@ export default class ExpressionParser {
             case '+': return parsePlusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
             case '==': return parseEqualsExpression(lineState, left, right);
+            case '<': return parseLessThanExpression(lineState, left, right);
+            case '<=': return parseLessThanEqualsExpression(lineState, left, right);
+            case '>': return parseGreaterThanExpression(lineState, left, right);
+            case '>=': return parseGreaterThanEqualsExpression(lineState, left, right);
             default: throw new Error(`Unknown operator: ${operator} at line ${lineState.lineIndex}`);
         }
     }
@@ -340,6 +344,94 @@ function parseEqualsExpression(lineState: LineState, left: ValueNode, right: Val
         },
         value: {
             type: 'equals',
+            left: left.value,
+            right: right.value
+        }
+    }
+}
+
+function parseLessThanExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+
+    if(!TypeCheck.isNumber(left.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(left.type)} at line ${lineState.lineIndex}`);
+    }
+    if(!TypeCheck.isNumber(right.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'boolean'
+        },
+        value: {
+            type: 'lessThan',
+            left: left.value,
+            right: right.value
+        }
+    }
+}
+
+function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    
+    if(!TypeCheck.isNumber(left.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(left.type)} at line ${lineState.lineIndex}`);
+    }
+    if(!TypeCheck.isNumber(right.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'boolean'
+        },
+        value: {
+            type: 'greaterThan',
+            left: left.value,
+            right: right.value
+        }
+    }
+}
+
+function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    
+    if(!TypeCheck.isNumber(left.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(left.type)} at line ${lineState.lineIndex}`);
+    }
+    if(!TypeCheck.isNumber(right.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'boolean'
+        },
+        value: {
+            type: 'lessThanEquals',
+            left: left.value,
+            right: right.value
+        }
+    }
+}
+
+function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+        
+    if(!TypeCheck.isNumber(left.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(left.type)} at line ${lineState.lineIndex}`);
+    }
+    if(!TypeCheck.isNumber(right.type)) {
+        throw new Error(`Expected number got ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'boolean'
+        },
+        value: {
+            type: 'greaterThanEquals',
             left: left.value,
             right: right.value
         }
