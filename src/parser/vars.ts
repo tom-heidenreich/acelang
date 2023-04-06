@@ -55,7 +55,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
     let type: Type | undefined
     if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
         cursor.next()
-        const typeToken = cursor.until(token => token.type === 'symbol' && token.value === '=')
+        const typeToken = cursor.until(token => token.type === 'operator' && token.value === '=')
         if(typeToken.remainingLength === 0 && isConst) {
             throw new Error(`Unexpected symbol '=' at line ${lineState.lineIndex}`)
         }
@@ -64,7 +64,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
 
     if(!cursor.done) {
 
-        if(cursor.peek().type === 'symbol' && cursor.peek().value === '=') {
+        if(cursor.peek().type === 'operator' && cursor.peek().value === '=') {
             cursor.next()
         }
 

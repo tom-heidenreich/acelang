@@ -60,12 +60,14 @@ export default class ExpressionParser {
         switch(op) {
             case '+': return 1;
             case '*': return 2;
+            case '=': return 10;
             default: return 0;
         }
     }
 
     private static parseOperator(lineState: LineState, operator: Operator, left: ValueNode, right: ValueNode): ValueNode {
         switch(operator) {
+            case '=': return parseAssignExpression(lineState, left, right);
             case '+': return parsePlusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
             case '==': return parseEqualsExpression(lineState, left, right);
@@ -135,30 +137,8 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             }
         }
         else if(token.type === 'symbol') {
-            // assing
-            if(token.value === '=') {
-                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
-
-                const valueNode = Values.parseValue(lineState, cursor.remaining());
-
-                if(!TypeCheck.matches(lineState.build.types, lastValue.type, valueNode.type)) {
-                    throw new Error(`Cannot assign ${valueNode.type} to ${lastValue.type} at line ${lineState.lineIndex}`);
-                }
-
-                return {
-                    type: {
-                        type: 'primitive',
-                        primitive: 'void'
-                    },
-                    value: {
-                        type: 'assign',
-                        target: lastValue.value,
-                        value: valueNode.value
-                    }
-                }
-            }
             // member access
-            else if(token.value === '.') {
+            if(token.value === '.') {
                 if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
                 const property = cursor.next();
@@ -268,6 +248,25 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
     if(!lastValue) throw new Error(`Expected value at line ${lineState.lineIndex}`);
     return lastValue;
+}
+
+function parseAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+
+    if(!TypeCheck.matches(lineState.build.types, left.type, right.type)) {
+        throw new Error(`Cannot assign ${Values.stringify(right.value)} to ${Values.stringify(left.value)} at line ${lineState.lineIndex}`);
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'void'
+        },
+        value: {
+            type: 'assign',
+            target: left.value,
+            value: right.value
+        }
+    }
 }
 
 function parsePlusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {

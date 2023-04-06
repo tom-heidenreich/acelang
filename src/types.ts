@@ -34,8 +34,8 @@ export const KEYWORDS: Keyword[] = [
     'as',
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
-export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>']
-export const SYMBOLS: Symbol[] = [...OPERATORS, '=', ':', ',', '.', '|', '?']
+export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>', '=']
+export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
@@ -65,8 +65,8 @@ export type Keyword = (
     'as'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
-export type Symbol =  Operator | ':' | ',' | '.' | '|' | '=' | '?'
-export type Operator = '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
+export type Symbol =  Operator | ':' | ',' | '.' | '|' | '?'
+export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
 
 export type Identifier = string;
 export type Literal = string | number | boolean;
