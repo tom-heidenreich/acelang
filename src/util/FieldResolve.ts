@@ -1,4 +1,4 @@
-import { Field, FieldEnv, ReferenceValue, Value } from "../types";
+import { Field, FieldEnv } from "../types";
 
 export default class FieldResolve {
 

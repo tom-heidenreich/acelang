@@ -11,30 +11,30 @@ This language is designed to replace javascript in the backend.
 * `===` will check if it has the same memory address
 
 
-## Design
+## Documentation
 
-### Comments
-```
+### Comments ✔
+```ace
 # comment
 ```
 
-### declare variable
-```
+### declare variable ✔
+```ace
 var myVar = "hello world"
 ```
 
-### without initialization
-```
+### without initialization ✔
+```ace
 var myVar2: string
 ```
 
-### declare constant
-```
+### declare constant ✔
+```ace
 const myConst = "hello world"
 ```
 
-### if-else
-```
+### if-else ✔
+```ace
 if (myVar == "hello world") {
     console.log("hello world")
 } else {
@@ -42,8 +42,8 @@ if (myVar == "hello world") {
 }
 ```
 
-### if-else if
-```
+### if-else if ✔
+```ace
 if (myVar == "hello world") {
     console.log("hello world")
 } else if (myVar == "hello") {
@@ -53,36 +53,37 @@ if (myVar == "hello world") {
 }
 ```
 
-### functions
-```
+### functions ✔
+```ace
 func myFunc() {
     console.log("hello world")
 }
 ```
 
-### functions with parameters
-```
+### functions with parameters ✔
+```ace
 func myFunc2(myVar: string) {
     console.log(myVar)
 }
 ```
 
-### functions with return value
-```
+### functions with return value ✔
+```ace
 func myFunc3(myVar: string): string {
     return myVar
 }
 ```
 
-### for loop
-```
-for (var i = 0; i < 10; i++) {
-    console.log(i)
+### for loop ✔
+```ace
+const myArray = ["hello", "world"]
+for item of myArray {
+    console.log(item)
 }
 ```
 
-### while loop
-```
+### while loop ✔
+```ace
 var i = 0
 while (i < 10) {
     console.log(i)
@@ -90,24 +91,35 @@ while (i < 10) {
 }
 ```
 
-### synchronized block
-```
+### synchronized block ✔
+```ace
 sync {
     const value = fetch("https://example.com")
     console.log(value)
 }
 ```
 
-### synchronized function
+### monitor ✔
+```ace
+sync (myVar1, myVar2) {
+    myVar1 = myVar2
+}
+sync {
+    # will wait until first sync block is finished
+    print(myVar1)
+}
 ```
+
+### synchronized function ✔
+```ace
 sync func myFunc4() {
     const value = fetch("https://example.com")
     console.log(value)
 }
 ```
 
-### class
-```
+### class ✔
+```ace
 class myClass {
 
     # attributes
@@ -137,8 +149,13 @@ class myClass {
 }
 ```
 
-### inheritance
+### Create object ✔
+```ace
+const myObject = new myClass("hello world")
 ```
+
+### inheritance
+```ace
 class myClass2 extends myClass {
 
     # constructor
@@ -153,92 +170,104 @@ class myClass2 extends myClass {
 }
 ```
 
-### types
-```
+### types ✔
+```ace
+# unions
 type number = int | float
-
-"number": {
-    "oneOf": [
-        {
-            "type": "integer"
-        },
-        {
-            "type": "number"
-        }
-    ]
-}
-
+# struct
 type User = {
     name: string,
     age: number,
 }
-
-"User": {
-    "type": "object",
-    "properties": {
-        "name": {
-            "type": "string"
-        },
-        "age": {
-            "type": "number"
-        }
-    }
-}
-
+# arrays
 type FriendList = User[]
-"FriendList": {
-    "type": "array",
-    "items": "User"
+# object
+type UserNumberObject = { [key: string]: number }
+# arrays with unions
+type NumberList = (int | float)[]
+```
+
+### undefined check ✔
+```ace
+if(myVar?) {
+    console.log("not undefined")
+}
+```
+
+### Imports ✔
+```ace
+# import module
+import myModule from "./myModule.ace"
+```
+
+### Javascript Imports
+```ace
+import myModule from "./myModule.js"
+```
+
+### Typescript Imports
+```ace
+import myModule from "./myModule.ts"
+```
+
+### Exports ✔
+```ace
+export myVar
+```
+
+### Desctructuring ✔
+```ace
+# struct
+const myStruct = {
+    name: "hello",
+    age: 10,
+}
+const { name, age } = myStruct
+
+# array
+const myArray = ["hello", "world"]
+const [first, second] = myArray
+```
+
+### Spread
+```ace
+const myArray = ["hello", "world"]
+const myArray2 = [...myArray, "hello world"]
+```
+
+### Rest
+```ace
+func myFunc(...myArray: string[]) {
+    console.log(myArray)
+}
+```
+
+### Optionals
+```ace
+# type
+type User = {
+    name: string,
+    age?: number,   # synonym for age: number | undefined
 }
 
-type NumberList = (int | float)[]
-
-"NumberList": {
-    "type": "array",
-    "items": {
-        "oneOf": [
-            {
-                "type": "integer"
-            },
-            {
-                "type": "number"
-            }
-        ]
+# function
+func myFunc(age?: number) {
+    if(age?) {
+        print(age)
     }
 }
 ```
 
-## New Instruction Design
-
+### Value as type ✔
+```ace
+type myType = string | int
+const firstVar: myType = "hello world"
+const secondVar = fristVar as string
 ```
-# will create field 'a', malloc 0x0000 and move 'hello' to 0x0000
-const a = "hello"
 
-# will create field 'b' with a pointer to 0x0000
-const b = a
-
-# will create field 'c', malloc 0x0001, move '1' to 0x0001, add '2' to 0x0001
-const c = 1 + 2
-
-# will create field 'd', (somehow recognize it's not a pointer, ) malloc 0x0002, move 0x0001 to 0x0002, add '1' to 0x0002
-const d = c + 1
-
-# will create field 'e'
-func e() {
-
-    # will create field 'a' in 'e', malloc 0x0003, move '1' to 0x0003, add '1' to 0x0003
-    const a = 1 + 1
-
-    # will move 0x0003 to 0xffff (return cache) 
-    return a
+### Default values
+```ace
+func myFunc(myVar: string = "hello world") {
+    console.log(myVar)
 }
-
-# will create field 'f', malloc 0x0005, run 'e' and move 0xffff to 0x0005 
-const f = a()
 ```
-
-# Runtime
-
-## Memory
-
-* First bit shows if value is ready or not

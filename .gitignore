@@ -4,12 +4,15 @@ node_modules
 # build
 *.exe
 dist
+build
+lib
+
+# include acelang cli exe
+!/bin/acelang.exe
 
 # log
 log
+log.txt
 
 # example
 index.ace
-
-# templates (temporary)
-templates

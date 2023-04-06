@@ -1,8 +1,8 @@
-import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode, ReferenceValue } from "../types";
-import Cursor from "./cursor";
-import ExpressionParser from "./ExpressionParser";
-import FieldResolve from "./FieldResolve";
-import TypeCheck from "./TypeCheck";
+import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode } from "../types";
+import Cursor from "../util/cursor";
+import ExpressionParser from "../util/ExpressionParser";
+import FieldResolve from "../util/FieldResolve";
+import TypeCheck from "../util/TypeCheck";
 
 function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
     
@@ -61,7 +61,7 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             }
         }
         else {
-            throw new Error(`Unknown type: ${token.type} at line ${lineState.lineIndex}`);
+            throw new Error(`Unknown type: ${token.type} ${token.value} at line ${lineState.lineIndex}`);
         }
     }
     else {
@@ -150,9 +150,20 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
     };
 }
 
+function stringify(value: Value): string {
+    switch(value.type) {
+        case 'literal': return value.literal.toString();
+        case 'reference': return value.reference;
+        case 'array': return `[${value.items.map(stringify).join(', ')}]`;
+        case 'struct': return `{${Object.entries(value.properties).map(([key, value]) => `${key}: ${stringify(value)}`).join(', ')}}`;
+    }
+    throw new Error(`Unknown value type: ${value}`);
+}
+
 const Values = {
     parseValue,
     parseArray,
-    parseStruct
+    parseStruct,
+    stringify,
 }
 export default Values 

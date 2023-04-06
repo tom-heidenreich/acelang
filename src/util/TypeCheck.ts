@@ -1,4 +1,4 @@
-import { DataType, Key, Param, Literal, Type, Types, ValueNode } from "../types";
+import { DataType, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
@@ -17,8 +17,11 @@ export default class TypeCheck {
             else if(match.type === 'union') {
                 return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against[0]));
             }
-            else if(match.type === 'struct' || match.type === 'array') {
+            else if(match.type === 'struct' || match.type === 'array' || match.type === 'object' || match.type === 'class') {
                 return against[0] === 'object';
+            }
+            else if(match.type === 'literal' && match.literal === 'undefined') {
+                return against[0] === 'undefined';
             }
             return false;
         }
@@ -78,6 +81,11 @@ export default class TypeCheck {
         return false;
     }
 
+    public static resolveReferences(types: Types, type: Type): Type {
+        if(type.type === 'reference') return TypeCheck.resolveReferences(types, types[type.reference]);
+        else return type;
+    }
+
     public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
         if(args.length < params.length) return false;
         for(let i = 0; i < params.length; i++) {
@@ -87,19 +95,23 @@ export default class TypeCheck {
     }
 
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
-        if(type.type === 'reference') {
+        if(type.type === 'primitive' && type.primitive === 'any') return type;
+        else if(type.type === 'reference') {
             return TypeCheck.resolveObject(types, types[type.reference], key);
         }
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
-            console.log(type, key.value.literal.toString(), type.properties[key.value.literal.toString()]);
             return type.properties[key.value.literal.toString()];
         }
-        else if(type.type === 'map') {
+        else if(type.type === 'object') {
             return type.values;
         }
         else if(type.type === 'array') {
             return type.items;
+        }
+        else if(type.type === 'class') {
+            if(key.value.type !== 'literal') return undefined;
+            return type.statics[key.value.literal.toString()];
         }
         else if(type.type === 'union') {
             const resolvedTypes: Type[] = [] 
@@ -171,9 +183,13 @@ export default class TypeCheck {
             else if(resolvedTypes.length === 1) return resolvedTypes[0];
             else return 'any';
         }
-        else if(type.type === 'struct' || type.type === 'array') {
+        else if(type.type === 'struct' || type.type === 'array' || type.type === 'object' || type.type === 'class') {
             return 'object';
         }
         return 'unknown';
+    }
+
+    public static isNumber(type: Type): boolean {
+        return type.type === 'primitive' && (type.primitive === 'float' || type.primitive === 'int');
     }
 }

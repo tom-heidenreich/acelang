@@ -13,9 +13,9 @@ export default class Cursor<T> {
         return this.array[this.cursor++];
     }
 
-    public peek() {
+    public peek(index?: number) {
         if(this.cursor >= this.array.length) throw new Error('Cursor out of bounds');
-        return this.array[this.cursor];
+        return this.array[this.cursor + (index || 0)];
     }
 
     public rollback() {
@@ -31,7 +31,7 @@ export default class Cursor<T> {
     public remaining(): Cursor<T> {
         const cursor = this.cursor;
         this.cursor = this.array.length;
-        return new Cursor(this.array, cursor);
+        return new Cursor(this.array.slice(cursor));
     }
 
     public get remainingLength() {
