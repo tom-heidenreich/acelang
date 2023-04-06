@@ -5,10 +5,9 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "acelang run index.ace",
     "build": "tsc",
-    "watch": "tsc -w",
-    "compiler": "ts-node compiler/src/index.ts"
+    "watch": "tsc -w"
   },
   "keywords": [],
   "author": "",

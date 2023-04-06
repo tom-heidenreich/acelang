@@ -7,6 +7,9 @@ dist
 build
 lib
 
+# include acelang cli exe
+!/bin/acelang.exe
+
 # log
 log
 log.txt
