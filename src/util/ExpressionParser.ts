@@ -69,6 +69,7 @@ export default class ExpressionParser {
         switch(operator) {
             case '=': return parseAssignExpression(lineState, left, right);
             case '+': return parsePlusExpression(lineState, left, right);
+            case '-': return parseMinusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
             case '==': return parseEqualsExpression(lineState, left, right);
             case '<': return parseLessThanExpression(lineState, left, right);
@@ -325,6 +326,48 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
     }
     else {
         throw new Error(`Cannot add ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+    }
+}
+
+function parseMinusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+
+    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+
+    // sorted by priority
+
+    if(leftType === 'float' || rightType === 'float') {
+
+        const leftValue = castNumberToFloat(left);
+        const rightValue = castNumberToFloat(right);
+
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'float'
+            },
+            value: {
+                type: 'floatSubtract',
+                left: leftValue.value,
+                right: rightValue.value
+            }
+        }
+    }
+    else if(leftType === 'int' && rightType === 'int') {
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'int'
+            },
+            value: {
+                type: 'intSubtract',
+                left: left.value,
+                right: right.value
+            }
+        }
+    }
+    else {
+        throw new Error(`Cannot subtract ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
     }
 }
 

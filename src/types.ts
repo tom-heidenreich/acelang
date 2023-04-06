@@ -190,7 +190,7 @@ export type ArrayValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression | AssignExpression
+export type Expression = PlusExpression | MinusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression | AssignExpression
 
 export type CallExpression = {
     type: 'call',
@@ -233,6 +233,20 @@ export type AddFloatExpression = {
 
 export type ConcatStringExpression = {
     type: 'stringConcat',
+    left: Value,
+    right: Value,
+}
+
+// minus Expressions
+export type MinusExpression = SubtractIntExpression | SubtractFloatExpression
+export type SubtractIntExpression = {
+    type: 'intSubtract',
+    left: Value,
+    right: Value,
+}
+
+export type SubtractFloatExpression = {
+    type: 'floatSubtract',
     left: Value,
     right: Value,
 }
