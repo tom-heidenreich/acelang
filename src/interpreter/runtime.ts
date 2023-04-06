@@ -1,8 +1,10 @@
-import { Statement, VariableDeclaration, Value, FunctionDeclaration, ReturnStatement } from "../types";
+import { Statement, VariableDeclaration, Value, FunctionDeclaration, WhileStatement } from "../types";
 import { Convert, FromBits, ToBits, findIndexOfArrayInArray } from "./bit_utils";
 
 const RESERVED_NAMES = {
-    'return': '_sys::return'
+    'return': '_sys::return',
+    'continue': '_sys::continue',
+    'break': '_sys::break',
 }
 
 const TIMEOUT = 10
@@ -17,11 +19,41 @@ export default class Runtime {
         this.objects = new Objects();
     }
 
-    public run({ statements, context, shouldContinue }: { statements: Statement[], context?: Context, shouldContinue?: () => boolean }): Promise<void> {
+    public async init() {
+        // builtin functions
+        // print
+        this.context.set('print', await this.resolveValue({
+            type: 'struct',
+            properties: {
+                _callable: {
+                    type: 'literal',
+                    literalType: 'int',
+                    literal: this.objects.allocateNativeFunction((...args) => {
+                        console.log(...args.map(arg => FromBits.int64(arg)));
+                        return ToBits.undefined();
+                    })
+                }
+            }
+        }, this.context));
+        // time
+        this.context.set('time', await this.resolveValue({
+            type: 'struct',
+            properties: {
+                _callable: {
+                    type: 'literal',
+                    literalType: 'int',
+                    literal: this.objects.allocateNativeFunction((...args) => {
+                        return ToBits.int64(Date.now());
+                    })
+                }
+            }
+        }, this.context));
+    }
+
+    public run({ statements, context, shouldContinue }: { statements: Statement[], context?: Context, shouldContinue?: () => Promise<boolean> }): Promise<void> {
         return new Promise<void>(async resolve => {
 
             if(!context) context = this.context;
-            console.log(context.local);
 
             if(statements.length === 1) {
                 const statementPromise = new Promise<void>(async resolve => {
@@ -29,6 +61,11 @@ export default class Runtime {
                     const statement = statements[0];
                     if (statement.type === 'multiStatement') return resolve(await this.run({ statements: statement.statements, context, shouldContinue }));
                     switch(statement.type) {
+                        case 'expressionStatement': {
+                            const address = await this.resolveValue(statement.expression, context);
+                            await this.objects.get(address);
+                            return resolve();
+                        }
                         case 'variableDeclaration': return resolve(await parseVariableDeclaration(statement, context, this));
                         case 'syncStatement': {
                             const newContext = new Context(context, true);
@@ -36,7 +73,13 @@ export default class Runtime {
                             return;
                         }
                         case 'functionDeclaration': return resolve(await parseFunctionDeclaration(statement, context, this));
-                        case 'returnStatement': return resolve(await parseReturnStatement(statement, context, this));
+                        case 'returnStatement': {
+                            const valueAddress = await this.resolveValue(statement.value, context)
+                            return resolve(context.set(RESERVED_NAMES.return, valueAddress));
+                        }
+                        case 'continueStatement': return resolve(context.set(RESERVED_NAMES.continue, 0));
+                        case 'breakStatement': return resolve(context.set(RESERVED_NAMES.break, 0));
+                        case 'whileStatement': return resolve(await parseWhileStatement(statement, context, this));
                     }
                     throw new Error(`Statement type ${statement.type} is not implemented`);
                 })
@@ -52,10 +95,7 @@ export default class Runtime {
 
             for(const statement of statements) {
                 await this.run({ statements: [statement], context, shouldContinue });
-                if(shouldContinue && !shouldContinue()) return resolve();
-                console.log('=======================');
-                this.printDebug();
-                console.log('=======================');
+                if(shouldContinue && !(await shouldContinue())) return resolve();
             }
             return resolve();
         });
@@ -63,7 +103,7 @@ export default class Runtime {
 
     public async resolveValue(value: Value, context: Context) {
         const objectId = parseAsyncValue({ value, objects: this.objects, context, runtime: this })
-        if(context.isSync) await this.objects.get(objectId);
+        if(context.isSync && objectId !== -1) await this.objects.get(objectId);
         return objectId;
     }
 
@@ -79,11 +119,6 @@ export default class Runtime {
         for(const address of this.objects.objects.keys()) {
             if(!usedAddresses.has(address)) this.objects.free(address);
         }
-    }
-
-    public printDebug() {
-        console.log(this.context.local);
-        console.log(this.objects.objects);
     }
 }
 
@@ -105,11 +140,10 @@ class Context {
     public get(name: string): number {
         if(this.local.has(name)) return this.local.get(name)!;
         if(this.parent) return this.parent.get(name);
-        throw new Error(`Variable ${name} is not defined`);
+        return -1;
     }
 
     public set(name: string, address: number): void {
-        console.log(`Set ${name} to ${address}`);
         this.local.set(name, address);
     }
 }
@@ -124,6 +158,18 @@ function floatAdd(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeM
     const firstFloat = FromBits.float64(first);
     const secondFloat = FromBits.float64(second);
     return ToBits.float64(firstFloat + secondFloat);
+}
+
+function intSubtract(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstInt = FromBits.int64(first);
+    const secondInt = FromBits.int64(second);
+    return ToBits.int64(firstInt - secondInt);
+}
+
+function floatSubtract(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
+    const firstFloat = FromBits.float64(first);
+    const secondFloat = FromBits.float64(second);
+    return ToBits.float64(firstFloat - secondFloat);
 }
 
 function stringConcat(first: RuntimeMemoryType, second: RuntimeMemoryType): RuntimeMemoryType {
@@ -199,10 +245,16 @@ type RuntimeObject = {
     data?: RuntimeMemoryType;
 }
 
+type NativeFunction = (...args: RuntimeMemoryType[]) => RuntimeMemoryType
+type NativeFunctionDeclaration = {
+    type: 'nativeFunction'
+    call: NativeFunction;
+}
+
 class Objects {
 
     public readonly objects: Map<number, RuntimeObject> = new Map();
-    public readonly functions: Map<number, FunctionDeclaration> = new Map();
+    public readonly functions: Map<number, FunctionDeclaration | NativeFunctionDeclaration> = new Map();
 
     public get(address: number): Promise<RuntimeMemoryType> {
         const object = this.objects.get(address);
@@ -224,10 +276,22 @@ class Objects {
     }
 
     public set(address: number, promise: ValueResolvePromise): void {
-        this.objects.set(address, {
+        this.setObject(address, {
             resolved: false,
             promise,
         });
+    }
+
+    public setData(address: number, data: RuntimeMemoryType): void {
+        this.setObject(address, {
+            resolved: true,
+            promise: new Promise(resolve => resolve(data)),
+            data,
+        });
+    }
+
+    public setObject(address: number, object: RuntimeObject): void {
+        this.objects.set(address, object);
     }
 
     public free(address: number): void {
@@ -266,6 +330,15 @@ class Objects {
     public allocateFunction(declaration: FunctionDeclaration): number {
         const address = this.findFreeAddress(this.functions);
         this.functions.set(address, declaration);
+        return address;
+    }
+
+    public allocateNativeFunction(native: NativeFunction): number {
+        const address = this.findFreeAddress(this.functions);
+        this.functions.set(address, {
+            type: 'nativeFunction',
+            call: native
+        });
         return address;
     }
 }
@@ -346,6 +419,28 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
             }));
             return address;
         }
+        case 'intSubtract': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(intSubtract(leftData, rightData));
+            }));
+            return address;
+        }
+        case 'floatSubtract': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(floatSubtract(leftData, rightData));
+            }));
+            return address;
+        }
         case 'stringConcat': {
             const left = parseAsyncValue({ value: value.left, objects, context, runtime });
             const right = parseAsyncValue({ value: value.right, objects, context, runtime });
@@ -382,7 +477,7 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
         case 'intLessThan': {
             const left = parseAsyncValue({ value: value.left, objects, context, runtime });
             const right = parseAsyncValue({ value: value.right, objects, context, runtime });
-            const address = objects.allocate();
+            const address = objects.allocate(); 
             objects.set(address, new Promise(async resolve => {
                 const leftData = await objects.get(left);
                 const rightData = await objects.get(right);
@@ -483,10 +578,21 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 else if(value.targetType.type === 'struct') {
                     const index = findIndexOfArrayInArray(targetData, propertyData);
                     if(index === -1) throw new Error(`Property ${FromBits.string(propertyData)} not found in struct`);
-                    const valueAddress = targetData[index + 4];
+                    const valueAddress = FromBits.int16(targetData.slice(index + propertyData.length + 2).slice(0, 2))
                     resolve(await objects.get(valueAddress));
                 }
                 else throw new Error(`Unexpected member target type ${value.targetType.type}`);
+            }));
+            return address;
+        }
+        case 'assign': {
+            const target = parseAsyncValue({ value: value.target, objects, context, runtime });
+            const valueAddress = parseAsyncValue({ value: value.value, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const valueData = await objects.get(valueAddress);
+                objects.setData(target, valueData);
+                resolve(ToBits.undefined());
             }));
             return address;
         }
@@ -498,13 +604,20 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 const targetData = await objects.get(target);
 
                 // find _callable
-                const callableValueIndex = findIndexOfArrayInArray(targetData, ToBits.string('_callable'));
+                const key = ToBits.string('_callable')
+                const callableValueIndex = findIndexOfArrayInArray(targetData, key);         
                 if(callableValueIndex === -1) throw new Error(`Object is not callable`);
-                const callableValueAddress = targetData[callableValueIndex + 4];
+                const callableValueAddress = FromBits.int16(targetData.slice(callableValueIndex + key.length + 2).slice(0, 2))
                 const callableAddress = FromBits.int64(await objects.get(callableValueAddress));
 
                 const callable = objects.getFunction(callableAddress);
                 if(!callable) throw new Error(`Function at address ${callableAddress} not found`);
+
+                // if native
+                if(callable.type === 'nativeFunction') {
+                    const argsData = await Promise.all(args.map(async arg => await objects.get(arg)));
+                    return resolve(callable.call(...argsData));
+                }
 
                 const callContext = new Context(context);
                 for(let i = 0; i < callable.params.length; i++) {
@@ -518,7 +631,7 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 await runtime.run({
                     statements: callable.body,
                     context: callContext,
-                    shouldContinue: () => {
+                    shouldContinue: async () => {
                         // continue if not returned yet
                         const returnValueAddress = callContext.get(RESERVED_NAMES.return);
                         return returnValueAddress === -1;
@@ -557,7 +670,37 @@ async function parseFunctionDeclaration(statement: FunctionDeclaration, context:
     }, context));
 }
 
-async function parseReturnStatement(statement: ReturnStatement, context: Context, runtime: Runtime) {
-    const valueAddress = await runtime.resolveValue(statement.value, context)
-    context.set(RESERVED_NAMES.return, valueAddress);
+async function parseWhileStatement(statement: WhileStatement, context: Context, runtime: Runtime) {
+    const { condition, body } = statement;
+    
+    const conditionAddress = await runtime.resolveValue(condition, context);
+    const conditionData = await runtime.objects.get(conditionAddress);
+    if(!FromBits.boolean(conditionData)) return;
+
+    let isLooping = true
+    while(isLooping) {
+
+        const whileContext = new Context(context, context.isSync);
+        await runtime.run({
+            statements: body,
+            context: whileContext,
+            shouldContinue: async () => {
+                // check if continue
+                const continueAddress = whileContext.get(RESERVED_NAMES.continue);
+                if(continueAddress !== -1) return false;
+                // check if break
+                const breakAddress = whileContext.get(RESERVED_NAMES.break);
+                if(breakAddress !== -1) {
+                    isLooping = false;
+                    return false;
+                }
+                return true;
+            }
+        });
+        if(!isLooping) break;
+
+        const conditionAddress = await runtime.resolveValue(condition, whileContext);
+        const conditionData = await runtime.objects.get(conditionAddress);
+        isLooping = FromBits.boolean(conditionData);
+    }
 }
