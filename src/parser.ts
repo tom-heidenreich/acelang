@@ -19,6 +19,10 @@ export function parseToTree(tokens: Token[][]) {
                 isSync: true,
                 body: [],
             },
+            time: {
+                isSync: true,
+                body: [],
+            },
             wait: {
                 isSync: true,
                 body: [],
@@ -41,6 +45,16 @@ export function parseToTree(tokens: Token[][]) {
                             returnType: {
                                 type: 'primitive',
                                 primitive: 'void',
+                            },
+                        }
+                    },
+                    time: {
+                        type: {
+                            type: 'callable',
+                            params: [],
+                            returnType: {
+                                type: 'primitive',
+                                primitive: 'int',
                             },
                         }
                     },
