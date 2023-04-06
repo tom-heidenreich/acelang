@@ -33,14 +33,10 @@ export default async function interpret(work_dir: string, file_name: string, LOG
     // start runtime
     LOGGER.info(`Starting runtime`);
     const runtime = new Runtime();
+    await runtime.init();
 
     // run the code
     await runtime.run({
         statements: tree
     });
-
-    console.log('=======================');
-    console.log('Collect garbage');
-    runtime.collectGarbage();
-    runtime.printDebug();
 }
