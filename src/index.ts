@@ -32,7 +32,7 @@ program.command('run <file>')
 
     .option('--details <level>', 'set the log detail level', '0')
     .option('-l, --log', 'log the output to a file', false)
-    .option('-s, --silent', 'do not log the output to the console', false)
+    .option('-s, --silent', 'do not log the output to the console', true)
     .option('-w, --watch', 'watch the file for changes', false)
     .action((file, options) => {
         if(options.details) options.details = parseInt(options.details);
