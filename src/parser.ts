@@ -15,7 +15,7 @@ export function parseToTree(tokens: Token[][]) {
         types: defaultTypes,
         callables: {
             // built in functions
-            print: {
+            printf: {
                 isSync: true,
                 body: [],
             },
@@ -35,13 +35,19 @@ export function parseToTree(tokens: Token[][]) {
             local: {},
             parent: {
                 local: {
-                    print: {
+                    printf: {
                         type: {
                             type: 'callable',
-                            params: [{
-                                type: 'primitive',
-                                primitive: 'any',
-                            }],
+                            params: [
+                                {
+                                    type: 'primitive',
+                                    primitive: 'string',
+                                },
+                                {
+                                    type: 'primitive',
+                                    primitive: 'any',
+                                }
+                            ],
                             returnType: {
                                 type: 'primitive',
                                 primitive: 'void',
