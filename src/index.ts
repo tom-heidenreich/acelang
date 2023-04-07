@@ -1,6 +1,6 @@
 import path from 'path';
 import { program } from 'commander';
-import interpret from './interpreter/interpret';
+import interpret from './interpreter';
 import * as fs from 'fs';
 import Logger from './util/logger';
 
