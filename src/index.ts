@@ -3,6 +3,7 @@ import { program } from 'commander';
 import interpret from './interpreter';
 import * as fs from 'fs';
 import Logger from './util/logger';
+import compile from './compiler';
 
 process.env.FILE_EXTENSION = 'ace';
 process.env.WORK_DIR = path.join(__dirname, '..', '..')
@@ -23,8 +24,27 @@ program.command('compile <file>')
     .option('-s, --silent', 'do not log the output to the console', false)
     .option('-w, --watch', 'watch the file for changes', false)
     .action((file, options) => {
-        console.log(file);
-        console.log(options);
+        if(options.details) options.details = parseInt(options.details);
+        
+        const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
+        // create log file if log is enabled
+        if(options?.log) fs.writeFileSync('log.txt', '');
+
+        const action = () => compile('./', file, LOGGER, {
+            output: options.output as string,
+        });
+
+        if(options.watch) {
+            LOGGER.info(`Watching file ${file}`);
+            fs.watchFile(path.join(file), { interval: 1000 }, () => {
+                LOGGER.info(`Found changes in ${file}`);
+                LOGGER.log(`> Re-compiling...`);
+                LOGGER.log(``);
+                action();
+            })
+        }
+
+        action();
     })
 
 program.command('run <file>')
