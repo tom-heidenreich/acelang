@@ -5,13 +5,6 @@ import { parseToTree } from '../parser';
 import Logger from '../util/logger';
 import Runtime from './runtime';
 
-export type InterpretOptions = {
-    details?: number;
-    log?: boolean;
-    silent?: boolean;
-    watch?: boolean;
-}
-
 export default async function interpret(work_dir: string, file_name: string, LOGGER: Logger) {
 
     // read the file
