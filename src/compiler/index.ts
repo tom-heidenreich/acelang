@@ -7,7 +7,7 @@ import path from 'path';
 import { lex } from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
-import { Statement, Value } from "../types";
+import { Statement, Value, VariableDeclaration } from "../types";
 
 type CompilerOptions = {
     output?: string
@@ -56,7 +56,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     module.exitMain();
 
     module.verify();
-    if(options.execute) await module.executeJIT('inherit');
+    if(options.execute) await module.executeJIT(options.output, 'inherit');
     module.generateExecutable(options.output, 'inherit');
 }
 
@@ -69,7 +69,9 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
                 compileValue(module, context, statement.expression);
                 return;
             }
+            case 'variableDeclaration': return parseVariableDeclaration(statement, module, context);
         }
+        throw new Error(`Unknown statement type ${statement.type}`);
     }
     for(const statement of statements) {
         parseStatements(module, context, [statement]);
@@ -79,6 +81,7 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
 class Context {
 
     private values: Map<string, llvm.Value>;
+    private parent?: Context
 
     constructor() {
         this.values = new Map();
@@ -89,11 +92,9 @@ class Context {
     }
 
     public get(name: string): llvm.Value | undefined {
-        return this.values.get(name);
-    }
-
-    public has(name: string): boolean {
-        return this.values.has(name);
+        if(this.values.has(name)) return this.values.get(name);
+        if(this.parent) return this.parent.get(name);
+        return undefined;
     }
 }
 
@@ -108,9 +109,14 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             }
         }
         case 'reference': {
-            // TODO: find a way to use llvm context
-            if(context.has(value.reference)) return context.get(value.reference)!;
-            throw new Error(`Unknown reference ${value.reference}`);
+            const ref = context.get(value.reference);
+            if(!ref) throw new Error(`Unknown reference ${value.reference}`);
+            return ref;
+        }
+        case 'dereference': {
+            const target = compileValue(module, context, value.target);
+            const pointer = module.builder.CreateLoad(module.Types.convertType(value.targetType), target);
+            return module.builder.CreateLoad(module.Types.dereference(value.targetType), pointer);
         }
         case 'call': {
             const argValues = value.args.map(arg => compileValue(module, context, arg));
@@ -120,4 +126,19 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
         }
     }
     throw new Error(`Unknown value type ${value.type}`);
+}
+
+function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMModule, context: Context): void {
+    const { name, value, valueType } = statement;
+
+    let compiledValue: llvm.Value | undefined;
+    if(value) compiledValue = compileValue(module, context, value);
+
+    const type = module.Types.convertType(valueType)
+    const _var = module.builder.CreateAlloca(type);
+    context.set(name, _var);
+
+    if(compiledValue) {
+        module.builder.CreateStore(compiledValue, _var);
+    }
 }
