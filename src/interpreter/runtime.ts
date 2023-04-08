@@ -575,6 +575,7 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
             return address;
         }
         case 'reference': return context.get(value.reference)
+        case 'dereference': return parseAsyncValue({ value: value.target, objects, context, runtime });
         case 'member': {
             const target = parseAsyncValue({ value: value.target, objects, context, runtime });
             const property = parseAsyncValue({ value: value.property, objects, context, runtime });
