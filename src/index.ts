@@ -32,6 +32,7 @@ program.command('compile <file>')
 
         const action = () => compile('./', file, LOGGER, {
             output: options.output as string,
+            execute: options.run,
         });
 
         if(options.watch) {
