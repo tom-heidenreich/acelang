@@ -100,6 +100,8 @@ export type Param = {
 
 export type Callable = {
     body: Statement[],
+    params: Type[],
+    returnType: Type,
     isSync: boolean,
 }
 

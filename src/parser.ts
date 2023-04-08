@@ -1,5 +1,5 @@
 import { parseEnvironment } from "./parser/env";
-import { Token, DATATYPES, Types, Build, Value } from "./types";
+import { Token, DATATYPES, Types, Build, Value, Callable } from "./types";
 
 export function parseToTree(tokens: Token[][]) {
 
@@ -10,23 +10,31 @@ export function parseToTree(tokens: Token[][]) {
             primitive: type,
         }
     }
+
+    // built in functions
+    const printfFunction: Callable = {
+        params: [
+            {
+                type: 'primitive',
+                primitive: 'string',
+            },
+            {
+                type: 'primitive',
+                primitive: 'any',
+            }
+        ],
+        returnType: {
+            type: 'primitive',
+            primitive: 'void',
+        },
+        body: [],
+        isSync: true,
+    }
     
     const build: Build = {
         types: defaultTypes,
         callables: {
-            // built in functions
-            printf: {
-                isSync: true,
-                body: [],
-            },
-            time: {
-                isSync: true,
-                body: [],
-            },
-            wait: {
-                isSync: true,
-                body: [],
-            }
+            printf: printfFunction
         },
     }
 
@@ -38,43 +46,8 @@ export function parseToTree(tokens: Token[][]) {
                     printf: {
                         type: {
                             type: 'callable',
-                            params: [
-                                {
-                                    type: 'primitive',
-                                    primitive: 'string',
-                                },
-                                {
-                                    type: 'primitive',
-                                    primitive: 'any',
-                                }
-                            ],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'void',
-                            },
-                        }
-                    },
-                    time: {
-                        type: {
-                            type: 'callable',
-                            params: [],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'int',
-                            },
-                        }
-                    },
-                    wait: {
-                        type: {
-                            type: 'callable',
-                            params: [{
-                                type: 'primitive',
-                                primitive: 'int',
-                            }],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'void',
-                            },
+                            params: printfFunction.params,
+                            returnType: printfFunction.returnType,
                         }
                     }
                 },
@@ -82,5 +55,5 @@ export function parseToTree(tokens: Token[][]) {
         },
     })
 
-    return { tree, typeModule }
+    return { tree, typeModule, callables: build.callables }
 }

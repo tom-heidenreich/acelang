@@ -55,6 +55,10 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     if(searchedField) {
         throw new Error(`Field ${name.value} already exists at line ${lineState.lineIndex}`)
     }
+    // check if callable exists
+    if(lineState.build.callables[name.value]) {
+        throw new Error(`Callable ${name.value} already exists at line ${lineState.lineIndex}`)
+    }
 
     // params
     const paramsToken = cursor.next()
@@ -149,6 +153,8 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     // add function to build
     lineState.build.callables[name.value] = {
         body: body.tree,
+        params: params.map(param => param.type),
+        returnType: func.returnType,
         isSync,
     }
 

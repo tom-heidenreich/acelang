@@ -7,7 +7,7 @@ import path from 'path';
 import { lex } from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
-import { Statement, Value, VariableDeclaration } from "../types";
+import { FunctionDeclaration, Statement, Value, VariableDeclaration } from "../types";
 
 type CompilerOptions = {
     output?: string
@@ -28,7 +28,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);
-    const { tree } = parseToTree(tokens);
+    const { tree, callables } = parseToTree(tokens);
 
     LOGGER.log(`Found ${tree.length} statements`);
 
@@ -39,8 +39,6 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     const module = new LLVMModule(fileNameWithoutExtension);
     const builder = module.builder;
-
-    builder.ClearInsertionPoint();
 
     module.createMain();
 
