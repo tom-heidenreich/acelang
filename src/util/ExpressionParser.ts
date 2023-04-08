@@ -43,7 +43,7 @@ export default class ExpressionParser {
             // no operators found, but we have more than one token
             return parseOperatorlessExpression(lineState, cursor.reset());
         }
-        else if(mainOperatorIndex === 0 && mainOperator === '*') {
+        else if(mainOperatorIndex === 0 && mainOperator === '&') {
             // dereference
             const resetCursor = cursor.reset();
             resetCursor.next();
@@ -75,9 +75,10 @@ export default class ExpressionParser {
 
     private static getPrecedence(op: Operator): number {
         switch(op) {
+            case '&': return 0;
             case '+': return 1;
             case '*': return 2;
-            case '/': return 3;     // has to beat *, because * is a special operator
+            case '/': return 2;
             case '=': return 10;
             default: return 0;
         }
