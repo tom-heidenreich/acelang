@@ -43,6 +43,23 @@ export default class ExpressionParser {
             // no operators found, but we have more than one token
             return parseOperatorlessExpression(lineState, cursor.reset());
         }
+        else if(mainOperatorIndex === 0 && mainOperator === '*') {
+            // dereference
+            const resetCursor = cursor.reset();
+            resetCursor.next();
+            const { type, value } = Values.parseValue(lineState, resetCursor);
+            if(type.type !== 'pointer') {
+                throw new Error(`Expected pointer, got ${type.type} at line ${lineState.lineIndex}`);
+            }
+            return {
+                type: type.pointer,
+                value: {
+                    type: 'dereference',
+                    target: value,
+                    targetType: type.pointer
+                }
+            }
+        }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
         // split the cursor into left and right
