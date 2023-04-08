@@ -124,6 +124,26 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             if(callable instanceof llvm.Function) return module.builder.CreateCall(callable, argValues);
             throw new Error(`Unknown callable type ${value.callable.type}`);
         }
+        case 'assign': {
+            const target = compileValue(module, context, value.target);
+            const assignValue = compileValue(module, context, value.value);
+            return module.builder.CreateStore(assignValue, target);
+        }
+        case 'add': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            return module.builder.CreateAdd(left, right);
+        }
+        case 'subtract': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            return module.builder.CreateSub(left, right);
+        }
+        case 'multiply': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            return module.builder.CreateMul(left, right);
+        }
     }
     throw new Error(`Unknown value type ${value.type}`);
 }
