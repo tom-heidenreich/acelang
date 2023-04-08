@@ -197,6 +197,7 @@ export type ArrayValue = {
 export type DereferenceValue = {
     type: 'dereference',
     target: Value,
+    targetType: Type,
 }
 
 // expression

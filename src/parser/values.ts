@@ -87,7 +87,8 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             type: type.pointer,
             value: {
                 type: 'dereference',
-                target: value
+                target: value,
+                targetType: type.pointer
             }
         }
     }   
