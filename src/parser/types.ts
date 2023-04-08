@@ -43,7 +43,7 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         if(!cursor.done) {
             const next = cursor.next();
             if(next.type !== 'block' || next.value !== '[]') {
-                throw new Error(`Expected block '[]', got ${next.type} at line ${lineState.lineIndex}`);
+                throw new Error(`Expected block '[]', got ${next.type} ${next.value} at line ${lineState.lineIndex}`);
             }
             if(!next.block) {
                 throw new Error(`Expected block, got ${next.type} at line ${lineState.lineIndex}`);
