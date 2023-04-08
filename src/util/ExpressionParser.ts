@@ -49,7 +49,7 @@ export default class ExpressionParser {
             resetCursor.next();
             const { type, value } = Values.parseValue(lineState, resetCursor);
             if(type.type !== 'pointer') {
-                throw new Error(`Expected pointer, got ${type.type} at line ${lineState.lineIndex}`);
+                throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
             }
             return {
                 type: type.pointer,
@@ -348,7 +348,7 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
         }
     }
     else {
-        throw new Error(`Cannot add ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot add ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -392,7 +392,7 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
         }
     }
     else {
-        throw new Error(`Cannot subtract ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot subtract ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -436,7 +436,7 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
         }
     }
     else {
-        throw new Error(`Cannot multiply ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot multiply ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -480,7 +480,7 @@ function parseDivideExpression(lineState: LineState, left: ValueNode, right: Val
         }
     }
     else {
-        throw new Error(`Cannot divide ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot divide ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -538,7 +538,7 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -582,7 +582,7 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -626,7 +626,7 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -670,7 +670,7 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
