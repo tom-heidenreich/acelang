@@ -124,7 +124,14 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
 
                 const args = token.block.map(block => Values.parseValue(lineState, new Cursor(block)));
-                if (!TypeCheck.matchesArgs(lineState.build.types, lastValueType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`)
+                const params = lastValueType.params;
+
+                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                for(let i = 0; i < params.length; i++) {
+                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    }
+                }
 
                 lastValue = {
                     type: lastValueType.returnType,
@@ -234,7 +241,13 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
 
                 // check args
-                if(!TypeCheck.matchesArgs(lineState.build.types, resolvedType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
+                const params = resolvedType.params;
+                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                for(let i = 0; i < params.length; i++) {
+                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    }
+                }
 
                 lastValue = {
                     type: resolvedType.publicType,

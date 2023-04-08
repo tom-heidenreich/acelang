@@ -78,14 +78,6 @@ export default class TypeCheck {
         return false;
     }
 
-    public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
-        if(args.length < params.length) return false;
-        for(let i = 0; i < params.length; i++) {
-            if(!TypeCheck.matchesValue(types, params[i], args[i])) return false;
-        }
-        return true;
-    }
-
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'primitive' && type.primitive === 'any') return type;
         else if(type.type === 'struct') {
