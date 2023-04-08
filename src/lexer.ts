@@ -59,7 +59,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
             continue;
         }
         if(structure === 'symbol') {
-            if(!SYMBOLS.includes(c as Symbol)) {
+            if(!SYMBOLS.includes(c as Symbol) || !SYMBOLS.includes((buffer.toString() + c) as Symbol)) {
                 pushBuffer(LOGGER, line, buffer, 'symbol');
                 structure = undefined;
             }
