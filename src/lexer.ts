@@ -25,7 +25,10 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
             exType = 'datatype';
             specificType = 'boolean';
         }
-        else if(SYMBOLS.includes(value as Symbol)) exType = 'symbol';
+        else if(SYMBOLS.includes(value as Symbol)) {
+            if(OPERATORS.includes(value as Operator)) exType = 'operator';
+            else exType = 'symbol';
+        }
         else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
