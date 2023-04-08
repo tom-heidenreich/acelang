@@ -197,7 +197,18 @@ export type DereferenceValue = {
 }
 
 // expression
-export type Expression = PlusExpression | MinusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression | AssignExpression
+export type Expression = (
+    PlusExpression |
+    MinusExpression |
+    MultiplyExpression |
+    DivideExpression |
+    CallExpression |
+    MemberExpression |
+    ConditionalExpression |
+    InstantiationExpression |
+    CastExpression |
+    AssignExpression
+)
 
 export type CallExpression = {
     type: 'call',
@@ -251,6 +262,14 @@ export type SubtractExpression = {
 // multiplication Expressions
 export type MultiplyExpression = {
     type: 'multiply',
+    left: Value,
+    right: Value,
+    numberType: 'int' | 'float',
+}
+
+// division Expressions
+export type DivideExpression = {
+    type: 'divide',
     left: Value,
     right: Value,
     numberType: 'int' | 'float',

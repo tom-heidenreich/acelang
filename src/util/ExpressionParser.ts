@@ -60,6 +60,7 @@ export default class ExpressionParser {
         switch(op) {
             case '+': return 1;
             case '*': return 2;
+            case '/': return 3;     // has to beat *, because * is a special operator
             case '=': return 10;
             default: return 0;
         }
@@ -71,6 +72,7 @@ export default class ExpressionParser {
             case '+': return parsePlusExpression(lineState, left, right);
             case '-': return parseMinusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
+            case '/': return parseDivideExpression(lineState, left, right);
             case '==': return parseEqualsExpression(lineState, left, right);
             case '<': return parseLessThanExpression(lineState, left, right);
             case '<=': return parseLessThanEqualsExpression(lineState, left, right);
@@ -418,6 +420,50 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
     }
     else {
         throw new Error(`Cannot multiply ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+    }
+}
+
+function parseDivideExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+
+    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+
+    // sorted by priority
+
+    if(leftType === 'float' || rightType === 'float') {
+
+        const leftValue = castNumberToFloat(left);
+        const rightValue = castNumberToFloat(right);
+
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'float'
+            },
+            value: {
+                type: 'divide',
+                left: leftValue.value,
+                right: rightValue.value,
+                numberType: 'float'
+            }
+        }
+    }
+    else if(leftType === 'int' && rightType === 'int') {
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'int'
+            },
+            value: {
+                type: 'divide',
+                left: left.value,
+                right: right.value,
+                numberType: 'int'
+            }
+        }
+    }
+    else {
+        throw new Error(`Cannot divide ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
     }
 }
 
