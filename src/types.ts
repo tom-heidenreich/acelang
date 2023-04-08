@@ -228,18 +228,13 @@ export type AssignExpression = {
     value: Value,
 }
 
-export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression
+export type PlusExpression = AddExpression | ConcatStringExpression
 // plus Expressions
-export type AddIntExpression = {
-    type: 'intAdd',
+export type AddExpression = {
+    type: 'add',
     left: Value,
     right: Value,
-}
-
-export type AddFloatExpression = {
-    type: 'floatAdd',
-    left: Value,
-    right: Value,
+    numberType: 'int' | 'float',
 }
 
 export type ConcatStringExpression = {
@@ -249,31 +244,20 @@ export type ConcatStringExpression = {
 }
 
 // minus Expressions
-export type MinusExpression = SubtractIntExpression | SubtractFloatExpression
-export type SubtractIntExpression = {
-    type: 'intSubtract',
+export type MinusExpression = SubtractExpression
+export type SubtractExpression = {
+    type: 'subtract',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type SubtractFloatExpression = {
-    type: 'floatSubtract',
-    left: Value,
-    right: Value,
-}
-
-export type MultiplyExpression = MultiplyIntExpression | MultiplyFloatExpression
 // multiplication Expressions
-export type MultiplyIntExpression = {
-    type: 'intMultiply',
+export type MultiplyExpression = {
+    type: 'multiply',
     left: Value,
     right: Value,
-}
-
-export type MultiplyFloatExpression = {
-    type: 'floatMultiply',
-    left: Value,
-    right: Value,
+    numberType: 'int' | 'float',
 }
 
 // conditional Expressions
@@ -287,64 +271,39 @@ export type EqualsExpression = {
 
 // comparison Expressions
 export type ComparisonExpression = (
-    IntLessThanExpression |
-    IntLessThanEqualsExpression |
-    IntGreaterThanExpression |
-    IntGreaterThanEqualsExpression |
-    FloatLessThanExpression |
-    FloatLessThanEqualsExpression |
-    FloatGreaterThanExpression |
-    FloatFreaterThanEqualsExpression
+    LessThanExpression |
+    LessThanEqualsExpression |
+    GreaterThanExpression |
+    GreaterThanEqualsExpression
 )
 
-export type IntLessThanExpression = {
-    type: 'intLessThan',
+export type LessThanExpression = {
+    type: 'lessThan',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type IntLessThanEqualsExpression = {
-    type: 'intLessThanEquals',
+export type LessThanEqualsExpression = {
+    type: 'lessThanEquals',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type IntGreaterThanExpression = {
-    type: 'intGreaterThan',
+export type GreaterThanExpression = {
+    type: 'greaterThan',
     left: Value,
     right: Value,
-}
-
-
-export type IntGreaterThanEqualsExpression = {
-    type: 'intGreaterThanEquals',
-    left: Value,
-    right: Value,
-}
-
-export type FloatLessThanExpression = {
-    type: 'floatLessThan',
-    left: Value,
-    right: Value,
-}
-
-export type FloatLessThanEqualsExpression = {
-    type: 'floatLessThanEquals',
-    left: Value,
-    right: Value,
-}
-
-export type FloatGreaterThanExpression = {
-    type: 'floatGreaterThan',
-    left: Value,
-    right: Value,
+    numberType: 'int' | 'float',
 }
 
 
-export type FloatFreaterThanEqualsExpression = {
-    type: 'floatGreaterThanEquals',
+export type GreaterThanEqualsExpression = {
+    type: 'greaterThanEquals',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
 // cast Expressions

@@ -254,8 +254,9 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
 function parseAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
 
-    if(!TypeCheck.matches(lineState.build.types, left.type, right.type)) {
-        throw new Error(`Cannot assign ${Values.stringify(right.value)} to ${Values.stringify(left.value)} at line ${lineState.lineIndex}`);
+    const leftType = TypeCheck.dereference(left.type);
+    if(!TypeCheck.matches(lineState.build.types, leftType, right.type)) {
+        throw new Error(`Cannot assign ${TypeCheck.stringify(right.type)} to ${TypeCheck.stringify(leftType)} at line ${lineState.lineIndex}`);
     }
 
     return {
@@ -306,9 +307,10 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
                 primitive: 'float'
             },
             value: {
-                type: 'floatAdd',
+                type: 'add',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -319,9 +321,10 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
                 primitive: 'int'
             },
             value: {
-                type: 'intAdd',
+                type: 'add',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -348,9 +351,10 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
                 primitive: 'float'
             },
             value: {
-                type: 'floatSubtract',
+                type: 'subtract',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -361,9 +365,10 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
                 primitive: 'int'
             },
             value: {
-                type: 'intSubtract',
+                type: 'subtract',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -390,9 +395,10 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'float'
             },
             value: {
-                type: 'floatMultiply',
+                type: 'multiply',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -403,9 +409,10 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'int'
             },
             value: {
-                type: 'intMultiply',
+                type: 'multiply',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -446,9 +453,10 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatLessThan',
+                type: 'lessThan',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -459,9 +467,10 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'boolean'
             },
             value: {
-                type: 'intLessThan',
+                type: 'lessThan',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -488,9 +497,10 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatGreaterThan',
+                type: 'greaterThan',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -501,9 +511,10 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
                 primitive: 'boolean'
             },
             value: {
-                type: 'intGreaterThan',
+                type: 'greaterThan',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -530,9 +541,10 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatLessThanEquals',
+                type: 'lessThanEquals',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -543,9 +555,10 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
                 primitive: 'boolean'
             },
             value: {
-                type: 'intLessThanEquals',
+                type: 'lessThanEquals',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
@@ -572,9 +585,10 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatGreaterThanEquals',
+                type: 'greaterThanEquals',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -585,9 +599,10 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
                 primitive: 'boolean'
             },
             value: {
-                type: 'intGreaterThanEquals',
+                type: 'greaterThanEquals',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
