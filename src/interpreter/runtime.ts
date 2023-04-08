@@ -211,6 +211,22 @@ function multiply(first: RuntimeMemoryType, second: RuntimeMemoryType, numberTyp
     }
 }
 
+function divide(first: RuntimeMemoryType, second: RuntimeMemoryType, numberType: 'int' | 'float'): RuntimeMemoryType {
+    switch(numberType) {
+        case 'int' : {
+            const firstInt = FromBits.int64(first);
+            const secondInt = FromBits.int64(second);
+            return ToBits.int64(firstInt / secondInt);
+        }
+        case 'float': {
+            const firstFloat = FromBits.float64(first);
+            const secondFloat = FromBits.float64(second);
+            return ToBits.float64(firstFloat / secondFloat);
+        }
+    }
+}
+
+
 function lessThan(first: RuntimeMemoryType, second: RuntimeMemoryType, numberType: 'int' | 'float'): RuntimeMemoryType {
     const firstNumber = numberType === 'int' ? FromBits.int64(first) : FromBits.float64(first);
     const secondNumber = numberType === 'int' ? FromBits.int64(second) : FromBits.float64(second);
@@ -435,6 +451,17 @@ function parseAsyncValue({ value, objects, context, runtime }: { value: Value, o
                 const leftData = await objects.get(left);
                 const rightData = await objects.get(right);
                 resolve(multiply(leftData, rightData, value.numberType));
+            }));
+            return address;
+        }
+        case 'divide': {
+            const left = parseAsyncValue({ value: value.left, objects, context, runtime });
+            const right = parseAsyncValue({ value: value.right, objects, context, runtime });
+            const address = objects.allocate();
+            objects.set(address, new Promise(async resolve => {
+                const leftData = await objects.get(left);
+                const rightData = await objects.get(right);
+                resolve(divide(leftData, rightData, value.numberType));
             }));
             return address;
         }
