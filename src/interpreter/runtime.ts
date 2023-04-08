@@ -22,14 +22,26 @@ export default class Runtime {
     public async init() {
         // builtin functions
         // print
-        this.context.set('print', await this.resolveValue({
+        this.context.set('printf', await this.resolveValue({
             type: 'struct',
             properties: {
                 _callable: {
                     type: 'literal',
                     literalType: 'int',
                     literal: this.objects.allocateNativeFunction((...args) => {
-                        console.log(...args.map(arg => FromBits.int64(arg)));
+                        let mapper: (arg: RuntimeMemoryType) => string;
+                        if(args.length < 2) throw new Error(`printf requires at least 2 arguments, got ${args.length}`);
+                        const format = FromBits.string(args.shift() as RuntimeMemoryType);
+
+                        switch(format) {
+                            case '%d': mapper = arg => FromBits.int64(arg).toString(); break;
+                            case '%f': mapper = arg => FromBits.float64(arg).toString(); break;
+                            case '%s': mapper = arg => FromBits.string(arg); break;
+                            case '%b': mapper = arg => FromBits.boolean(arg).toString(); break;
+                            default: throw new Error(`Unknown format ${format}`);
+                        }
+
+                        console.log(...args.map(mapper));
                         return ToBits.undefined();
                     })
                 }
