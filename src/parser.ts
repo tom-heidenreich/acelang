@@ -15,12 +15,18 @@ export function parseToTree(tokens: Token[][]) {
     const printfFunction: Callable = {
         params: [
             {
-                type: 'primitive',
-                primitive: 'string',
+                name: 'format',
+                type: {
+                    type: 'primitive',
+                    primitive: 'string',
+                }
             },
             {
-                type: 'primitive',
-                primitive: 'any',
+                name: 'value',
+                type: {
+                    type: 'primitive',
+                    primitive: 'any',
+                }
             }
         ],
         returnType: {
@@ -47,7 +53,7 @@ export function parseToTree(tokens: Token[][]) {
                     printf: {
                         type: {
                             type: 'callable',
-                            params: printfFunction.params,
+                            params: printfFunction.params.map(param => param.type),
                             returnType: printfFunction.returnType,
                         }
                     }

@@ -153,7 +153,7 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     // add function to build
     lineState.build.callables[name.value] = {
         body: body.tree,
-        params: params.map(param => param.type),
+        params,
         returnType: func.returnType,
         isSync,
     }
