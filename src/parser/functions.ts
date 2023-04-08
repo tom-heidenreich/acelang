@@ -26,17 +26,12 @@ export function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
             throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineState.lineIndex}`);
         }
         lineCursor.next();
-        const paramType = lineCursor.next();
-        if(paramType.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${paramType.type} at line ${lineState.lineIndex}`);
-        }
-        if(!lineState.build.types[paramType.value]) {
-            throw new Error(`Unknown datatype: ${paramType.value} at line ${lineState.lineIndex}`);
-        }
+        
+        const type = parseType(lineState, lineCursor.remaining());
 
         params.push({
             name: paramName.value,
-            type: lineState.build.types[paramType.value],
+            type,
         });
     }
 
