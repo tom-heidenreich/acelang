@@ -103,6 +103,7 @@ export type Callable = {
     params: Type[],
     returnType: Type,
     isSync: boolean,
+    isBuiltIn?: boolean,
 }
 
 // types

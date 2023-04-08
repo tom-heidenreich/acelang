@@ -29,6 +29,7 @@ export function parseToTree(tokens: Token[][]) {
         },
         body: [],
         isSync: true,
+        isBuiltIn: true,
     }
     
     const build: Build = {
