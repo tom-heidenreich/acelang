@@ -115,8 +115,7 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
         }
         case 'dereference': {
             const target = compileValue(module, context, value.target);
-            const pointer = module.builder.CreateLoad(module.Types.convertType(value.targetType), target);
-            return module.builder.CreateLoad(module.Types.dereference(value.targetType), pointer);
+            return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
         }
         case 'call': {
             const argValues = value.args.map(arg => compileValue(module, context, arg));

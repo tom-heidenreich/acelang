@@ -9,7 +9,6 @@ export type Types = {
     void: llvm.Type;
 
     convertType: (type: Type) => llvm.Type;
-    dereference: (type: Type) => llvm.Type;
 }
 
 export function getTypes(builder: llvm.IRBuilder): Types {
@@ -41,11 +40,7 @@ export function getTypes(builder: llvm.IRBuilder): Types {
 
     return {
         ...primitives,
-        convertType,
-        dereference: (type: Type) => {
-            if(type.type !== 'pointer') throw new Error(`Cannot dereference non-pointer type ${type.type}`);
-            return convertType(type.pointer);
-        }
+        convertType
     };
 }
 
