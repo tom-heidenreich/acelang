@@ -209,7 +209,7 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 // get class
                 const classField = FieldResolve.resolve(lineState.env.fields, className.value);
                 if(!classField) throw new Error(`Unknown class ${className.value} at line ${lineState.lineIndex}`);
-                const resolvedType = TypeCheck.resolveReferences(lineState.build.types, classField.type);
+                const resolvedType = classField.type
 
                 if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
 

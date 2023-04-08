@@ -104,10 +104,6 @@ export type Callable = {
 }
 
 // types
-export type ReferenceType = {
-    type: 'reference',
-    reference: Identifier
-}
 
 export type LiteralType = {
     type: 'literal',
@@ -159,7 +155,7 @@ export type PointerType = {
     pointer: Type
 }
 
-export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType | PointerType
+export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | CallableType | ClassType | PointerType
 
 export type Types = {
     [name: string]: Type,

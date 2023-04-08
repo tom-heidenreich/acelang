@@ -39,7 +39,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         if(!parentField) {
             throw new Error(`Field ${parentName} does not exist at line ${lineState.lineIndex}`)
         }
-        const fieldType = TypeCheck.resolveReferences(lineState.build.types, parentField.type)
+        const fieldType = parentField.type
         if(fieldType.type !== 'class') {
             throw new Error(`Field ${parentName} is not a class at line ${lineState.lineIndex}`)
         }
@@ -90,10 +90,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         fields: {
             local: {
                 this: {
-                    type: {
-                        type: 'reference',
-                        reference: name,
-                    } as Type,
+                    type: privateType
                 }
             },
             parent: lineState.env.fields,

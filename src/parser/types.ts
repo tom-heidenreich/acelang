@@ -49,15 +49,13 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
                 throw new Error(`Expected block, got ${next.type} at line ${lineState.lineIndex}`);
             }
             if(name.type === 'identifier') {
-                if(!lineState.build.types[name.value]) {
+                const type = lineState.build.types[name.value]
+                if(!type) {
                     throw new Error(`Unknown datatype: ${name.value} at line ${lineState.lineIndex}`);
                 }
                 types.push({
                     type: 'array',
-                    items: {
-                        type: 'reference',
-                        reference: name.value
-                    }
+                    items: type
                 });
             }
             else if(name.type === 'datatype') {
@@ -99,14 +97,11 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         }
         else {
             if(name.type === 'identifier') {
-                if(!lineState.build.types[name.value]) {
+                const type = lineState.build.types[name.value];
+                if(!type) {
                     throw new Error(`Unknown datatype: ${name.value} at line ${lineState.lineIndex}`);
                 }
-
-                types.push({
-                    type: 'reference',
-                    reference: name.value
-                });
+                types.push(type);
             }
             else if(name.type === 'datatype') {
                 types.push({
