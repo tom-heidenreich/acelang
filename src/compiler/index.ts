@@ -143,6 +143,11 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             const right = compileValue(module, context, value.right);
             return module.builder.CreateMul(left, right);
         }
+        case 'divide': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            return module.builder.CreateSDiv(left, right);
+        }
     }
     throw new Error(`Unknown value type ${value.type}`);
 }
