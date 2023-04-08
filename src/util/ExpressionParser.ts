@@ -60,7 +60,9 @@ export default class ExpressionParser {
                 }
             }
         }
-        else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+        else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
+            throw new Error(`Operator ${mainOperator} at line ${lineState.lineIndex} cannot be used as prefix or suffix`);
+        }
 
         // split the cursor into left and right
         cursor.reset();
