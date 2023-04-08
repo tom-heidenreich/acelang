@@ -154,14 +154,19 @@ export type PrimitiveType = {
     primitive: DataType
 }
 
-export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType
+export type PointerType = {
+    type: 'pointer',
+    pointer: Type
+}
+
+export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType | PointerType
 
 export type Types = {
     [name: string]: Type,
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -187,6 +192,11 @@ export type StructValue = {
 export type ArrayValue = {
     type: 'array',
     items: Value[],
+}
+
+export type DereferenceValue = {
+    type: 'dereference',
+    target: Value,
 }
 
 // expression

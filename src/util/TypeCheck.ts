@@ -51,6 +51,12 @@ export default class TypeCheck {
             else if(against.type !== 'primitive') return false;
             return match.literal === againstValue;
         }
+        else if(match.type === 'pointer') {
+            if(against.type === 'pointer') {
+                return TypeCheck.matches(types, match.pointer, against.pointer, againstValue);
+            }
+            return false;
+        }
         // against
         else if(against.type === 'primitive') {
             return TypeCheck.matchesPrimitive(types, match, against.primitive);
@@ -163,6 +169,9 @@ export default class TypeCheck {
         else if(type.type === 'literal') {
             return type.literal;
         }
+        else if(type.type === 'pointer') {
+            return `${TypeCheck.stringify(type.pointer)}*`;
+        }
         return 'unknown';
     }
 
@@ -191,5 +200,10 @@ export default class TypeCheck {
 
     public static isNumber(type: Type): boolean {
         return type.type === 'primitive' && (type.primitive === 'float' || type.primitive === 'int');
+    }
+
+    public static dereference(type: Type): Type {
+        if(type.type !== 'pointer') return type;
+        return type.pointer;
     }
 }

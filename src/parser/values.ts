@@ -43,7 +43,10 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             }
 
             return {
-                type: field.type,
+                type: {
+                    type: 'pointer',
+                    pointer: field.type
+                },
                 value: {
                     type: 'reference',
                     reference: token.value,
@@ -74,6 +77,20 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             throw new Error(`Unknown type: ${token.type} ${token.value} at line ${lineState.lineIndex}`);
         }
     }
+    else if(cursor.peek().type === 'operator' && cursor.peek().value === '*') {
+        cursor.next();
+        const { type, value } = parseValue(lineState, cursor);
+        if(type.type !== 'pointer') {
+            throw new Error(`Expected pointer, got ${type.type} at line ${lineState.lineIndex}`);
+        }
+        return {
+            type: type.pointer,
+            value: {
+                type: 'dereference',
+                target: value
+            }
+        }
+    }   
     else {
         return ExpressionParser.parse(lineState, cursor);
     }

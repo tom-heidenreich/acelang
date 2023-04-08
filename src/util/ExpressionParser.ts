@@ -100,13 +100,14 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             // function call
             if(token.value === '()') {
 
-                if (lastValue.type.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
+                const lastValueType = TypeCheck.dereference(lastValue.type)
+                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
 
                 const args = token.block.map(block => Values.parseValue(lineState, new Cursor(block)));
-                if (!TypeCheck.matchesArgs(lineState.build.types, lastValue.type.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`)
+                if (!TypeCheck.matchesArgs(lineState.build.types, lastValueType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`)
 
                 lastValue = {
-                    type: lastValue.type.returnType,
+                    type: lastValueType.returnType,
                     value: {
                         type: 'call',
                         callable: lastValue.value,

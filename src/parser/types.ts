@@ -124,11 +124,23 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         
         if(next.type === 'symbol' && next.value === '|') {
             push();
-        }else {
+        }
+        else if(next.type === 'operator' && next.value === '*') {
+            push();
+            const last = types.pop();
+            if(!last) {
+                throw new Error(`Expected type, got nothing at line ${lineState.lineIndex}`);
+            }
+            types.push({
+                type: 'pointer',
+                pointer: last
+            });
+        }
+        else {
             writeCursor.push(next);
         }
     }
-    push();
+    if(writeCursor.size() !== 0) push();
 
     if(types.length === 0) {
         throw new Error(`Expected at least one type, got 0 at line ${lineState.lineIndex}`);
