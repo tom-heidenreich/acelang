@@ -82,6 +82,10 @@ export default class ExpressionParser {
             case '*': return 2;
             case '/': return 2;
             case '=': return 10;
+            case '+=': return 10;
+            case '-=': return 10;
+            case '*=': return 10;
+            case '/=': return 10;
             default: return 0;
         }
     }
@@ -89,6 +93,10 @@ export default class ExpressionParser {
     private static parseOperator(lineState: LineState, operator: Operator, left: ValueNode, right: ValueNode): ValueNode {
         switch(operator) {
             case '=': return parseAssignExpression(lineState, left, right);
+            case '+=': return parsePlusAssignExpression(lineState, left, right);
+            case '-=': return parseMinusAssignExpression(lineState, left, right);
+            case '*=': return parseMultiplyAssignExpression(lineState, left, right);
+            case '/=': return parseDivideAssignExpression(lineState, left, right);
             case '+': return parsePlusExpression(lineState, left, right);
             case '-': return parseMinusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
@@ -305,6 +313,38 @@ function parseAssignExpression(lineState: LineState, left: ValueNode, right: Val
             value: right.value
         }
     }
+}
+
+function parsePlusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    const leftType = TypeCheck.dereference(left.type);
+    return parseAssignExpression(lineState, left, parsePlusExpression(lineState, {
+        type: leftType,
+        value: left.value
+    }, right));
+}
+
+function parseMinusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    const leftType = TypeCheck.dereference(left.type);
+    return parseAssignExpression(lineState, left, parseMinusExpression(lineState, {
+        type: leftType,
+        value: left.value
+    }, right));
+}
+
+function parseMultiplyAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    const leftType = TypeCheck.dereference(left.type);
+    return parseAssignExpression(lineState, left, parseMultiplyExpression(lineState, {
+        type: leftType,
+        value: left.value
+    }, right));
+}
+
+function parseDivideAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    const leftType = TypeCheck.dereference(left.type);
+    return parseAssignExpression(lineState, left, parseDivideExpression(lineState, {
+        type: leftType,
+        value: left.value
+    }, right));
 }
 
 function parsePlusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
