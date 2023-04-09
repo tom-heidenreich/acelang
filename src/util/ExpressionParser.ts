@@ -43,11 +43,11 @@ export default class ExpressionParser {
             // no operators found, but we have more than one token
             return parseOperatorlessExpression(lineState, cursor.reset());
         }
-        else if(mainOperatorIndex === 0 && mainOperator === '&') {
+        else if(mainOperatorIndex === 0 && mainOperator === '$') {
             // dereference
             const resetCursor = cursor.reset();
             resetCursor.next();
-            const { type, value } = Values.parseValue(lineState, resetCursor);
+            const { type, value } = Values.parseValue(lineState, cursor.remaining());
             if(type.type !== 'pointer') {
                 throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
             }
@@ -77,7 +77,7 @@ export default class ExpressionParser {
 
     private static getPrecedence(op: Operator): number {
         switch(op) {
-            case '&': return 0;
+            case '$': return 0;
             case '+': return 1;
             case '*': return 2;
             case '/': return 2;
