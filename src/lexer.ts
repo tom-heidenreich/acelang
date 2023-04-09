@@ -41,6 +41,22 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
     }
 }
 
+function getSpecialChar(c: string) {
+    switch(c) {
+        case 'n': return '\n';
+        case 't': return '\t';
+        case 'r': return '\r';
+        case '0': return '\0';
+        case 'b': return '\b';
+        case 'v': return '\v';
+        case 'f': return '\f';
+        case 'a': return '\a';
+        case 'e': return '\e';
+        case '\\': return '\\';
+        default: return c;
+    }
+}
+
 export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
 
     const result: Token[][] = []
@@ -56,6 +72,8 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
     let countSquareBrackets = 0;
 
     let stringType: '"' | "'" | undefined;
+
+    let isEscaped = false;
 
     for(const c of content) {
         if(structure === 'comment') {
@@ -167,6 +185,16 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
             continue;
         }
         if(structure === 'string') {
+            if(c === '\\' && !isEscaped) {
+                isEscaped = true;
+                continue;
+            }
+            if(isEscaped) {
+                buffer.append(getSpecialChar(c));
+                isEscaped = false;
+                continue;
+            }
+                
             buffer.append(c);
             continue;
         }
