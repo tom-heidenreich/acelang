@@ -7,7 +7,6 @@ import Logger from './util/logger';
 function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
-        if(value.trim() === '') return;
         let exType: TokenType | undefined = type;
         if(type === 'symbol') {  
             // check if it's an operator
