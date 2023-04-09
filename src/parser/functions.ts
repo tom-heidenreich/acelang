@@ -68,6 +68,7 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
             type: param.type,
+            ignorePointer: true,
         }
         return fields
     }, {} as Fields)

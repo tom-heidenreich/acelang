@@ -81,6 +81,7 @@ export type Modifiers = {
 // fields
 export type Field = {
     type: Type,
+    ignorePointer?: boolean,
 }
 
 export type Fields = {

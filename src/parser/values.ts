@@ -42,11 +42,14 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
                 throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
             }
 
+            let type: Type = {
+                type: 'pointer',
+                pointer: field.type
+            }
+            if(field.ignorePointer) type = type.pointer;
+
             return {
-                type: {
-                    type: 'pointer',
-                    pointer: field.type
-                },
+                type,
                 value: {
                     type: 'reference',
                     reference: token.value,
