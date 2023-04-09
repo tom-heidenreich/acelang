@@ -47,18 +47,9 @@ export default class ExpressionParser {
             // dereference
             const resetCursor = cursor.reset();
             resetCursor.next();
-            const { type, value } = Values.parseValue(lineState, cursor.remaining());
-            if(type.type !== 'pointer') {
-                throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
-            }
-            return {
-                type: type.pointer,
-                value: {
-                    type: 'dereference',
-                    target: value,
-                    targetType: type.pointer
-                }
-            }
+            const value = Values.parseValue(lineState, cursor.remaining());
+            return Values.dereference(lineState, value);
+            
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
             throw new Error(`Operator ${mainOperator} at line ${lineState.lineIndex} cannot be used as prefix or suffix`);
@@ -316,35 +307,19 @@ function parseAssignExpression(lineState: LineState, left: ValueNode, right: Val
 }
 
 function parsePlusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    const leftType = TypeCheck.dereference(left.type);
-    return parseAssignExpression(lineState, left, parsePlusExpression(lineState, {
-        type: leftType,
-        value: left.value
-    }, right));
+    return parseAssignExpression(lineState, left, parsePlusExpression(lineState, Values.dereference(lineState, left), right));
 }
 
 function parseMinusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    const leftType = TypeCheck.dereference(left.type);
-    return parseAssignExpression(lineState, left, parseMinusExpression(lineState, {
-        type: leftType,
-        value: left.value
-    }, right));
+    return parseAssignExpression(lineState, left, parseMinusExpression(lineState, Values.dereference(lineState, left), right));
 }
 
 function parseMultiplyAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    const leftType = TypeCheck.dereference(left.type);
-    return parseAssignExpression(lineState, left, parseMultiplyExpression(lineState, {
-        type: leftType,
-        value: left.value
-    }, right));
+    return parseAssignExpression(lineState, left, parseMultiplyExpression(lineState, Values.dereference(lineState, left), right));
 }
 
 function parseDivideAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    const leftType = TypeCheck.dereference(left.type);
-    return parseAssignExpression(lineState, left, parseDivideExpression(lineState, {
-        type: leftType,
-        value: left.value
-    }, right));
+    return parseAssignExpression(lineState, left, parseDivideExpression(lineState, Values.dereference(lineState, left), right));
 }
 
 function parsePlusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {

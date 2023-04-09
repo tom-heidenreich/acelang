@@ -176,10 +176,26 @@ function stringify(value: Value): string {
     throw new Error(`Unknown value type: ${value}`);
 }
 
+function dereference(lineState: LineState, target: ValueNode): ValueNode {
+    const { type, value } = target;
+    if(type.type !== 'pointer') {
+        throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
+    }
+    return {
+        type: type.pointer,
+        value: {
+            type: 'dereference',
+            target: value,
+            targetType: type.pointer
+        }
+    }
+}
+
 const Values = {
     parseValue,
     parseArray,
     parseStruct,
     stringify,
+    dereference
 }
 export default Values 
