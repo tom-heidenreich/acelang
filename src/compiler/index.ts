@@ -40,9 +40,45 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     const module = new LLVMModule(fileNameWithoutExtension);
     const builder = module.builder;
 
-    module.createMain();
-
     const context = new Context();
+
+    // declare functions
+    for(const callableName in callables) {
+        const callable = callables[callableName];
+        if(callable.isBuiltIn) continue;
+
+        const returnType = module.Types.convertType(callable.returnType)
+        const paramTypes = callable.params.map(param => module.Types.convertType(param.type));
+
+        const functionType = llvm.FunctionType.get(returnType, paramTypes, false);
+        const _function = llvm.Function.Create(functionType, llvm.Function.LinkageTypes.ExternalLinkage, callableName, module._module);
+
+        const entryBlock = llvm.BasicBlock.Create(module._context, 'entry', _function);
+        builder.SetInsertPoint(entryBlock);
+
+        // create new context
+        const newContext = new Context(context);
+
+        for(let i = 0; i < _function.arg_size(); i++) {
+            const arg = _function.getArg(i);
+            const param = callable.params[i];
+            newContext.set(param.name, arg);
+        }
+
+        // parse statements
+        parseStatements(module, newContext, callable.body);
+
+        // return void if no return type
+        if(callable.returnType.type === 'primitive' && callable.returnType.primitive === 'void') {
+            builder.CreateRetVoid();
+        }
+
+        builder.ClearInsertionPoint();
+
+        context.set(callableName, _function);
+    }
+
+    module.createMain();
 
     // built in functions
     const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
@@ -68,6 +104,12 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
                 return;
             }
             case 'variableDeclaration': return parseVariableDeclaration(statement, module, context);
+            case 'functionDeclaration': return
+            case 'returnStatement': {
+                const value = compileValue(module, context, statement.value);
+                module.builder.CreateRet(value);
+                return;
+            }
         }
         throw new Error(`Unknown statement type ${statement.type}`);
     }
@@ -81,8 +123,9 @@ class Context {
     private values: Map<string, llvm.Value>;
     private parent?: Context
 
-    constructor() {
+    constructor(parent?: Context) {
         this.values = new Map();
+        this.parent = parent;
     }
 
     public set(name: string, value: llvm.Value) {
@@ -113,6 +156,7 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
         }
         case 'dereference': {
             const target = compileValue(module, context, value.target);
+            if(!(target.getType() instanceof llvm.PointerType)) return target;
             return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
         }
         case 'call': {
