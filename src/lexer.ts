@@ -55,6 +55,8 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
     let countCurlyBrackets = 0;
     let countSquareBrackets = 0;
 
+    let stringType: '"' | "'" | undefined;
+
     for(const c of content) {
         if(structure === 'comment') {
             if(c === '\n') structure = undefined;
@@ -136,10 +138,32 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
         }
         if(c === '"') {
             if(structure === 'string') {
+                if(stringType !== '"') {
+                    buffer.append(c);
+                    continue;
+                }
                 structure = undefined;
                 pushBuffer(LOGGER, line, buffer, 'datatype', 'string');
             }
-            else structure = 'string';
+            else {
+                structure = 'string';
+                stringType = '"';
+            }
+            continue;
+        }
+        if(c === "'") {
+            if(structure === 'string') {
+                if(stringType !== "'") {
+                    buffer.append(c);
+                    continue;
+                }
+                structure = undefined;
+                pushBuffer(LOGGER, line, buffer, 'datatype', 'string');
+            }
+            else {
+                structure = 'string';
+                stringType = "'";
+            }
             continue;
         }
         if(structure === 'string') {
