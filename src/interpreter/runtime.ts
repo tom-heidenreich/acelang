@@ -29,19 +29,18 @@ export default class Runtime {
                     type: 'literal',
                     literalType: 'int',
                     literal: this.objects.allocateNativeFunction((...args) => {
-                        let mapper: (arg: RuntimeMemoryType) => string;
-                        if(args.length < 2) throw new Error(`printf requires at least 2 arguments, got ${args.length}`);
-                        const format = FromBits.string(args.shift() as RuntimeMemoryType);
-
-                        switch(format) {
-                            case '%d': mapper = arg => FromBits.int64(arg).toString(); break;
-                            case '%f': mapper = arg => FromBits.float64(arg).toString(); break;
-                            case '%s': mapper = arg => FromBits.string(arg); break;
-                            case '%b': mapper = arg => FromBits.boolean(arg).toString(); break;
-                            default: throw new Error(`Unknown format ${format}`);
-                        }
-
-                        console.log(...args.map(mapper));
+                        const formatted = FromBits.string(args.shift() as RuntimeMemoryType).replace(/%[dfsb]/g, match => {
+                            const arg = args.shift();
+                            if(!arg) throw new Error(`printf requires ${args.length + 1} arguments, got ${args.length}`);
+                            switch(match) {
+                                case '%d': return FromBits.int64(arg).toString();
+                                case '%f': return FromBits.float64(arg).toString();
+                                case '%s': return FromBits.string(arg);
+                                case '%b': return FromBits.boolean(arg).toString();
+                            }
+                            throw new Error(`Unknown printf format ${match}`);
+                        })
+                        process.stdout.write(formatted);
                         return ToBits.undefined();
                     })
                 }
