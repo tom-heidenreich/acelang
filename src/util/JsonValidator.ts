@@ -40,7 +40,10 @@ export default function validate(json: any, schema: Schema) {
             errors.push(`Missing required property '${key}'`);
             continue;
         }
-        if(value === undefined) continue;
+        if(value === undefined && item.default) {
+            json[key] = item.default;
+            continue;
+        }
         errors.push(...validateItem(item, value, key));
     }
     return errors;
