@@ -3,6 +3,7 @@ import { Types, Values, getTypes, getValues } from './llvm-types';
 
 import * as fs from 'fs';
 import { StdioOptions, spawn } from 'child_process'
+import path from 'path';
 
 const promisedSpawn = (command: string, args: string[], options: { stdio?: StdioOptions } = {}) => new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, options);
@@ -12,8 +13,10 @@ const promisedSpawn = (command: string, args: string[], options: { stdio?: Stdio
     });
 });
 
-export default class LLVMModule {
+const TEMP_PATH = path.join(__dirname, '..', 'tmp');
 
+export default class LLVMModule {
+    
     private readonly _name: string;
 
     public readonly _context: llvm.LLVMContext;
@@ -61,19 +64,19 @@ export default class LLVMModule {
     }
 
     public async executeJIT(output: string = this._name, stdio?: StdioOptions) {
-        if(!fs.existsSync('./tmp')) fs.mkdirSync('./tmp', { recursive: true });
-        fs.writeFileSync(`./tmp/${output}.ll`, this.print());
-        await promisedSpawn('lli', [`./tmp/${output}.ll`], { stdio })
+        if(!fs.existsSync(TEMP_PATH)) fs.mkdirSync(TEMP_PATH, { recursive: true });
+        fs.writeFileSync(path.join(TEMP_PATH, `${output}.ll`), this.print());
+        await promisedSpawn('lli', [path.join(TEMP_PATH, `${output}.ll`)], { stdio })
     }
 
     public async generateExecutable(output: string = this._name, linkedObjFiles: string[], stdio?: StdioOptions) {
         await this.generateObject(output, stdio);
-        await promisedSpawn('gcc', [...linkedObjFiles, `./tmp/${output}.o`, '-o', `./${output}`], { stdio });
+        await promisedSpawn('gcc', [...linkedObjFiles, path.join(TEMP_PATH, `${output}.o`), '-o', `./${output}`], { stdio });
     }
 
     public async generateObject(output: string = this._name, stdio?: StdioOptions) {
-        if(!fs.existsSync('./tmp')) fs.mkdirSync('./tmp', { recursive: true });
-        llvm.WriteBitcodeToFile(this._module, `./tmp/${output}.bc`);
-        await promisedSpawn('llc', ['-filetype=obj', `./tmp/${output}.bc`, '-o', `./tmp/${output}.o`], { stdio });
+        if(!fs.existsSync(TEMP_PATH)) fs.mkdirSync(TEMP_PATH, { recursive: true });
+        llvm.WriteBitcodeToFile(this._module, path.join(TEMP_PATH, `${output}.bc`));
+        await promisedSpawn('llc', ['-filetype=obj', path.join(TEMP_PATH, `${output}.bc`), '-o', path.join(TEMP_PATH, `${output}.o`)], { stdio });
     }
 }

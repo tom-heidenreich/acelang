@@ -133,5 +133,5 @@ function locatePackage(current_path: string): string | undefined {
         // otherwise, try again
         return locatePackage(parent_path);
     }
-    return package_path
+    return path.resolve(package_path)
 }
