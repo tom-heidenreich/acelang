@@ -40,10 +40,7 @@ export default class LLVMModule {
 
     public createMain() {
         const functionType = llvm.FunctionType.get(this.Types.int, [], false);
-        const func = llvm.Function.Create(functionType, llvm.Function.LinkageTypes.ExternalLinkage, 'main', this._module);
-
-        const entryBB = llvm.BasicBlock.Create(this._context, 'entry', func);
-        this._builder.SetInsertPoint(entryBB);
+        return llvm.Function.Create(functionType, llvm.Function.LinkageTypes.ExternalLinkage, 'main', this._module);
     }
 
     public exitMain() {

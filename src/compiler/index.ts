@@ -7,7 +7,7 @@ import path from 'path';
 import { lex } from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
-import { FunctionDeclaration, Statement, Value, VariableDeclaration } from "../types";
+import { FunctionDeclaration, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
 
 type CompilerOptions = {
     output?: string
@@ -40,7 +40,8 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     const module = new LLVMModule(fileNameWithoutExtension);
     const builder = module.builder;
 
-    const context = new Context();
+    const mainFunc = module.createMain();
+    const context = new Context(mainFunc);
 
     // declare functions
     for(const callableName in callables) {
@@ -57,7 +58,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
         builder.SetInsertPoint(entryBlock);
 
         // create new context
-        const newContext = new Context(context);
+        const newContext = new Context(_function, context);
 
         for(let i = 0; i < _function.arg_size(); i++) {
             const arg = _function.getArg(i);
@@ -78,7 +79,9 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
         context.set(callableName, _function);
     }
 
-    module.createMain();
+    // start of main function block
+    const entryBB = llvm.BasicBlock.Create(module._context, 'entry', mainFunc);
+    builder.SetInsertPoint(entryBB);
 
     // built in functions
     const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
@@ -87,6 +90,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     parseStatements(module, context, tree);
 
+    // end of main function block
     module.exitMain();
 
     module.verify();
@@ -120,10 +124,13 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
 
 class Context {
 
+    public readonly parentFunc: llvm.Function
+
     private values: Map<string, llvm.Value>;
     private parent?: Context
 
-    constructor(parent?: Context) {
+    constructor(func: llvm.Function, parent?: Context) {
+        this.parentFunc = func;
         this.values = new Map();
         this.parent = parent;
     }
