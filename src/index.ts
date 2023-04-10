@@ -6,7 +6,17 @@ import Logger from './util/logger';
 import compile from './compiler';
 
 process.env.FILE_EXTENSION = 'ace';
-process.env.WORK_DIR = path.join(__dirname, '..', '..')
+
+function getFile(file_input: string) {
+    const filePath = path.join('./', file_input);
+    if(!fs.existsSync(filePath)) throw new Error(`File ${filePath} does not exist`);
+    if(!fs.lstatSync(filePath).isFile()) throw new Error(`Path ${filePath} is not a file`);
+    return {
+        workDir: path.dirname(filePath),
+        fileName: path.basename(filePath),
+        file: filePath,
+    }
+}
 
 // read command line arguments
 program
@@ -23,22 +33,24 @@ program.command('compile <file>')
     .option('-o, --output <file>', 'output the result to a file')
     .option('-s, --silent', 'do not log the output to the console', false)
     .option('-w, --watch', 'watch the file for changes', false)
-    .action((file, options) => {
+    .action((file_input, options) => {
         if(options.details) options.details = parseInt(options.details);
         
         const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
         // create log file if log is enabled
         if(options?.log) fs.writeFileSync('log.txt', '');
 
-        const action = () => compile('./', file, LOGGER, {
+        const { workDir, fileName, file } = getFile(file_input);
+
+        const action = () => compile(workDir, fileName, LOGGER, {
             output: options.output as string,
             execute: options.run,
         });
 
         if(options.watch) {
-            LOGGER.info(`Watching file ${file}`);
+            LOGGER.info(`Watching file ${fileName}`);
             fs.watchFile(path.join(file), { interval: 1000 }, () => {
-                LOGGER.info(`Found changes in ${file}`);
+                LOGGER.info(`Found changes in ${fileName}`);
                 LOGGER.log(`> Re-compiling...`);
                 LOGGER.log(``);
                 action();
@@ -55,19 +67,21 @@ program.command('run <file>')
     .option('-l, --log', 'log the output to a file', false)
     .option('-s, --silent', 'do not log the output to the console', true)
     .option('-w, --watch', 'watch the file for changes', false)
-    .action((file, options) => {
+    .action((file_input, options) => {
         if(options.details) options.details = parseInt(options.details);
         
         const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
         // create log file if log is enabled
         if(options?.log) fs.writeFileSync('log.txt', '');
 
-        const action = () => interpret('./', file, LOGGER);
+        const { workDir, fileName, file } = getFile(file_input);
+
+        const action = () => interpret(workDir, fileName, LOGGER);
 
         if(options.watch) {
-            LOGGER.info(`Watching file ${file}`);
+            LOGGER.info(`Watching file ${fileName}`);
             fs.watchFile(path.join(file), { interval: 1000 }, () => {
-                LOGGER.info(`Found changes in ${file}`);
+                LOGGER.info(`Found changes in ${fileName}`);
                 LOGGER.log(`> Re-interpreting...`);
                 LOGGER.log(``);
                 action();
