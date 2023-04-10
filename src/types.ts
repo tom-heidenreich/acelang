@@ -1,3 +1,5 @@
+import { ModuleManager } from "./modules";
+
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
 export type Token = {
@@ -534,6 +536,7 @@ export type Environment = {
 
 export type LineState = {
     build: Build,
+    moduleManager: ModuleManager,
     env: Environment,
     lineIndex: number,
 }

@@ -53,7 +53,7 @@ export function parseSync(lineState: LineState, cursor: Cursor<Token>): Statemen
     }
     
     // parse body
-    const body = parseEnvironment(lineState.build, token.block, env)
+    const body = parseEnvironment(lineState.build, lineState.moduleManager, token.block, env)
 
     return {
         type: 'syncStatement',

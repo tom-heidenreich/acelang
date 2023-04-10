@@ -32,7 +32,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);
-    const { tree, callables } = parseToTree(tokens);
+    const { tree, callables } = parseToTree(moduleManager, tokens);
 
     LOGGER.log(`Found ${tree.length} statements`);
 

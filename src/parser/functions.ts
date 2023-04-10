@@ -124,7 +124,7 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
+    const body = parseEnvironment(lineState.build, lineState.moduleManager, bodyToken.block, env, newWrappers)
 
     // check if body has return
     const func = lineState.env.fields.local[name.value].type

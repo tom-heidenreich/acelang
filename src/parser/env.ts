@@ -13,11 +13,12 @@ import { parseWhileStatement } from "./while"
 import { parseClassAttribute, parseClassConstructor, parseClassFunc, parseClassStatement } from "./class"
 import { parseExportStatement } from "./export"
 import { parseImportStatement } from "./import"
+import { ModuleManager } from "../modules"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
 
-export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Environment, wrappers?: Wrappers) {
+export function parseEnvironment(build: Build, moduleManager: ModuleManager, tokens: Token[][], preEnv?: Environment, wrappers?: Wrappers) {
 
     const env: Environment = preEnv || {
         fields: {
@@ -32,6 +33,7 @@ export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Envir
     for (const line of tokens) {
         const lineState: LineState = {
             build,
+            moduleManager,
             env,
             lineIndex: lineIndex++,
         }
@@ -48,7 +50,7 @@ export function parseEnvironment(build: Build, tokens: Token[][], preEnv?: Envir
     }
     if(isIfElseChain) {
         isIfElseChain = false
-        tree.push(parseIfStatement({ build, env, lineIndex: lineIndex++ }, new Cursor(ifElseChain), wrappers))
+        tree.push(parseIfStatement({ build, moduleManager, env, lineIndex: lineIndex++ }, new Cursor(ifElseChain), wrappers))
         ifElseChain.length = 0
     }
 
@@ -113,7 +115,7 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
     }
 }
 
-export function parseClassEnv(build: Build, tokens: Token[][], env: Environment, wrappers: Wrappers) {
+export function parseClassEnv(build: Build, moduleManager: ModuleManager, tokens: Token[][], env: Environment, wrappers: Wrappers) {
 
     const tree: { statement: ClassStatement, type: Type }[] = []
 
@@ -121,6 +123,7 @@ export function parseClassEnv(build: Build, tokens: Token[][], env: Environment,
     for (const line of tokens) {
         const lineState: LineState = {
             build,
+            moduleManager,
             env,
             lineIndex: lineIndex++,
         }

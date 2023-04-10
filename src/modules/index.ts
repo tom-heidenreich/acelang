@@ -69,6 +69,10 @@ export class ModuleManager {
     get description() {
         return this._package.description;
     }
+
+    public isInstalled(module_name: string) {
+        return !!this._package.modules[module_name];
+    }
 }
 
 function locatePackage(current_path: string): string | undefined {

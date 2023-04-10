@@ -4,6 +4,7 @@ import { lex } from '../lexer';
 import { parseToTree } from '../parser';
 import Logger from '../util/logger';
 import Runtime from './runtime';
+import { initModuleManager } from '../modules';
 
 export default async function interpret(work_dir: string, file_name: string, LOGGER: Logger) {
 
@@ -17,9 +18,12 @@ export default async function interpret(work_dir: string, file_name: string, LOG
 
     LOGGER.log(`Found ${tokens.length} tokens`)
 
+    // moduler
+    const moduleManager = initModuleManager(work_dir)
+
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);
-    const { tree } = parseToTree(tokens);
+    const { tree } = parseToTree(moduleManager, tokens);
 
     LOGGER.log(`Found ${tree.length} statements`);
 

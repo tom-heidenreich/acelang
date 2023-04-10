@@ -46,7 +46,7 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
+    const body = parseEnvironment(lineState.build, lineState.moduleManager, bodyToken.block, env, newWrappers)
     
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 

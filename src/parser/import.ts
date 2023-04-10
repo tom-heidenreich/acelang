@@ -65,7 +65,7 @@ export function parseImportStatement(lineState: LineState, cursor: Cursor<Token>
     const tokens = lex(contents, new Logger())
 
     // parse file contents
-    const { tree, typeModule } = parseToTree(tokens)
+    const { tree, typeModule } = parseToTree(lineState.moduleManager, tokens)
 
     // add type module to env
     for(const name of names) {

@@ -1,7 +1,8 @@
+import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
 import { Token, DATATYPES, Types, Build, Value, Callable } from "./types";
 
-export function parseToTree(tokens: Token[][]) {
+export function parseToTree(moduleManager: ModuleManager, tokens: Token[][]) {
 
     const defaultTypes: Types = {}
     for (const type of DATATYPES) {
@@ -45,7 +46,7 @@ export function parseToTree(tokens: Token[][]) {
         },
     }
 
-    const { tree, typeModule } = parseEnvironment(build, tokens, {
+    const { tree, typeModule } = parseEnvironment(build, moduleManager, tokens, {
         fields: {
             local: {},
             parent: {
