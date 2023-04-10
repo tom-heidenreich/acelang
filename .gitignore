@@ -1,5 +1,6 @@
 # modules
 node_modules
+ace_modules
 
 # build
 *.exe
