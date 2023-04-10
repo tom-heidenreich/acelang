@@ -66,10 +66,14 @@ export default class LLVMModule {
         await promisedSpawn('lli', [`./tmp/${output}.ll`], { stdio })
     }
 
-    public async generateExecutable(output: string = this._name, stdio?: StdioOptions) {
+    public async generateExecutable(output: string = this._name, linkedObjFiles: string[], stdio?: StdioOptions) {
+        await this.generateObject(output, stdio);
+        await promisedSpawn('gcc', [...linkedObjFiles, `./tmp/${output}.o`, '-o', `./${output}`], { stdio });
+    }
+
+    public async generateObject(output: string = this._name, stdio?: StdioOptions) {
         if(!fs.existsSync('./tmp')) fs.mkdirSync('./tmp', { recursive: true });
         llvm.WriteBitcodeToFile(this._module, `./tmp/${output}.bc`);
         await promisedSpawn('llc', ['-filetype=obj', `./tmp/${output}.bc`, '-o', `./tmp/${output}.o`], { stdio });
-        await promisedSpawn('gcc', [`./tmp/${output}.o`, '-o', `./${output}`], { stdio });
     }
 }

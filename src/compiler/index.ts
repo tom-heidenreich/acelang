@@ -95,7 +95,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     module.verify();
     if(options.execute) await module.executeJIT(options.output, 'inherit');
-    module.generateExecutable(options.output, 'inherit');
+    module.generateExecutable(options.output, [], 'inherit');
 }
 
 function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
@@ -292,5 +292,5 @@ function parseWhileStatement(statement: WhileStatement, module: LLVMModule, cont
 
     condition();
     module.builder.SetInsertPoint(loopExitBB);
-    
+
 }
