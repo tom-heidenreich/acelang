@@ -190,6 +190,62 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             const right = compileValue(module, context, value.right);
             return module.builder.CreateSDiv(left, right);
         }
+        case 'lessThan': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            let result
+            if(value.numberType === 'float') result = module.builder.CreateFCmpULT(left, right);
+            else result = module.builder.CreateICmpSLT(left, right);
+            return module.builder.CreateZExt(result, module.Types.bool);
+        }
+        case 'greaterThan': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            let result
+            if(value.numberType === 'float') result = module.builder.CreateFCmpUGT(left, right);
+            else result = module.builder.CreateICmpSGT(left, right);
+            return module.builder.CreateZExt(result, module.Types.bool);
+        }
+        case 'lessThanEquals': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            let result
+            if(value.numberType === 'float') result = module.builder.CreateFCmpULE(left, right);
+            else result = module.builder.CreateICmpSLE(left, right);
+            return module.builder.CreateZExt(result, module.Types.bool);
+        }
+        case 'greaterThanEquals': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            let result
+            if(value.numberType === 'float') result = module.builder.CreateFCmpUGE(left, right);
+            else result = module.builder.CreateICmpSGE(left, right);
+            return module.builder.CreateZExt(result, module.Types.bool);
+        }
+        case 'cast': {
+            const target = compileValue(module, context, value.value);
+            switch(value.currentType) {
+                case 'int': {
+                    switch(value.targetType) {
+                        case 'float': return module.builder.CreateSIToFP(target, module.Types.float);
+                        case 'boolean': return module.builder.CreateICmpNE(target, module.Values.int(0));
+                    }
+                }
+                case 'float': {
+                    switch(value.targetType) {
+                        case 'int': return module.builder.CreateFPToSI(target, module.Types.int);
+                        case 'boolean': return module.builder.CreateFCmpONE(target, module.Values.float(0));
+                    }
+                }
+                case 'boolean': {
+                    switch(value.targetType) {
+                        case 'int': return module.builder.CreateZExt(target, module.Types.int);
+                        case 'float': return module.builder.CreateUIToFP(target, module.Types.float);
+                    }
+                }
+            }
+            throw new Error(`Unknown cast ${value.currentType} -> ${value.targetType}`);
+        }
     }
     throw new Error(`Unknown value type ${value.type}`);
 }
