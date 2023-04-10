@@ -1,3 +1,5 @@
+import { ModuleManager } from "./modules";
+
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
 export type Token = {
@@ -32,9 +34,33 @@ export const KEYWORDS: Keyword[] = [
     'from',
     'extends',
     'as',
+    'declare'
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
-export const OPERATORS: Operator[] = ['+', '-', '*', '/', '>', '<', '^', '%', '==', '!=', '>=', '<=', '&&', '||', '!', '=>', '=']
+export const OPERATORS: Operator[] = [
+    '=',
+    '+=',
+    '-=',
+    '*=',
+    '/=',
+    '+',
+    '-',
+    '*',
+    '/',
+    '>',
+    '<',
+    '^',
+    '%',
+    '==',
+    '!=',
+    '>=',
+    '<=',
+    '&&',
+    '||',
+    '!',
+    '=>',
+    '$'
+]
 export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
@@ -62,11 +88,35 @@ export type Keyword = (
     'import' |
     'from' |
     'extends' |
-    'as'
+    'as' |
+    'declare'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '?'
-export type Operator = '=' | '+' | '-' | '*' | '/' | '>' | '<' | '^' | '%' | '==' | '!=' | '>=' | '<=' | '&&' | '||' | '!' | '=>';
+export type Operator = (
+    '=' |
+    '+=' |
+    '-=' |
+    '*=' |
+    '/=' |
+    '+' |
+    '-' |
+    '*' |
+    '/' |
+    '>' |
+    '<' |
+    '^' |
+    '%' |
+    '==' |
+    '!=' |
+    '>=' |
+    '<=' |
+    '&&' |
+    '||' |
+    '!' |
+    '=>' |
+    '$'
+);
 
 export type Identifier = string;
 export type Literal = string | number | boolean;
@@ -81,6 +131,7 @@ export type Modifiers = {
 // fields
 export type Field = {
     type: Type,
+    ignorePointer?: boolean,
 }
 
 export type Fields = {
@@ -100,14 +151,14 @@ export type Param = {
 
 export type Callable = {
     body: Statement[],
+    params: Param[],
+    returnType: Type,
     isSync: boolean,
+    // TODO: rename this. imports uses this too
+    isBuiltIn?: boolean,
 }
 
 // types
-export type ReferenceType = {
-    type: 'reference',
-    reference: Identifier
-}
 
 export type LiteralType = {
     type: 'literal',
@@ -154,14 +205,19 @@ export type PrimitiveType = {
     primitive: DataType
 }
 
-export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | ReferenceType | CallableType | ClassType
+export type PointerType = {
+    type: 'pointer',
+    pointer: Type
+}
+
+export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | CallableType | ClassType | PointerType
 
 export type Types = {
     [name: string]: Type,
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -189,8 +245,25 @@ export type ArrayValue = {
     items: Value[],
 }
 
+export type DereferenceValue = {
+    type: 'dereference',
+    target: Value,
+    targetType: Type,
+}
+
 // expression
-export type Expression = PlusExpression | MinusExpression | MultiplyExpression | CallExpression | MemberExpression | ConditionalExpression | InstantiationExpression | CastExpression | AssignExpression
+export type Expression = (
+    PlusExpression |
+    MinusExpression |
+    MultiplyExpression |
+    DivideExpression |
+    CallExpression |
+    MemberExpression |
+    ConditionalExpression |
+    InstantiationExpression |
+    CastExpression |
+    AssignExpression
+)
 
 export type CallExpression = {
     type: 'call',
@@ -217,18 +290,13 @@ export type AssignExpression = {
     value: Value,
 }
 
-export type PlusExpression = AddIntExpression | AddFloatExpression | ConcatStringExpression
+export type PlusExpression = AddExpression | ConcatStringExpression
 // plus Expressions
-export type AddIntExpression = {
-    type: 'intAdd',
+export type AddExpression = {
+    type: 'add',
     left: Value,
     right: Value,
-}
-
-export type AddFloatExpression = {
-    type: 'floatAdd',
-    left: Value,
-    right: Value,
+    numberType: 'int' | 'float',
 }
 
 export type ConcatStringExpression = {
@@ -238,31 +306,28 @@ export type ConcatStringExpression = {
 }
 
 // minus Expressions
-export type MinusExpression = SubtractIntExpression | SubtractFloatExpression
-export type SubtractIntExpression = {
-    type: 'intSubtract',
+export type MinusExpression = SubtractExpression
+export type SubtractExpression = {
+    type: 'subtract',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type SubtractFloatExpression = {
-    type: 'floatSubtract',
-    left: Value,
-    right: Value,
-}
-
-export type MultiplyExpression = MultiplyIntExpression | MultiplyFloatExpression
 // multiplication Expressions
-export type MultiplyIntExpression = {
-    type: 'intMultiply',
+export type MultiplyExpression = {
+    type: 'multiply',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type MultiplyFloatExpression = {
-    type: 'floatMultiply',
+// division Expressions
+export type DivideExpression = {
+    type: 'divide',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
 // conditional Expressions
@@ -276,64 +341,39 @@ export type EqualsExpression = {
 
 // comparison Expressions
 export type ComparisonExpression = (
-    IntLessThanExpression |
-    IntLessThanEqualsExpression |
-    IntGreaterThanExpression |
-    IntGreaterThanEqualsExpression |
-    FloatLessThanExpression |
-    FloatLessThanEqualsExpression |
-    FloatGreaterThanExpression |
-    FloatFreaterThanEqualsExpression
+    LessThanExpression |
+    LessThanEqualsExpression |
+    GreaterThanExpression |
+    GreaterThanEqualsExpression
 )
 
-export type IntLessThanExpression = {
-    type: 'intLessThan',
+export type LessThanExpression = {
+    type: 'lessThan',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type IntLessThanEqualsExpression = {
-    type: 'intLessThanEquals',
+export type LessThanEqualsExpression = {
+    type: 'lessThanEquals',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
-export type IntGreaterThanExpression = {
-    type: 'intGreaterThan',
+export type GreaterThanExpression = {
+    type: 'greaterThan',
     left: Value,
     right: Value,
-}
-
-
-export type IntGreaterThanEqualsExpression = {
-    type: 'intGreaterThanEquals',
-    left: Value,
-    right: Value,
-}
-
-export type FloatLessThanExpression = {
-    type: 'floatLessThan',
-    left: Value,
-    right: Value,
-}
-
-export type FloatLessThanEqualsExpression = {
-    type: 'floatLessThanEquals',
-    left: Value,
-    right: Value,
-}
-
-export type FloatGreaterThanExpression = {
-    type: 'floatGreaterThan',
-    left: Value,
-    right: Value,
+    numberType: 'int' | 'float',
 }
 
 
-export type FloatFreaterThanEqualsExpression = {
-    type: 'floatGreaterThanEquals',
+export type GreaterThanEqualsExpression = {
+    type: 'greaterThanEquals',
     left: Value,
     right: Value,
+    numberType: 'int' | 'float',
 }
 
 // cast Expressions
@@ -363,7 +403,8 @@ export type Statement = (
     ContinueStatement |
     ForStatement |
     ClassDeclarationStatement |
-    ExportStatement
+    ExportStatement |
+    ImportStatement
 )
 
 export type MultiStatement = {
@@ -433,6 +474,11 @@ export type ExportStatement = {
     exportType?: Type
 }
 
+// TODO: add support for imports in interpreter
+export type ImportStatement = {
+    type: 'importStatement',
+}
+
 export type ExpressionStatement = {
     type: 'expressionStatement',
     expression: Value,
@@ -473,6 +519,16 @@ export type ClassConstructorDeclaration = {
     body: Statement[],
 }
 
+// bindings
+export type Binding = FunctionBinding
+
+export type FunctionBinding = {
+    type: 'function',
+    name: string,
+    params: Type[],
+    returnType: Type
+}
+
 // wrapper
 export type Wrappers = {
     current: Wrapper,
@@ -490,7 +546,8 @@ export type Wrapper = {
 // build
 export type Build = {
     types: Types,
-    callables: {[name: string]: Callable}
+    callables: {[name: string]: Callable},
+    imports: Binding[],
 }
 
 export type Environment = {
@@ -499,6 +556,7 @@ export type Environment = {
 
 export type LineState = {
     build: Build,
+    moduleManager?: ModuleManager,
     env: Environment,
     lineIndex: number,
 }

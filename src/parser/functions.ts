@@ -26,17 +26,12 @@ export function parseParams(lineState: LineState, cursor: Cursor<Token[]>) {
             throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at line ${lineState.lineIndex}`);
         }
         lineCursor.next();
-        const paramType = lineCursor.next();
-        if(paramType.type !== 'identifier') {
-            throw new Error(`Expected identifier, got ${paramType.type} at line ${lineState.lineIndex}`);
-        }
-        if(!lineState.build.types[paramType.value]) {
-            throw new Error(`Unknown datatype: ${paramType.value} at line ${lineState.lineIndex}`);
-        }
+        
+        const type = parseType(lineState, lineCursor.remaining());
 
         params.push({
             name: paramName.value,
-            type: lineState.build.types[paramType.value],
+            type,
         });
     }
 
@@ -55,6 +50,10 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     if(searchedField) {
         throw new Error(`Field ${name.value} already exists at line ${lineState.lineIndex}`)
     }
+    // check if callable exists
+    if(lineState.build.callables[name.value]) {
+        throw new Error(`Callable ${name.value} already exists at line ${lineState.lineIndex}`)
+    }
 
     // params
     const paramsToken = cursor.next()
@@ -69,6 +68,7 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
             type: param.type,
+            ignorePointer: true,
         }
         return fields
     }, {} as Fields)
@@ -124,7 +124,7 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
+    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, newWrappers)
 
     // check if body has return
     const func = lineState.env.fields.local[name.value].type
@@ -149,6 +149,8 @@ export function parseFunc({ lineState, cursor, isSync = false, wrappers }: { lin
     // add function to build
     lineState.build.callables[name.value] = {
         body: body.tree,
+        params,
+        returnType: func.returnType,
         isSync,
     }
 

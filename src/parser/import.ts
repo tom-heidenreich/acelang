@@ -1,10 +1,7 @@
 import { LineState, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor"
-import * as fs from 'fs'
-import path from 'path';
-import { lex } from "../lexer";
-import { parseToTree } from "../parser";
-import Logger from "../util/logger";
+
+// TODO: add support for relative paths
 
 export function parseImportStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
     if(wrappers) throw new Error(`Unexpected import at line ${lineState.lineIndex}`)
@@ -32,55 +29,60 @@ export function parseImportStatement(lineState: LineState, cursor: Cursor<Token>
         }))
     }
 
+    // check if any name is already defined
+    for(const name of names) {
+        if(lineState.env.fields.local[name]) throw new Error(`Name ${name} is already defined at line ${lineState.lineIndex}`)
+    }
+
     // from
     const fromToken = cursor.next()
     if(fromToken.type !== 'keyword' || fromToken.value !== 'from') {
         throw new Error(`Expected 'from' got ${fromToken.type} ${fromToken.value} at line ${lineState.lineIndex}`)
     }
 
-    // path
-    const pathToken = cursor.next()
-    if(pathToken.type !== 'datatype' || pathToken.specificType !== 'string') {
-        throw new Error(`Expected string got ${pathToken.type} ${pathToken.value} at line ${lineState.lineIndex}`)
-    }
-    
-    // get file extension
-    const extension = pathToken.value.split('.').pop()
-    if(!extension) throw new Error(`Invalid path ${pathToken.value} at line ${lineState.lineIndex}`)
-    
-    if(extension !== process.env.FILE_EXTENSION) {
-        throw new Error(`Cannot import file with extension ${extension} at line ${lineState.lineIndex}`)
-    }
-    const filePath = path.join(process.env.WORK_DIR!, pathToken.value)
-    
-    // check if file exists
-    if(!fs.existsSync(filePath)) {
-        throw new Error(`Cannot find file ${filePath} at line ${lineState.lineIndex}`)
+    // module
+    const moduleToken = cursor.next()
+    if(moduleToken.type !== 'datatype' || moduleToken.specificType !== 'string') {
+        throw new Error(`Expected string got ${moduleToken.type} ${moduleToken.value} at line ${lineState.lineIndex}`)
     }
 
-    // get file contents
-    const contents = fs.readFileSync(filePath, 'utf8');
+    if(!lineState.moduleManager) throw new Error(`Unexpected import at line ${lineState.lineIndex}`)
 
-    // lex file contents
-    const tokens = lex(contents, new Logger())
+    // check if module is installed
+    const module = lineState.moduleManager.getModule(moduleToken.value)
+    if(!module) throw new Error(`Could not find module ${moduleToken.value} at line ${lineState.lineIndex}`)
 
-    // parse file contents
-    const { tree, typeModule } = parseToTree(tokens)
-
-    // add type module to env
+    // check if module exports all names
+    const bindings = module.bindings
     for(const name of names) {
-        if(typeModule[name]) {
-            lineState.env.fields.local[name] = {
-                type: typeModule[name]
+        const filtered = bindings.filter(binding => binding.name === name)
+        if(filtered.length === 0) throw new Error(`Could not find ${name} in module ${moduleToken.value} at line ${lineState.lineIndex}`)
+
+        const binding = filtered[0]
+
+        lineState.build.imports.push(binding)
+        const callable = {
+            params: binding.params.map((param, index) => ({
+                name: `param${index}`,
+                type: param,
+            })),
+            returnType: binding.returnType,
+            body: [],
+            isSync: true,
+            isBuiltIn: true,
+        }
+        lineState.build.callables[binding.name] = callable
+        lineState.env.fields.local[binding.name] = {
+            type: {
+                type: 'callable',
+                params: binding.params,
+                returnType: binding.returnType,
             }
         }
-        else {
-            throw new Error(`Module ${filePath} does not export ${name} at line ${lineState.lineIndex}`)
-        }
     }
-
+    lineState.moduleManager.useModule(moduleToken.value)
+    
     return {
-        type: 'multiStatement',
-        statements: tree
+        type: 'importStatement'
     }
 }

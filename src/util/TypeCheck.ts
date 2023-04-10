@@ -11,9 +11,6 @@ export default class TypeCheck {
                 if(match.primitive === 'any' || match.primitive === 'unknown') return true;
                 return match.primitive === against[0];
             }
-            else if(match.type === 'reference') {
-                return TypeCheck.matchesPrimitive(types, types[match.reference], against[0]);
-            }
             else if(match.type === 'union') {
                 return match.oneOf.some(type => TypeCheck.matchesPrimitive(types, type, against[0]));
             }
@@ -41,9 +38,6 @@ export default class TypeCheck {
         if(match.type === 'union') {
             return match.oneOf.some(type => TypeCheck.matches(types, type, against, againstValue));
         }
-        else if(match.type === 'reference') {
-            return TypeCheck.matches(types, types[match.reference], against, againstValue);
-        }
         else if(match.type === 'literal') {
             if(against.type === 'literal') {
                 return match.literal === against.literal;
@@ -51,12 +45,15 @@ export default class TypeCheck {
             else if(against.type !== 'primitive') return false;
             return match.literal === againstValue;
         }
+        else if(match.type === 'pointer') {
+            if(against.type === 'pointer') {
+                return TypeCheck.matches(types, match.pointer, against.pointer, againstValue);
+            }
+            return false;
+        }
         // against
         else if(against.type === 'primitive') {
             return TypeCheck.matchesPrimitive(types, match, against.primitive);
-        }
-        else if(against.type === 'reference') {
-            return TypeCheck.matches(types, match, types[against.reference], againstValue);
         }
         else if(against.type === 'union') {
             return against.oneOf.some(type => TypeCheck.matches(types, match, type, againstValue));
@@ -81,24 +78,8 @@ export default class TypeCheck {
         return false;
     }
 
-    public static resolveReferences(types: Types, type: Type): Type {
-        if(type.type === 'reference') return TypeCheck.resolveReferences(types, types[type.reference]);
-        else return type;
-    }
-
-    public static matchesArgs(types: Types, params: Type[], args: ValueNode[]) {
-        if(args.length < params.length) return false;
-        for(let i = 0; i < params.length; i++) {
-            if(!TypeCheck.matchesValue(types, params[i], args[i])) return false;
-        }
-        return true;
-    }
-
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'primitive' && type.primitive === 'any') return type;
-        else if(type.type === 'reference') {
-            return TypeCheck.resolveObject(types, types[type.reference], key);
-        }
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
             return type.properties[key.value.literal.toString()];
@@ -128,7 +109,6 @@ export default class TypeCheck {
 
     public static resolvePrimitive(types: Types, type: Type): DataType {
         if(type.type === 'primitive') return type.primitive;
-        else if(type.type === 'reference') return TypeCheck.resolvePrimitive(types, types[type.reference]);
         else if(type.type === 'union') {
             const resolvedTypes: DataType[] = [] 
             for(const oneOfType of type.oneOf) {
@@ -148,9 +128,6 @@ export default class TypeCheck {
         if(type.type === 'primitive') {
             return type.primitive;
         }
-        else if(type.type === 'reference') {
-            return type.reference;
-        }
         else if(type.type === 'union') {
             return type.oneOf.map(TypeCheck.stringify).join(' | ');
         }
@@ -163,15 +140,15 @@ export default class TypeCheck {
         else if(type.type === 'literal') {
             return type.literal;
         }
+        else if(type.type === 'pointer') {
+            return `${TypeCheck.stringify(type.pointer)}*`;
+        }
         return 'unknown';
     }
 
     public static toPrimitive(types: Types, type: Type): DataType {
         if(type.type === 'primitive') {
             return type.primitive;
-        }
-        else if(type.type === 'reference') {
-            return TypeCheck.toPrimitive(types, types[type.reference]);
         }
         else if(type.type === 'union') {
             const resolvedTypes: DataType[] = [] 
@@ -191,5 +168,10 @@ export default class TypeCheck {
 
     public static isNumber(type: Type): boolean {
         return type.type === 'primitive' && (type.primitive === 'float' || type.primitive === 'int');
+    }
+
+    public static dereference(type: Type): Type {
+        if(type.type !== 'pointer') return type;
+        return type.pointer;
     }
 }

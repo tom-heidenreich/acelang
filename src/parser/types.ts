@@ -43,21 +43,19 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         if(!cursor.done) {
             const next = cursor.next();
             if(next.type !== 'block' || next.value !== '[]') {
-                throw new Error(`Expected block '[]', got ${next.type} at line ${lineState.lineIndex}`);
+                throw new Error(`Expected block '[]', got ${next.type} ${next.value} at line ${lineState.lineIndex}`);
             }
             if(!next.block) {
                 throw new Error(`Expected block, got ${next.type} at line ${lineState.lineIndex}`);
             }
             if(name.type === 'identifier') {
-                if(!lineState.build.types[name.value]) {
+                const type = lineState.build.types[name.value]
+                if(!type) {
                     throw new Error(`Unknown datatype: ${name.value} at line ${lineState.lineIndex}`);
                 }
                 types.push({
                     type: 'array',
-                    items: {
-                        type: 'reference',
-                        reference: name.value
-                    }
+                    items: type
                 });
             }
             else if(name.type === 'datatype') {
@@ -99,14 +97,11 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         }
         else {
             if(name.type === 'identifier') {
-                if(!lineState.build.types[name.value]) {
+                const type = lineState.build.types[name.value];
+                if(!type) {
                     throw new Error(`Unknown datatype: ${name.value} at line ${lineState.lineIndex}`);
                 }
-
-                types.push({
-                    type: 'reference',
-                    reference: name.value
-                });
+                types.push(type);
             }
             else if(name.type === 'datatype') {
                 types.push({
@@ -124,11 +119,23 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
         
         if(next.type === 'symbol' && next.value === '|') {
             push();
-        }else {
+        }
+        else if(next.type === 'operator' && next.value === '*') {
+            push();
+            const last = types.pop();
+            if(!last) {
+                throw new Error(`Expected type, got nothing at line ${lineState.lineIndex}`);
+            }
+            types.push({
+                type: 'pointer',
+                pointer: last
+            });
+        }
+        else {
             writeCursor.push(next);
         }
     }
-    push();
+    if(writeCursor.size() !== 0) push();
 
     if(types.length === 0) {
         throw new Error(`Expected at least one type, got 0 at line ${lineState.lineIndex}`);

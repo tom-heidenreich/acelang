@@ -39,7 +39,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         if(!parentField) {
             throw new Error(`Field ${parentName} does not exist at line ${lineState.lineIndex}`)
         }
-        const fieldType = TypeCheck.resolveReferences(lineState.build.types, parentField.type)
+        const fieldType = parentField.type
         if(fieldType.type !== 'class') {
             throw new Error(`Field ${parentName} is not a class at line ${lineState.lineIndex}`)
         }
@@ -79,7 +79,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
 
     // parse class body
-    let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers)
+    let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers, lineState.moduleManager)
 
     const privateType = classToPrivateType(body.tree, parentType)
     // add type to build (temporarily)
@@ -90,17 +90,14 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         fields: {
             local: {
                 this: {
-                    type: {
-                        type: 'reference',
-                        reference: name,
-                    } as Type,
+                    type: privateType
                 }
             },
             parent: lineState.env.fields,
         }
     }
     // parse class body TODO: should only check types
-    body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers)
+    body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers, lineState.moduleManager)
 
     // add real type to build
     const publicType = classToPublicType(body.tree, parentType)
@@ -193,7 +190,7 @@ export function parseClassConstructor(lineState: LineState, cursor: Cursor<Token
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, wrappers)
+    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, wrappers)
 
     return {
         type: {

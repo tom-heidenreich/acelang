@@ -1,4 +1,4 @@
-import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode } from "../types";
+import { Key, LineState, LiteralDataType, StructValue, StructType, Token, Type, Value, ValueNode, Literal } from "../types";
 import Cursor from "../util/cursor";
 import ExpressionParser from "../util/ExpressionParser";
 import FieldResolve from "../util/FieldResolve";
@@ -13,6 +13,16 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
             if(!token.specificType) {
                 throw new Error(`Unknown datatype: ${token.value} at line ${lineState.lineIndex}`);
             }
+            let literal: Literal;
+
+            switch(token.specificType) {
+                case 'int': literal = parseInt(token.value); break;
+                case 'float': literal = parseFloat(token.value); break;
+                case 'string': literal = token.value; break;
+                case 'boolean': literal = token.value === 'true'; break;
+                default: throw new Error(`Unknown datatype: ${token.specificType} at line ${lineState.lineIndex}`);
+            }
+
             return {
                 type: {
                     type: 'primitive',
@@ -20,7 +30,7 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
                 },
                 value: {
                     type: 'literal',
-                    literal: token.value,
+                    literal,
                     literalType: token.specificType as LiteralDataType
                 }
             }
@@ -32,8 +42,14 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
                 throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
             }
 
+            let type: Type = {
+                type: 'pointer',
+                pointer: field.type
+            }
+            if(field.ignorePointer) type = type.pointer;
+
             return {
-                type: field.type,
+                type,
                 value: {
                     type: 'reference',
                     reference: token.value,
@@ -160,10 +176,26 @@ function stringify(value: Value): string {
     throw new Error(`Unknown value type: ${value}`);
 }
 
+function dereference(lineState: LineState, target: ValueNode): ValueNode {
+    const { type, value } = target;
+    if(type.type !== 'pointer') {
+        throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
+    }
+    return {
+        type: type.pointer,
+        value: {
+            type: 'dereference',
+            target: value,
+            targetType: type.pointer
+        }
+    }
+}
+
 const Values = {
     parseValue,
     parseArray,
     parseStruct,
     stringify,
+    dereference
 }
 export default Values 

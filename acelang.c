@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
         strcat(args, argv[i]);
     }
 
-    snprintf(command, MAX_PATH_LEN+50, "node \"%s../lib/index.js\"%s", buffer, args);
+    snprintf(command, MAX_PATH_LEN+50, "node \"%s..\\lib\\index.js\"%s", buffer, args);
 
     system(command);
 

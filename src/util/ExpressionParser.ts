@@ -43,7 +43,17 @@ export default class ExpressionParser {
             // no operators found, but we have more than one token
             return parseOperatorlessExpression(lineState, cursor.reset());
         }
-        else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+        else if(mainOperatorIndex === 0 && mainOperator === '$') {
+            // dereference
+            const resetCursor = cursor.reset();
+            resetCursor.next();
+            const value = Values.parseValue(lineState, cursor.remaining());
+            return Values.dereference(lineState, value);
+            
+        }
+        else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
+            throw new Error(`Operator ${mainOperator} at line ${lineState.lineIndex} cannot be used as prefix or suffix`);
+        }
 
         // split the cursor into left and right
         cursor.reset();
@@ -58,19 +68,30 @@ export default class ExpressionParser {
 
     private static getPrecedence(op: Operator): number {
         switch(op) {
-            case '+': return 1;
-            case '*': return 2;
+            case '$': return 0;
+            case '+': return 2;
+            case '*': return 3;
+            case '/': return 3;
             case '=': return 10;
-            default: return 0;
+            case '+=': return 10;
+            case '-=': return 10;
+            case '*=': return 10;
+            case '/=': return 10;
+            default: return 1;
         }
     }
 
     private static parseOperator(lineState: LineState, operator: Operator, left: ValueNode, right: ValueNode): ValueNode {
         switch(operator) {
             case '=': return parseAssignExpression(lineState, left, right);
+            case '+=': return parsePlusAssignExpression(lineState, left, right);
+            case '-=': return parseMinusAssignExpression(lineState, left, right);
+            case '*=': return parseMultiplyAssignExpression(lineState, left, right);
+            case '/=': return parseDivideAssignExpression(lineState, left, right);
             case '+': return parsePlusExpression(lineState, left, right);
             case '-': return parseMinusExpression(lineState, left, right);
             case '*': return parseMultiplyExpression(lineState, left, right);
+            case '/': return parseDivideExpression(lineState, left, right);
             case '==': return parseEqualsExpression(lineState, left, right);
             case '<': return parseLessThanExpression(lineState, left, right);
             case '<=': return parseLessThanEqualsExpression(lineState, left, right);
@@ -100,13 +121,21 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             // function call
             if(token.value === '()') {
 
-                if (lastValue.type.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
+                const lastValueType = TypeCheck.dereference(lastValue.type)
+                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
 
                 const args = token.block.map(block => Values.parseValue(lineState, new Cursor(block)));
-                if (!TypeCheck.matchesArgs(lineState.build.types, lastValue.type.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`)
+                const params = lastValueType.params;
+
+                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                for(let i = 0; i < params.length; i++) {
+                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    }
+                }
 
                 lastValue = {
-                    type: lastValue.type.returnType,
+                    type: lastValueType.returnType,
                     value: {
                         type: 'call',
                         callable: lastValue.value,
@@ -208,12 +237,18 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 // get class
                 const classField = FieldResolve.resolve(lineState.env.fields, className.value);
                 if(!classField) throw new Error(`Unknown class ${className.value} at line ${lineState.lineIndex}`);
-                const resolvedType = TypeCheck.resolveReferences(lineState.build.types, classField.type);
+                const resolvedType = classField.type
 
                 if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
 
                 // check args
-                if(!TypeCheck.matchesArgs(lineState.build.types, resolvedType.params, args)) throw new Error(`Invalid arguments at line ${lineState.lineIndex}`);
+                const params = resolvedType.params;
+                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                for(let i = 0; i < params.length; i++) {
+                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    }
+                }
 
                 lastValue = {
                     type: resolvedType.publicType,
@@ -228,6 +263,21 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
 
                 const type = parseType(lineState, cursor.remaining());
+
+                // check if both types are primitive
+                if(lastValue.type.type === 'primitive' && type.type === 'primitive') {
+                    if(lastValue.type.primitive === type.primitive) return lastValue;
+                    lastValue = {
+                        type: type,
+                        value: {
+                            type: 'cast',
+                            value: lastValue.value,
+                            targetType: type.primitive,
+                            currentType: lastValue.type.primitive
+                        }
+                    }
+                    continue;
+                }
 
                 if(!TypeCheck.matches(lineState.build.types, lastValue.type, type)) {
                     throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
@@ -253,8 +303,9 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
 function parseAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
 
-    if(!TypeCheck.matches(lineState.build.types, left.type, right.type)) {
-        throw new Error(`Cannot assign ${Values.stringify(right.value)} to ${Values.stringify(left.value)} at line ${lineState.lineIndex}`);
+    const leftType = TypeCheck.dereference(left.type);
+    if(!TypeCheck.matches(lineState.build.types, leftType, right.type)) {
+        throw new Error(`Cannot assign ${TypeCheck.stringify(right.type)} to ${TypeCheck.stringify(leftType)} at line ${lineState.lineIndex}`);
     }
 
     return {
@@ -268,6 +319,22 @@ function parseAssignExpression(lineState: LineState, left: ValueNode, right: Val
             value: right.value
         }
     }
+}
+
+function parsePlusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    return parseAssignExpression(lineState, left, parsePlusExpression(lineState, Values.dereference(lineState, left), right));
+}
+
+function parseMinusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    return parseAssignExpression(lineState, left, parseMinusExpression(lineState, Values.dereference(lineState, left), right));
+}
+
+function parseMultiplyAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    return parseAssignExpression(lineState, left, parseMultiplyExpression(lineState, Values.dereference(lineState, left), right));
+}
+
+function parseDivideAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+    return parseAssignExpression(lineState, left, parseDivideExpression(lineState, Values.dereference(lineState, left), right));
 }
 
 function parsePlusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
@@ -305,9 +372,10 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
                 primitive: 'float'
             },
             value: {
-                type: 'floatAdd',
+                type: 'add',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -318,14 +386,15 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
                 primitive: 'int'
             },
             value: {
-                type: 'intAdd',
+                type: 'add',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot add ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot add ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -347,9 +416,10 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
                 primitive: 'float'
             },
             value: {
-                type: 'floatSubtract',
+                type: 'subtract',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -360,14 +430,15 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
                 primitive: 'int'
             },
             value: {
-                type: 'intSubtract',
+                type: 'subtract',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot subtract ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot subtract ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -389,9 +460,10 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'float'
             },
             value: {
-                type: 'floatMultiply',
+                type: 'multiply',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -402,14 +474,59 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'int'
             },
             value: {
-                type: 'intMultiply',
+                type: 'multiply',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot multiply ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot multiply ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+    }
+}
+
+function parseDivideExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+
+    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+
+    // sorted by priority
+
+    if(leftType === 'float' || rightType === 'float') {
+
+        const leftValue = castNumberToFloat(left);
+        const rightValue = castNumberToFloat(right);
+
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'float'
+            },
+            value: {
+                type: 'divide',
+                left: leftValue.value,
+                right: rightValue.value,
+                numberType: 'float'
+            }
+        }
+    }
+    else if(leftType === 'int' && rightType === 'int') {
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'int'
+            },
+            value: {
+                type: 'divide',
+                left: left.value,
+                right: right.value,
+                numberType: 'int'
+            }
+        }
+    }
+    else {
+        throw new Error(`Cannot divide ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -445,9 +562,10 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatLessThan',
+                type: 'lessThan',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -458,14 +576,15 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
                 primitive: 'boolean'
             },
             value: {
-                type: 'intLessThan',
+                type: 'lessThan',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -487,9 +606,10 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatGreaterThan',
+                type: 'greaterThan',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -500,14 +620,15 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
                 primitive: 'boolean'
             },
             value: {
-                type: 'intGreaterThan',
+                type: 'greaterThan',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -529,9 +650,10 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatLessThanEquals',
+                type: 'lessThanEquals',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -542,14 +664,15 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
                 primitive: 'boolean'
             },
             value: {
-                type: 'intLessThanEquals',
+                type: 'lessThanEquals',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 
@@ -571,9 +694,10 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
                 primitive: 'boolean'
             },
             value: {
-                type: 'floatGreaterThanEquals',
+                type: 'greaterThanEquals',
                 left: leftValue.value,
-                right: rightValue.value
+                right: rightValue.value,
+                numberType: 'float'
             }
         }
     }
@@ -584,14 +708,15 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
                 primitive: 'boolean'
             },
             value: {
-                type: 'intGreaterThanEquals',
+                type: 'greaterThanEquals',
                 left: left.value,
-                right: right.value
+                right: right.value,
+                numberType: 'int'
             }
         }
     }
     else {
-        throw new Error(`Cannot compare ${leftType} and ${rightType} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
     }
 }
 

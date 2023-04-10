@@ -7,7 +7,6 @@ import Logger from './util/logger';
 function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
     if(!buffer.isEmpty()) {
         const value = buffer.clear()
-        if(value.trim() === '') return;
         let exType: TokenType | undefined = type;
         if(type === 'symbol') {  
             // check if it's an operator
@@ -25,7 +24,10 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
             exType = 'datatype';
             specificType = 'boolean';
         }
-        else if(SYMBOLS.includes(value as Symbol)) exType = 'symbol';
+        else if(SYMBOLS.includes(value as Symbol)) {
+            if(OPERATORS.includes(value as Operator)) exType = 'operator';
+            else exType = 'symbol';
+        }
         else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
@@ -36,6 +38,22 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
             type: exType,
             specificType
         });
+    }
+}
+
+function getSpecialChar(c: string) {
+    switch(c) {
+        case 'n': return '\n';
+        case 't': return '\t';
+        case 'r': return '\r';
+        case '0': return '\0';
+        case 'b': return '\b';
+        case 'v': return '\v';
+        case 'f': return '\f';
+        case 'a': return '\a';
+        case 'e': return '\e';
+        case '\\': return '\\';
+        default: return c;
     }
 }
 
@@ -53,13 +71,17 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
     let countCurlyBrackets = 0;
     let countSquareBrackets = 0;
 
+    let stringType: '"' | "'" | undefined;
+
+    let isEscaped = false;
+
     for(const c of content) {
         if(structure === 'comment') {
             if(c === '\n') structure = undefined;
             continue;
         }
         if(structure === 'symbol') {
-            if(!SYMBOLS.includes(c as Symbol)) {
+            if(!SYMBOLS.includes(c as Symbol) || !SYMBOLS.includes((buffer.toString() + c) as Symbol)) {
                 pushBuffer(LOGGER, line, buffer, 'symbol');
                 structure = undefined;
             }
@@ -134,13 +156,45 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
         }
         if(c === '"') {
             if(structure === 'string') {
+                if(stringType !== '"') {
+                    buffer.append(c);
+                    continue;
+                }
                 structure = undefined;
                 pushBuffer(LOGGER, line, buffer, 'datatype', 'string');
             }
-            else structure = 'string';
+            else {
+                structure = 'string';
+                stringType = '"';
+            }
+            continue;
+        }
+        if(c === "'") {
+            if(structure === 'string') {
+                if(stringType !== "'") {
+                    buffer.append(c);
+                    continue;
+                }
+                structure = undefined;
+                pushBuffer(LOGGER, line, buffer, 'datatype', 'string');
+            }
+            else {
+                structure = 'string';
+                stringType = "'";
+            }
             continue;
         }
         if(structure === 'string') {
+            if(c === '\\' && !isEscaped) {
+                isEscaped = true;
+                continue;
+            }
+            if(isEscaped) {
+                buffer.append(getSpecialChar(c));
+                isEscaped = false;
+                continue;
+            }
+                
             buffer.append(c);
             continue;
         }

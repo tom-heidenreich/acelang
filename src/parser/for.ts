@@ -15,9 +15,8 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
 
     // get iterable
     const iterable = Values.parseValue(lineState, new Cursor([cursor.next()]))
-    const resolvedType = TypeCheck.resolveReferences(lineState.build.types, iterable.type)
-    if(resolvedType.type !== 'array') {
-        throw new Error(`Expected array, got ${TypeCheck.stringify(resolvedType)}`)
+    if(iterable.type.type !== 'array') {
+        throw new Error(`Expected array, got ${TypeCheck.stringify(iterable.type)}`)
     }
 
     const bodyToken = cursor.next()
@@ -47,7 +46,7 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, env, newWrappers)
+    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, newWrappers)
     
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
 

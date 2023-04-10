@@ -83,32 +83,33 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
 
         // add fields
         if(destructuringType === 'array') {
-            const resolved = TypeCheck.resolveReferences(lineState.build.types, type)
-            if(resolved.type !== 'array') {
+            if(type.type !== 'array') {
                 throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`)
             }
+            const items = type.items
             names.forEach(name => {
                 lineState.env.fields.local[name] = {
-                    type: resolved.items,
+                    type: items,
                 }
             })
         }
         else if(destructuringType === 'object') {
-            const resolved = TypeCheck.resolveReferences(lineState.build.types, type)
-            if(resolved.type === 'struct') {
+            if(type.type === 'struct') {
+                const properties = type.properties
                 names.forEach(name => {
-                    if(!resolved.properties[name]) {
+                    if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at line ${lineState.lineIndex}`)
                     }
                     lineState.env.fields.local[name] = {
-                        type: resolved.properties[name],
+                        type: properties[name],
                     }
                 })
             }
-            else if(resolved.type === 'object') {
+            else if(type.type === 'object') {
+                const values = type.values
                 names.forEach(name => {
                     lineState.env.fields.local[name] = {
-                        type: resolved.values,
+                        type: values,
                     }
                 })
             }
@@ -158,32 +159,33 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
 
         // add fields
         if(destructuringType === 'array') {
-            const resolved = TypeCheck.resolveReferences(lineState.build.types, type)
-            if(resolved.type !== 'array') {
+            if(type.type !== 'array') {
                 throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`)
             }
+            const items = type.items
             names.forEach(name => {
                 lineState.env.fields.local[name] = {
-                    type: resolved.items,
+                    type: items,
                 }
             })
         }
         else if(destructuringType === 'object') {
-            const resolved = TypeCheck.resolveReferences(lineState.build.types, type)
-            if(resolved.type === 'struct') {
+            if(type.type === 'struct') {
+                const properties = type.properties
                 names.forEach(name => {
-                    if(!resolved.properties[name]) {
+                    if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at line ${lineState.lineIndex}`)
                     }
                     lineState.env.fields.local[name] = {
-                        type: resolved.properties[name],
+                        type: properties[name],
                     }
                 })
             }
-            else if(resolved.type === 'object') {
+            else if(type.type === 'object') {
+                const values = type.values
                 names.forEach(name => {
                     lineState.env.fields.local[name] = {
-                        type: resolved.values,
+                        type: values,
                     }
                 })
             }

@@ -1,7 +1,8 @@
+import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
-import { Token, DATATYPES, Types, Build, Value } from "./types";
+import { Token, DATATYPES, Types, Build, Value, Callable } from "./types";
 
-export function parseToTree(tokens: Token[][]) {
+export function parseToTree(moduleManager: ModuleManager, tokens: Token[][]) {
 
     const defaultTypes: Types = {}
     for (const type of DATATYPES) {
@@ -10,65 +11,52 @@ export function parseToTree(tokens: Token[][]) {
             primitive: type,
         }
     }
+
+    // built in functions
+    const printfFunction: Callable = {
+        params: [
+            {
+                name: 'format',
+                type: {
+                    type: 'primitive',
+                    primitive: 'string',
+                }
+            },
+            {
+                name: 'value',
+                type: {
+                    type: 'primitive',
+                    primitive: 'any',
+                }
+            }
+        ],
+        returnType: {
+            type: 'primitive',
+            primitive: 'void',
+        },
+        body: [],
+        isSync: true,
+        isBuiltIn: true,
+    }
     
     const build: Build = {
         types: defaultTypes,
         callables: {
-            // built in functions
-            print: {
-                isSync: true,
-                body: [],
-            },
-            time: {
-                isSync: true,
-                body: [],
-            },
-            wait: {
-                isSync: true,
-                body: [],
-            }
+            printf: printfFunction
         },
+        imports: [],
     }
 
-    const { tree, typeModule } = parseEnvironment(build, tokens, {
+    const { tree, typeModule } = parseEnvironment(build, tokens, moduleManager, {
         fields: {
             local: {},
             parent: {
                 local: {
-                    print: {
+                    printf: {
                         type: {
                             type: 'callable',
-                            params: [{
-                                type: 'primitive',
-                                primitive: 'any',
-                            }],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'void',
-                            },
-                        }
-                    },
-                    time: {
-                        type: {
-                            type: 'callable',
-                            params: [],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'int',
-                            },
-                        }
-                    },
-                    wait: {
-                        type: {
-                            type: 'callable',
-                            params: [{
-                                type: 'primitive',
-                                primitive: 'int',
-                            }],
-                            returnType: {
-                                type: 'primitive',
-                                primitive: 'void',
-                            },
+                            params: printfFunction.params.map(param => param.type),
+                            returnType: printfFunction.returnType,
                         }
                     }
                 },
@@ -76,5 +64,5 @@ export function parseToTree(tokens: Token[][]) {
         },
     })
 
-    return { tree, typeModule }
+    return { tree, typeModule, callables: build.callables, imports: build.imports }
 }
