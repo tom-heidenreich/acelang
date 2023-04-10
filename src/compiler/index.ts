@@ -114,6 +114,7 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
                 module.builder.CreateRet(value);
                 return;
             }
+            case 'whileStatement': return parseWhileStatement(statement, module, context);
         }
         throw new Error(`Unknown statement type ${statement.type}`);
     }
@@ -270,4 +271,26 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
     if(compiledValue) {
         module.builder.CreateStore(compiledValue, _var);
     }
+}
+
+function parseWhileStatement(statement: WhileStatement, module: LLVMModule, context: Context): void {
+
+    const loopBodyBB = llvm.BasicBlock.Create(module._context, 'loopBody', context.parentFunc);
+    const loopExitBB = llvm.BasicBlock.Create(module._context, 'loopExit', context.parentFunc);
+
+    const condition = () => {
+        const conditionValue = compileValue(module, context, statement.condition);
+        return module.builder.CreateCondBr(conditionValue, loopBodyBB, loopExitBB);
+    }
+
+    const whileContext = new Context(context.parentFunc, context);
+
+    module.builder.CreateBr(loopBodyBB);
+    module.builder.SetInsertPoint(loopBodyBB);
+
+    parseStatements(module, whileContext, statement.body);
+
+    condition();
+    module.builder.SetInsertPoint(loopExitBB);
+    
 }
