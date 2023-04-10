@@ -8,6 +8,7 @@ import { lex } from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { FunctionDeclaration, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
+import { initModuleManager } from "../modules";
 
 type CompilerOptions = {
     output?: string
@@ -26,6 +27,9 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     LOGGER.log(`Found ${tokens.length} tokens`)
 
+    // moduler
+    const moduleManager = initModuleManager(work_dir)
+    
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);
     const { tree, callables } = parseToTree(tokens);
@@ -35,9 +39,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     // start compiler
     LOGGER.info(`Starting compiler`);
 
-    const fileNameWithoutExtension = file_name.split('.').slice(0, -1).join('.');
-
-    const module = new LLVMModule(fileNameWithoutExtension);
+    const module = new LLVMModule(moduleManager.name);
     const builder = module.builder;
 
     const mainFunc = module.createMain();
