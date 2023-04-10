@@ -264,6 +264,21 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
                 const type = parseType(lineState, cursor.remaining());
 
+                // check if both types are primitive
+                if(lastValue.type.type === 'primitive' && type.type === 'primitive') {
+                    if(lastValue.type.primitive === type.primitive) return lastValue;
+                    lastValue = {
+                        type: type,
+                        value: {
+                            type: 'cast',
+                            value: lastValue.value,
+                            targetType: type.primitive,
+                            currentType: lastValue.type.primitive
+                        }
+                    }
+                    continue;
+                }
+
                 if(!TypeCheck.matches(lineState.build.types, lastValue.type, type)) {
                     throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
                 }
