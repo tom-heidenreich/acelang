@@ -1,0 +1,5 @@
+{
+    "modules": {
+        "time": "modules/time"
+    }
+}
