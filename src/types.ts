@@ -34,6 +34,7 @@ export const KEYWORDS: Keyword[] = [
     'from',
     'extends',
     'as',
+    'declare'
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = [
@@ -87,7 +88,8 @@ export type Keyword = (
     'import' |
     'from' |
     'extends' |
-    'as'
+    'as' |
+    'declare'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '?'
@@ -152,6 +154,7 @@ export type Callable = {
     params: Param[],
     returnType: Type,
     isSync: boolean,
+    // TODO: rename this. imports uses this too
     isBuiltIn?: boolean,
 }
 
@@ -400,7 +403,8 @@ export type Statement = (
     ContinueStatement |
     ForStatement |
     ClassDeclarationStatement |
-    ExportStatement
+    ExportStatement |
+    ImportStatement
 )
 
 export type MultiStatement = {
@@ -470,6 +474,11 @@ export type ExportStatement = {
     exportType?: Type
 }
 
+// TODO: add support for imports in interpreter
+export type ImportStatement = {
+    type: 'importStatement',
+}
+
 export type ExpressionStatement = {
     type: 'expressionStatement',
     expression: Value,
@@ -510,6 +519,16 @@ export type ClassConstructorDeclaration = {
     body: Statement[],
 }
 
+// bindings
+export type Binding = FunctionBinding
+
+export type FunctionBinding = {
+    type: 'function',
+    name: string,
+    params: Type[],
+    returnType: Type
+}
+
 // wrapper
 export type Wrappers = {
     current: Wrapper,
@@ -527,7 +546,8 @@ export type Wrapper = {
 // build
 export type Build = {
     types: Types,
-    callables: {[name: string]: Callable}
+    callables: {[name: string]: Callable},
+    imports: Binding[],
 }
 
 export type Environment = {
@@ -536,7 +556,7 @@ export type Environment = {
 
 export type LineState = {
     build: Build,
-    moduleManager: ModuleManager,
+    moduleManager?: ModuleManager,
     env: Environment,
     lineIndex: number,
 }

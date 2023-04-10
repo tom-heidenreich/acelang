@@ -79,7 +79,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
 
     // parse class body
-    let body = parseClassEnv(lineState.build, lineState.moduleManager, bodyToken.block, env, newWrappers)
+    let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers, lineState.moduleManager)
 
     const privateType = classToPrivateType(body.tree, parentType)
     // add type to build (temporarily)
@@ -97,7 +97,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         }
     }
     // parse class body TODO: should only check types
-    body = parseClassEnv(lineState.build, lineState.moduleManager, bodyToken.block, env2, newWrappers)
+    body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers, lineState.moduleManager)
 
     // add real type to build
     const publicType = classToPublicType(body.tree, parentType)
@@ -190,7 +190,7 @@ export function parseClassConstructor(lineState: LineState, cursor: Cursor<Token
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, lineState.moduleManager, bodyToken.block, env, wrappers)
+    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, wrappers)
 
     return {
         type: {

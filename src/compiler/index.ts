@@ -32,7 +32,7 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);
-    const { tree, callables } = parseToTree(moduleManager, tokens);
+    const { tree, callables, imports } = parseToTree(moduleManager, tokens);
 
     LOGGER.log(`Found ${tree.length} statements`);
 
@@ -44,6 +44,19 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     const mainFunc = module.createMain();
     const context = new Context(mainFunc);
+
+    // declare imports
+    for(const _import of imports) {
+        if(_import.type !== 'function') throw new Error('Only function imports are supported');
+
+        const returnType = module.Types.convertType(_import.returnType)
+        const paramTypes = _import.params.map(param => module.Types.convertType(param));
+
+        const _funcType = llvm.FunctionType.get(returnType, paramTypes, false);
+        const _func = llvm.Function.Create(_funcType, llvm.Function.LinkageTypes.ExternalLinkage, _import.name, module._module);
+
+        context.set(_import.name, _func);
+    }
 
     // declare functions
     for(const callableName in callables) {
@@ -96,8 +109,12 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     module.exitMain();
 
     module.verify();
-    if(options.execute) await module.executeJIT(options.output, 'inherit');
-    module.generateExecutable(options.output, [], 'inherit');
+    if(options.execute) {
+        if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
+        await module.executeJIT(options.output, 'inherit');
+    }
+    
+    module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
 }
 
 function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
@@ -105,6 +122,7 @@ function parseStatements(module: LLVMModule, context: Context, statements: State
         const statement = statements[0];
         if(statement.type === 'multiStatement') return parseStatements(module, context, statement.statements);
         switch(statement.type) {
+            case 'importStatement': return;
             case 'expressionStatement': {
                 compileValue(module, context, statement.expression);
                 return;

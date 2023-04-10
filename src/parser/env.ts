@@ -18,7 +18,7 @@ import { ModuleManager } from "../modules"
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
 
-export function parseEnvironment(build: Build, moduleManager: ModuleManager, tokens: Token[][], preEnv?: Environment, wrappers?: Wrappers) {
+export function parseEnvironment(build: Build, tokens: Token[][], moduleManager?: ModuleManager, preEnv?: Environment, wrappers?: Wrappers) {
 
     const env: Environment = preEnv || {
         fields: {
@@ -115,7 +115,7 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
     }
 }
 
-export function parseClassEnv(build: Build, moduleManager: ModuleManager, tokens: Token[][], env: Environment, wrappers: Wrappers) {
+export function parseClassEnv(build: Build, tokens: Token[][], env: Environment, wrappers: Wrappers, moduleManager?: ModuleManager) {
 
     const tree: { statement: ClassStatement, type: Type }[] = []
 

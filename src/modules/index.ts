@@ -2,10 +2,12 @@ import * as fs from 'fs';
 import path from 'path';
 import { pathEqual } from 'path-equal'
 import validate from '../util/JsonValidator';
+import { Binding } from "../types"
+import { parseBindingsFile } from './bindings';
 
 const ROOT = path.parse(process.cwd()).root
 
-type Package = {
+type PackageFile = {
     name: string,
     version: string,
     description: string,
@@ -14,20 +16,35 @@ type Package = {
     }
 }
 
+type Package = {
+    name: string,
+    version: string,
+    description: string,
+    modules: {
+        [key: string]: Module
+    }
+}
+
+type Module = {
+    object_file_path: string,
+    bindings: Binding[]
+}
+
 export function initModuleManager(work_dir: string) {
     // detect if script is located in a package
-    const package_path  = locatePackage(work_dir);
-    if(!package_path) throw new Error('Could not locate package.ace.json');
+    const package_file_path = locatePackage(work_dir);
+    if(!package_file_path) throw new Error('Could not locate package.ace.json');
+    const package_path = path.dirname(package_file_path)
 
     // read package.ace.json
-    const packageContent = fs.readFileSync(package_path, 'utf-8');
-    const _package: Package = JSON.parse(packageContent);
+    const packageContent = fs.readFileSync(package_file_path, 'utf-8');
+    const _package: PackageFile = JSON.parse(packageContent);
 
     // validate
     const errors = validate(_package, {
         name: {
             type: 'string',
-            default: path.basename(path.dirname(package_path))
+            default: path.basename(package_path)
         },
         version: {
             type: 'string',
@@ -47,12 +64,35 @@ export function initModuleManager(work_dir: string) {
     })
     if(errors.length) throw new Error(`Found ${errors.length} errors in package.ace.json: \n${errors.join('\n\n')}`)
 
-    return new ModuleManager(_package);
+    // load modules
+    const modules: Package['modules'] = {};
+    for(const key of Object.keys(_package.modules)) {
+        const modulePath = path.join(package_path, _package.modules[key]);
+        const objFilePath = path.join(modulePath, `${key}.o`);
+        const bindingsFilePath = path.join(modulePath, `ace.bindings`);
+
+        if(!fs.existsSync(objFilePath)) throw new Error(`Could not find object file for module ${key} at ${objFilePath}`);
+        if(!fs.existsSync(bindingsFilePath)) throw new Error(`Could not find bindings file for module ${key} at ${bindingsFilePath}`);
+
+        modules[key] = {
+            object_file_path: objFilePath,
+            bindings: parseBindingsFile(bindingsFilePath)
+        }
+    }
+
+    return new ModuleManager({
+        name: _package.name,
+        version: _package.version,
+        description: _package.description,
+        modules
+    });
 }
 
 export class ModuleManager {
 
     private _package: Package;
+
+    private used_modules: string[] = []
 
     constructor(_package: Package) {
         this._package = _package;
@@ -70,8 +110,16 @@ export class ModuleManager {
         return this._package.description;
     }
 
-    public isInstalled(module_name: string) {
-        return !!this._package.modules[module_name];
+    public getModule(module_name: string) {
+        return this._package.modules[module_name];
+    }
+
+    public useModule(module_name: string) {
+        this.used_modules.push(module_name);
+    }
+
+    public getLinkedFiles() {
+        return this.used_modules.map(module_name => this._package.modules[module_name].object_file_path);
     }
 }
 
