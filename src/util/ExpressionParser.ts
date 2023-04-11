@@ -147,19 +147,24 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             else if(token.value === '[]') {
                 if(token.block.length !== 1) throw new Error(`Expected end of block at line ${lineState.lineIndex}`);
 
-                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
+                if(lastValue.type.type !== 'pointer') throw new Error(`Cannot access non-pointer at line ${lineState.lineIndex}`);
+                const lastValueType = TypeCheck.dereference(lastValue.type)
+                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValueType, 'object')) {
                     throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
                 }
 
                 const property = Values.parseValue(lineState, new Cursor(token.block[0]));
-                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, property);
+                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValueType, property);
                 if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
 
                 lastValue = {
-                    type: propertyType,
+                    type: {
+                        type: 'pointer',
+                        pointer: propertyType
+                    },
                     value: {
                         type: 'member',
-                        targetType: lastValue.type,
+                        targetType: lastValueType,
                         target: lastValue.value,
                         property: property.value
                     }
@@ -174,7 +179,9 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 const property = cursor.next();
                 if(property.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`)
 
-                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
+                if(lastValue.type.type !== 'pointer') throw new Error(`Cannot access non-pointer at line ${lineState.lineIndex}`);
+                const lastValueType = TypeCheck.dereference(lastValue.type)
+                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValueType, 'object')) {
                     throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
                 }
 
@@ -189,14 +196,17 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                         literalType: 'string'
                     }
                 }
-                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, propertyNode)
+                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValueType, propertyNode)
                 if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
 
                 lastValue = {
-                    type: propertyType,
+                    type: {
+                        type: 'pointer',
+                        pointer: propertyType
+                    },
                     value: {
                         type: 'member',
-                        targetType: lastValue.type,
+                        targetType: lastValueType,
                         target: lastValue.value,
                         property: propertyNode.value
                     }

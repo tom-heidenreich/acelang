@@ -7,6 +7,7 @@ export type Types = {
     string: llvm.Type;
     bool: llvm.Type;
     void: llvm.Type;
+    array: (type: llvm.Type, size: number) => llvm.ArrayType;
 
     convertType: (type: Type) => llvm.Type;
 }
@@ -18,7 +19,8 @@ export function getTypes(builder: llvm.IRBuilder): Types {
         float: builder.getDoubleTy(),
         string: builder.getInt8PtrTy(),
         bool: builder.getInt1Ty(),
-        void: builder.getVoidTy()
+        void: builder.getVoidTy(),
+        array: (type: llvm.Type, size: number) => llvm.ArrayType.get(type, size),
     }
 
     const convertType = (type: Type): llvm.Type => {
@@ -33,6 +35,7 @@ export function getTypes(builder: llvm.IRBuilder): Types {
                 }
                 throw new Error(`Unknown primitive ${type.primitive}`);
             }
+            case 'array': return primitives.array(convertType(type.items), type.size);
             case 'pointer': return llvm.PointerType.get(convertType(type.pointer), 0);
         }
         throw new Error(`Unknown type ${type.type}`);

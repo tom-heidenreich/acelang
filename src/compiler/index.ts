@@ -9,6 +9,8 @@ import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { FunctionDeclaration, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
 import { initModuleManager } from "../modules";
+import TypeCheck from "../util/TypeCheck";
+import { AllocaInst } from "llvm-bindings";
 
 type CompilerOptions = {
     output?: string
@@ -110,11 +112,11 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     module.verify();
     if(options.execute) {
-        if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
+        // if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
         await module.executeJIT(options.output, 'inherit');
     }
     
-    module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
+    // module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
 }
 
 function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
@@ -176,6 +178,23 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
                 case 'string': return module.Values.string(value.literal as string);
                 case 'boolean': return module.Values.bool(value.literal as boolean);
             }
+        }
+        case 'array': {
+            const arrayType = module.Types.array(module.Types.convertType(value.itemType), value.items.length);
+            const constants: llvm.Constant[] = value.items.map((item, index) => {
+                const value = compileValue(module, context, item)
+                if(value instanceof llvm.Constant) return value;
+                throw new Error(`Array item ${index} is not a constant`)
+            });
+            return llvm.ConstantArray.get(arrayType, constants)
+        }
+        case 'member': {
+            if(value.targetType.type === 'array') {
+                const target = compileValue(module, context, value.target);
+                const property = compileValue(module, context, value.property);
+                return module.builder.CreateGEP(module.Types.convertType(value.targetType), target, [module.Values.int(0), property]);
+            }
+            throw new Error(`Unknown member type ${value.targetType.type}`);
         }
         case 'reference': {
             const ref = context.get(value.reference);
@@ -280,6 +299,24 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
 
 function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMModule, context: Context): void {
     const { name, value, valueType } = statement;
+
+    // special case for arrays
+    if(valueType.type === 'array') {
+        const arrayType = module.Types.convertType(valueType);
+        const _var = module.builder.CreateAlloca(arrayType);
+        context.set(name, _var);
+        // initialize array
+        if(value) {
+            if(value.type !== 'array') throw new Error(`Expected array value for array variable ${name}`);
+            for(let i = 0; i<value.items.length; i++) {
+                const item = value.items[i];
+                const compiledItem = compileValue(module, context, item);
+                const itemPtr = module.builder.CreateGEP(arrayType, _var, [module.Values.int(0), module.Values.int(i)]);
+                module.builder.CreateStore(compiledItem, itemPtr);
+            }
+        }
+        return;
+    }
 
     let compiledValue: llvm.Value | undefined;
     if(value) compiledValue = compileValue(module, context, value);
