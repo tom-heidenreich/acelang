@@ -1,4 +1,4 @@
-import { DataType, Literal, Type, Types, ValueNode } from "../types";
+import { ArrayType, DataType, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
@@ -73,9 +73,14 @@ export default class TypeCheck {
         }
         else if(against.type === 'array') {
             if(match.type !== 'array') return false;
-            return TypeCheck.matches(types, match.items, against.items, againstValue);
+            return TypeCheck.arrayMatches(types, match, against);
         }
         return false;
+    }
+
+    public static arrayMatches(types: Types, match: ArrayType, against: ArrayType) {
+        if(match.size !== against.size) return false;
+        return TypeCheck.matches(types, match.items, against.items);
     }
 
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
@@ -135,7 +140,7 @@ export default class TypeCheck {
             return '{ ' + Object.keys(type.properties).map(key => `${key}: ${TypeCheck.stringify(type.properties[key])}`).join(', ') + ' }';
         }
         else if(type.type === 'array') {
-            return `${TypeCheck.stringify(type.items)}[]`;
+            return `${TypeCheck.stringify(type.items)}[${type.size}]`;
         }
         else if(type.type === 'literal') {
             return type.literal;
