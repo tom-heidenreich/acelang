@@ -183,7 +183,8 @@ export type ObjectType = {
 
 export type ArrayType = {
     type: 'array',
-    items: Type
+    items: Type,
+    size: number,
 }
 
 export type CallableType = {
@@ -243,6 +244,7 @@ export type StructValue = {
 export type ArrayValue = {
     type: 'array',
     items: Value[],
+    itemType: Type,
 }
 
 export type DereferenceValue = {

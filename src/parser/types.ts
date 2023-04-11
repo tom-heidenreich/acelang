@@ -48,6 +48,16 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
             if(!next.block) {
                 throw new Error(`Expected block, got ${next.type} at line ${lineState.lineIndex}`);
             }
+            // get array size
+            if(next.block.length !== 1) throw new Error(`Expected one token in block, got ${next.block.length} at line ${lineState.lineIndex}`);
+            const sizeTokens = next.block[0];
+            if(sizeTokens.length !== 1) throw new Error(`Expected one token in block, got ${sizeTokens.length} at line ${lineState.lineIndex}`);
+            const sizeToken = sizeTokens[0];
+            if(sizeToken.type !== 'datatype' && sizeToken.specificType !== 'int') {
+                throw new Error(`Expected integer, got ${sizeToken.type} ${sizeToken.specificType} at line ${lineState.lineIndex}`);
+            }
+            const size = parseInt(sizeToken.value);
+
             if(name.type === 'identifier') {
                 const type = lineState.build.types[name.value]
                 if(!type) {
@@ -55,16 +65,8 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
                 }
                 types.push({
                     type: 'array',
-                    items: type
-                });
-            }
-            else if(name.type === 'datatype') {
-                types.push({
-                    type: 'array',
-                    items: {
-                        type: 'literal',
-                        literal: name.value
-                    }
+                    items: type,
+                    size
                 });
             }
             else if(name.type === 'block') {
@@ -73,7 +75,8 @@ export function parseType(lineState: LineState, cursor: Cursor<Token>): Type {
                 }
                 types.push({
                     type: 'array',
-                    items: parseType(lineState, new Cursor(name.block[0]))
+                    items: parseType(lineState, new Cursor(name.block[0])),
+                    size
                 });
             }
             else {

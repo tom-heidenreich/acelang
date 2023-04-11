@@ -111,10 +111,12 @@ function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
         type: {
             type: 'array',
             items: type,
+            size: items.length
         },
         value: {
             type: 'array',
             items,
+            itemType: type
         }
     };
 }
