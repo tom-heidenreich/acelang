@@ -13,7 +13,7 @@ const promisedSpawn = (command: string, args: string[], options: { stdio?: Stdio
     });
 });
 
-const TEMP_PATH = path.join(__dirname, '..', 'tmp');
+const TEMP_PATH = path.join(__dirname, '..', '..', 'tmp');
 
 export default class LLVMModule {
     
