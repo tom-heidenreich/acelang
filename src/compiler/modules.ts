@@ -11,7 +11,11 @@ import { ModuleManager } from '../modules';
 import Logger from '../util/logger';
 import TypeCheck from '../util/TypeCheck';
 
-export function generateModule(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger) {
+type Options = {
+    output?: string
+}
+
+export function generateModule(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger, options: Options) {
 
     // read the file
     LOGGER.info(`Reading file ${file_name}`);
@@ -32,7 +36,8 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     // start compiler
     LOGGER.info(`Starting compiler`);
 
-    const module = new LLVMModule(file_name);
+    const moduleName = file_name.split('.')[0];
+    const module = new LLVMModule(moduleName);
     const builder = module.builder;
 
     const functionType = llvm.FunctionType.get(module.Types.int, [], false);
@@ -67,13 +72,18 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     builder.CreateRet(module.Values.int(0));
     builder.ClearInsertionPoint();
 
+    // check if output exists
+    const output = path.join(options.output || './', moduleName);
+    if(!fs.existsSync(output)) fs.mkdirSync(output, { recursive: true });
+    else if(!fs.lstatSync(output).isDirectory()) throw new Error(`Output path ${output} is not a directory`);
+
     // generate object file
-    module.generateObject();
+    module.generateObject(path.join(output, moduleName));
 
     // generate ace.bindings file
     const lines: string[] = []
     for(const _export of exports) {
         lines.push(`declare ${TypeCheck.stringify(_export.returnType)} ${_export.name}(${_export.params.map(param => `${TypeCheck.stringify(param)}`).join(', ')})`);
     }
-    fs.writeFileSync('ace.bindings', lines.join('\n'));
+    fs.writeFileSync(path.join(output, 'ace.bindings'), lines.join('\n'));
 }
