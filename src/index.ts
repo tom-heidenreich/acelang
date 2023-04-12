@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import Logger from './util/logger';
 import compile from './compiler';
 import { initModuleManager } from './modules';
+import { generateModule } from './compiler/modules';
 
 process.env.FILE_EXTENSION = 'ace';
 
@@ -13,6 +14,27 @@ program
     .version('0.0.1')
     .name('ACE')
     .usage('[options] <file>')
+
+program.command('module <file>')
+    .option('-o, --output <file>', 'output the result to a file')
+    .option('-l, --log', 'log the output to a file', false)
+    .option('-s, --silent', 'do not log the output to the console', false)
+    .action((file_input, options) => {
+        if(options.details) options.details = parseInt(options.details);
+        
+        const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
+        // create log file if log is enabled
+        if(options?.log) fs.writeFileSync('log.txt', '');
+
+        // moduler
+        const {
+            moduleManager,
+            workDir,
+            fileName,
+        } = initModuleManager(file_input)
+
+        generateModule(workDir, fileName, moduleManager, LOGGER);
+    })
 
 program.command('compile <file>')
     .description('compile a file')
