@@ -189,12 +189,11 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             return llvm.ConstantArray.get(arrayType, constants)
         }
         case 'member': {
-            if(value.targetType.type === 'array') {
-                const target = compileValue(module, context, value.target);
-                const property = compileValue(module, context, value.property);
-                return module.builder.CreateGEP(module.Types.convertType(value.targetType), target, [module.Values.int(0), property]);
-            }
-            throw new Error(`Unknown member type ${value.targetType.type}`);
+            const target = compileValue(module, context, value.target);
+            const property = compileValue(module, context, value.property);
+
+            if(!property.getType().isIntegerTy(32)) throw new Error(`Unknown property type, expected int`);
+            return module.builder.CreateGEP(module.Types.convertType(value.targetType), target, [module.Values.int(0), property]);
         }
         case 'reference': {
             const ref = context.get(value.reference);
@@ -312,6 +311,23 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
                 const item = value.items[i];
                 const compiledItem = compileValue(module, context, item);
                 const itemPtr = module.builder.CreateGEP(arrayType, _var, [module.Values.int(0), module.Values.int(i)]);
+                module.builder.CreateStore(compiledItem, itemPtr);
+            }
+        }
+        return;
+    }
+    else if(valueType.type === 'struct') {
+        const structType = module.Types.convertType(valueType);
+        const _var = module.builder.CreateAlloca(structType);
+        context.set(name, _var);
+        // initialize struct
+        if(value) {
+            if(value.type !== 'struct') throw new Error(`Expected struct value for struct variable ${name}`);
+            const entries = Object.entries(value.properties);
+            for(let i = 0; i<entries.length; i++) {
+                const [_, item] = entries[i];
+                const compiledItem = compileValue(module, context, item);
+                const itemPtr = module.builder.CreateGEP(structType, _var, [module.Values.int(0), module.Values.int(i)]);
                 module.builder.CreateStore(compiledItem, itemPtr);
             }
         }
