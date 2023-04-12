@@ -1,3 +1,4 @@
-export func hello() {
-    retunr 'hello world'
+func hello() {
+    return 'hello world'
 }
+export hello
