@@ -4,19 +4,9 @@ import interpret from './interpreter';
 import * as fs from 'fs';
 import Logger from './util/logger';
 import compile from './compiler';
+import { initModuleManager } from './modules';
 
 process.env.FILE_EXTENSION = 'ace';
-
-function getFile(file_input: string) {
-    const filePath = path.join('./', file_input);
-    if(!fs.existsSync(filePath)) throw new Error(`File ${filePath} does not exist`);
-    if(!fs.lstatSync(filePath).isFile()) throw new Error(`Path ${filePath} is not a file`);
-    return {
-        workDir: path.dirname(filePath),
-        fileName: path.basename(filePath),
-        file: filePath,
-    }
-}
 
 // read command line arguments
 program
@@ -40,9 +30,15 @@ program.command('compile <file>')
         // create log file if log is enabled
         if(options?.log) fs.writeFileSync('log.txt', '');
 
-        const { workDir, fileName, file } = getFile(file_input);
+        // moduler
+        const {
+            moduleManager,
+            workDir,
+            fileName,
+            file,
+        } = initModuleManager(file_input)
 
-        const action = () => compile(workDir, fileName, LOGGER, {
+        const action = () => compile(workDir, fileName, moduleManager, LOGGER, {
             output: options.output as string,
             execute: options.run,
         });
@@ -74,9 +70,15 @@ program.command('run <file>')
         // create log file if log is enabled
         if(options?.log) fs.writeFileSync('log.txt', '');
 
-        const { workDir, fileName, file } = getFile(file_input);
+        // moduler
+        const {
+            moduleManager,
+            workDir,
+            fileName,
+            file,
+        } = initModuleManager(file_input)
 
-        const action = () => interpret(workDir, fileName, LOGGER);
+        const action = () => interpret(workDir, fileName, moduleManager, LOGGER);
 
         if(options.watch) {
             LOGGER.info(`Watching file ${fileName}`);

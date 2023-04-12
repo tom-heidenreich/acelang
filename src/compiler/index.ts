@@ -8,7 +8,7 @@ import { lex } from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { FunctionDeclaration, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
-import { initModuleManager } from "../modules";
+import { ModuleManager, initModuleManager } from "../modules";
 import TypeCheck from "../util/TypeCheck";
 import { AllocaInst } from "llvm-bindings";
 
@@ -17,7 +17,7 @@ type CompilerOptions = {
     execute?: boolean
 }
 
-export default async function compile(work_dir: string, file_name: string, LOGGER: Logger, options: CompilerOptions) {
+export default async function compile(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger, options: CompilerOptions) {
 
     // read the file
     LOGGER.info(`Reading file ${file_name}`);
@@ -28,9 +28,6 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
     const tokens = lex(content, LOGGER)
 
     LOGGER.log(`Found ${tokens.length} tokens`)
-
-    // moduler
-    const moduleManager = initModuleManager(work_dir)
     
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);

@@ -4,9 +4,9 @@ import { lex } from '../lexer';
 import { parseToTree } from '../parser';
 import Logger from '../util/logger';
 import Runtime from './runtime';
-import { initModuleManager } from '../modules';
+import { ModuleManager, initModuleManager } from '../modules';
 
-export default async function interpret(work_dir: string, file_name: string, LOGGER: Logger) {
+export default async function interpret(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger) {
 
     // read the file
     LOGGER.info(`Reading file ${file_name}`);
@@ -17,9 +17,6 @@ export default async function interpret(work_dir: string, file_name: string, LOG
     const tokens = lex(content, LOGGER)
 
     LOGGER.log(`Found ${tokens.length} tokens`)
-
-    // moduler
-    const moduleManager = initModuleManager(work_dir)
 
     // get ast
     LOGGER.info(`Parsing file ${file_name}`);

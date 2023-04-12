@@ -4,6 +4,7 @@ import { pathEqual } from 'path-equal'
 import validate from '../util/JsonValidator';
 import { Binding } from "../types"
 import { parseBindingsFile } from './bindings';
+import { lex } from '../lexer';
 
 const ROOT = path.parse(process.cwd()).root
 
@@ -11,6 +12,7 @@ type PackageFile = {
     name: string,
     version: string,
     description: string,
+    main: string,
     modules: {
         [key: string]: string
     }
@@ -30,9 +32,25 @@ type Module = {
     bindings: Binding[]
 }
 
-export function initModuleManager(work_dir: string) {
+function getFile(file_input: string) {
+    const filePath = path.join('./', file_input);
+    if(!fs.existsSync(filePath)) throw new Error(`File ${filePath} does not exist`);
+    if(!fs.lstatSync(filePath).isFile()) return {
+        workDir: filePath,
+    }
+    return {
+        workDir: path.dirname(filePath),
+        fileName: path.basename(filePath),
+        file: filePath,
+    }
+}
+
+export function initModuleManager(file_input: string) {
+
+    const { workDir, fileName, file } = getFile(file_input);
+
     // detect if script is located in a package
-    const package_file_path = locatePackage(work_dir);
+    const package_file_path = locatePackage(workDir);
     if(!package_file_path) throw new Error('Could not locate package.ace.json');
     const package_path = path.dirname(package_file_path)
 
@@ -53,6 +71,10 @@ export function initModuleManager(work_dir: string) {
         description: {
             type: 'string',
             default: 'No description provided'
+        },
+        main: {
+            type: 'string',
+            default: 'main.ace'
         },
         modules: {
             type: 'object',
@@ -80,22 +102,29 @@ export function initModuleManager(work_dir: string) {
         }
     }
 
-    return new ModuleManager({
-        name: _package.name,
-        version: _package.version,
-        description: _package.description,
-        modules
-    });
+    return {
+        workDir,
+        fileName: fileName || _package.main,
+        file: file || path.join(package_path, _package.main),
+        moduleManager: new ModuleManager({
+            name: _package.name,
+            version: _package.version,
+            description: _package.description,
+            modules
+        }, package_path)
+    }
 }
 
 export class ModuleManager {
 
     private _package: Package;
-
     private used_modules: string[] = []
 
-    constructor(_package: Package) {
+    private packagePath: string
+
+    constructor(_package: Package, packagePath: string) {
         this._package = _package;
+        this.packagePath = packagePath;
     }
 
     get name() {
