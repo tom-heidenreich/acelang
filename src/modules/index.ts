@@ -151,6 +151,7 @@ export class ModuleManager {
     }
 
     public useModule(module_name: string) {
+        if(this.used_modules.includes(module_name)) return
         this.used_modules.push(module_name);
     }
 
