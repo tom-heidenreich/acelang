@@ -5,6 +5,7 @@ import validate from '../util/JsonValidator';
 import { Binding } from "../types"
 import { parseBindingsFile } from './bindings';
 import { lex } from '../lexer';
+import Logger from '../util/logger';
 
 const ROOT = path.parse(process.cwd()).root
 
@@ -45,7 +46,7 @@ function getFile(file_input: string) {
     }
 }
 
-export function initModuleManager(file_input: string) {
+export function initModuleManager(file_input: string, LOGGER: Logger) {
 
     const { workDir, fileName, file } = getFile(file_input);
 
@@ -93,8 +94,14 @@ export function initModuleManager(file_input: string) {
         const objFilePath = path.join(modulePath, `${key}.o`);
         const bindingsFilePath = path.join(modulePath, `ace.bindings`);
 
-        if(!fs.existsSync(objFilePath)) throw new Error(`Could not find object file for module ${key} at ${objFilePath}`);
-        if(!fs.existsSync(bindingsFilePath)) throw new Error(`Could not find bindings file for module ${key} at ${bindingsFilePath}`);
+        if(!fs.existsSync(objFilePath)) {
+            LOGGER.warn(`Could not find object file for module ${key} at ${objFilePath}.`);
+            continue
+        }
+        if(!fs.existsSync(bindingsFilePath)) {
+            LOGGER.warn(`Could not find bindings file for module ${key} at ${bindingsFilePath}.`);
+            continue
+        }
 
         modules[key] = {
             object_file_path: objFilePath,

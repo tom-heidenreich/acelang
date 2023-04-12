@@ -31,9 +31,12 @@ program.command('module <file>')
             moduleManager,
             workDir,
             fileName,
-        } = initModuleManager(file_input)
+            file
+        } = initModuleManager(file_input, LOGGER)
 
-        generateModule(workDir, fileName, moduleManager, LOGGER);
+        generateModule(workDir, fileName, moduleManager, LOGGER, {
+            output: options.output as string,
+        });
     })
 
 program.command('compile <file>')
@@ -58,7 +61,7 @@ program.command('compile <file>')
             workDir,
             fileName,
             file,
-        } = initModuleManager(file_input)
+        } = initModuleManager(file_input, LOGGER)
 
         const action = () => compile(workDir, fileName, moduleManager, LOGGER, {
             output: options.output as string,
@@ -98,7 +101,7 @@ program.command('run <file>')
             workDir,
             fileName,
             file,
-        } = initModuleManager(file_input)
+        } = initModuleManager(file_input, LOGGER)
 
         const action = () => interpret(workDir, fileName, moduleManager, LOGGER);
 
