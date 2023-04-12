@@ -550,6 +550,7 @@ export type Build = {
     types: Types,
     callables: {[name: string]: Callable},
     imports: Binding[],
+    exports: Binding[],
 }
 
 export type Environment = {

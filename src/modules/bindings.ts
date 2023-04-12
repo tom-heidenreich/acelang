@@ -25,6 +25,7 @@ export function parseBindingsFile(file_path: string): Binding[] {
         types: defaultTypes,
         callables: {},
         imports: [],
+        exports: [],
     }
     const env = { fields: { local: {} } }
     

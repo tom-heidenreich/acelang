@@ -8,6 +8,7 @@ export function parseStatements(module: LLVMModule, context: Context, statements
         if(statement.type === 'multiStatement') return parseStatements(module, context, statement.statements);
         switch(statement.type) {
             case 'importStatement': return;
+            case 'exportStatement': return;
             case 'expressionStatement': {
                 compileValue(module, context, statement.expression);
                 return;
