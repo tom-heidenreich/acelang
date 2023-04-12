@@ -112,11 +112,11 @@ export default async function compile(work_dir: string, file_name: string, LOGGE
 
     module.verify();
     if(options.execute) {
-        // if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
+        if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
         await module.executeJIT(options.output, 'inherit');
     }
     
-    // module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
+    module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
 }
 
 function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
