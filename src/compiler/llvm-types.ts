@@ -8,19 +8,21 @@ export type Types = {
     bool: llvm.Type;
     void: llvm.Type;
     array: (type: llvm.Type, size: number) => llvm.ArrayType;
+    struct: (types: llvm.Type[]) => llvm.StructType;
 
     convertType: (type: Type) => llvm.Type;
 }
 
-export function getTypes(builder: llvm.IRBuilder): Types {
+export function getTypes(builder: llvm.IRBuilder, context: llvm.LLVMContext): Types {
 
     const primitives = {
-        int: builder.getInt64Ty(),
+        int: builder.getInt32Ty(),
         float: builder.getDoubleTy(),
         string: builder.getInt8PtrTy(),
         bool: builder.getInt1Ty(),
         void: builder.getVoidTy(),
         array: (type: llvm.Type, size: number) => llvm.ArrayType.get(type, size),
+        struct: (types: llvm.Type[]) => llvm.StructType.get(context, types)
     }
 
     const convertType = (type: Type): llvm.Type => {
@@ -36,6 +38,7 @@ export function getTypes(builder: llvm.IRBuilder): Types {
                 throw new Error(`Unknown primitive ${type.primitive}`);
             }
             case 'array': return primitives.array(convertType(type.items), type.size);
+            case 'struct': return primitives.struct(Object.entries(type.properties).map(([_, type]) => convertType(type)));
             case 'pointer': return llvm.PointerType.get(convertType(type.pointer), 0);
         }
         throw new Error(`Unknown type ${type.type}`);
@@ -57,7 +60,7 @@ export type Values = {
 
 export function getValues(builder: llvm.IRBuilder, context: llvm.LLVMContext): Values {
     return {
-        int: (value: number) => builder.getInt64(value),
+        int: (value: number) => builder.getInt32(value),
         float: (value: number) => {
             // use ConstantFP
             const constantFP = llvm.ConstantFP.get(builder.getDoubleTy(), value);
