@@ -32,7 +32,7 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     // start compiler
     LOGGER.info(`Starting compiler`);
 
-    const module = new LLVMModule(moduleManager.name);
+    const module = new LLVMModule(file_name);
     const builder = module.builder;
 
     const functionType = llvm.FunctionType.get(module.Types.int, [], false);
@@ -60,7 +60,8 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
     context.set('printf', printf);
 
-    parseStatements(module, context, tree);
+    // currently disabled
+    // parseStatements(module, context, tree);
 
     // end of main function block
     builder.CreateRet(module.Values.int(0));
