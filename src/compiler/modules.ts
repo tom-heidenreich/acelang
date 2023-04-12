@@ -18,23 +18,23 @@ type Options = {
 export function generateModule(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger, options: Options) {
 
     // read the file
-    LOGGER.info(`Reading file ${file_name}`);
+    LOGGER.log(`Reading file ${file_name}`, { type: 'info', detail: 1 });
     const content = fs.readFileSync(path.join(work_dir, file_name), 'utf8');
 
     // lex the file
-    LOGGER.info(`Lexing file ${file_name}`);
+    LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
     const tokens = lex(content, LOGGER)
 
-    LOGGER.log(`Found ${tokens.length} tokens`)
+    LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     
     // get ast
-    LOGGER.info(`Parsing file ${file_name}`);
+    LOGGER.log(`Parsing file ${file_name}`, { type: 'info', detail: 1 });
     const { tree, callables, imports, exports } = parseToTree(moduleManager, tokens);
 
-    LOGGER.log(`Found ${tree.length} statements`);
+    LOGGER.log(`Found ${tree.length} statements`, { detail: 1 });
 
     // start compiler
-    LOGGER.info(`Starting compiler`);
+    LOGGER.log(`Starting compiler`, { type: 'info', detail: 1 });
 
     const moduleName = file_name.split('.')[0];
     const module = new LLVMModule(moduleName);

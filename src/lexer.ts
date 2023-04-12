@@ -31,7 +31,7 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
         else exType = !type ? 'identifier' : type;
         if(!exType) throw new Error(`Unknown token type: ${value}`)
 
-        LOGGER.log(`Pushed token: ${value} (${exType}) ${specificType ? `(${specificType})` : ''}`, { detail: 2 });
+        LOGGER.log(`Pushed token: ${value} (${exType}) ${specificType ? `(${specificType})` : ''}`, { detail: 3 });
 
         line.push({
             value,
