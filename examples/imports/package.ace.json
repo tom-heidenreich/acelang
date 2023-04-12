@@ -1,4 +1,5 @@
 {
+    "main": "imports.ace",
     "modules": {
         "time": "modules/time"
     }
