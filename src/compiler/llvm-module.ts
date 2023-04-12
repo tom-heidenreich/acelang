@@ -80,4 +80,8 @@ export default class LLVMModule {
         const objFile = isTmp ? path.join(TEMP_PATH, `${output}.o`) : `./${output}.o`;
         await promisedSpawn('llc', ['-filetype=obj', path.join(TEMP_PATH, `${output}.bc`), '-o', objFile], { stdio });
     }
+
+    public async runExecutable(output: string = this._name, stdio?: StdioOptions) {
+        await promisedSpawn(`./${output}`, [], { stdio });
+    }
 }

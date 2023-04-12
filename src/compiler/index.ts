@@ -68,10 +68,11 @@ export default async function compile(work_dir: string, file_name: string, modul
     module.exitMain();
 
     module.verify();
-    if(options.execute) {
-        if(moduleManager.getLinkedFiles().length > 0) throw new Error('Cannot execute a module with linked files currently');
-        await module.executeJIT(options.output, 'inherit');
-    }
     
     module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
+
+    if(options.execute) {
+        if(moduleManager.getLinkedFiles().length > 0) module.runExecutable(options.output, 'inherit')
+        else await module.executeJIT(options.output, 'inherit');
+    }
 }
