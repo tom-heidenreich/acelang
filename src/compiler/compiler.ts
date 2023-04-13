@@ -4,6 +4,7 @@ import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
     if(statements.length === 1) {
+        if(context.hasExited()) throw new Error('Unreachable code')
         const statement = statements[0];
         if(statement.type === 'multiStatement') return parseStatements(module, context, statement.statements);
         switch(statement.type) {
@@ -22,6 +23,18 @@ export function parseStatements(module: LLVMModule, context: Context, statements
             }
             case 'whileStatement': return parseWhileStatement(statement, module, context);
             case 'ifStatement': return parseIfStatement(statement, module, context);
+            case 'breakStatement': {
+                if(!context.exitBlock) throw new Error('Illegal break statement');
+                module.builder.CreateBr(context.exitBlock);
+                context.exit();
+                return;
+            }
+            case 'continueStatement': {
+                if(!context.loopBlock) throw new Error('Illegal continue statement');
+                module.builder.CreateBr(context.loopBlock);
+                context.exit();
+                return;
+            }
         }
         throw new Error(`Unknown statement type ${statement.type}`);
     }
@@ -39,10 +52,18 @@ export class Context {
 
     private blockCounts: Map<string, number> = new Map();
 
-    constructor(func: llvm.Function, parent?: Context) {
+    private readonly exitBB: llvm.BasicBlock | undefined
+    private readonly loopBB: llvm.BasicBlock | undefined
+
+    private exited: boolean = false;
+
+    constructor(func: llvm.Function, parent?: Context, blocks?: { exit?: llvm.BasicBlock, loop?: llvm.BasicBlock }) {
         this.parentFunc = func;
         this.values = new Map();
         this.parent = parent;
+
+        this.exitBB = blocks?.exit;
+        this.loopBB = blocks?.loop;
     }
 
     public set(name: string, value: llvm.Value) {
@@ -59,6 +80,26 @@ export class Context {
         const count = this.blockCounts.get(name) ?? 0;
         this.blockCounts.set(name, count + 1);
         return `${name}.${count}`;
+    }
+
+    public get exitBlock(): llvm.BasicBlock | undefined {
+        if(this.exitBB) return this.exitBB;
+        if(this.parent) return this.parent.exitBlock;
+        return undefined;
+    }
+
+    public get loopBlock(): llvm.BasicBlock | undefined {
+        if(this.loopBB) return this.loopBB;
+        if(this.parent) return this.parent.loopBlock;
+        return undefined;
+    }
+
+    public exit() {
+        this.exited = true;
+    }
+
+    public hasExited() {
+        return this.exited;
     }
 }
 
@@ -250,7 +291,10 @@ function parseWhileStatement(statement: WhileStatement, module: LLVMModule, cont
         return module.builder.CreateCondBr(conditionValue, loopBodyBB, loopExitBB);
     }
 
-    const whileContext = new Context(context.parentFunc, context);
+    const whileContext = new Context(context.parentFunc, context, {
+        exit: loopExitBB,
+        loop: loopBodyBB,
+    });
 
     module.builder.CreateBr(loopBodyBB);
     module.builder.SetInsertPoint(loopBodyBB);
@@ -272,9 +316,11 @@ function parseIfStatement(statement: IfStatement, module: LLVMModule, context: C
     module.builder.CreateCondBr(condition, thenBodyBB, elseBodyBB);
 
     module.builder.SetInsertPoint(thenBodyBB);
-    const thenContext = new Context(context.parentFunc, context);
+    const thenContext = new Context(context.parentFunc, context, {
+        exit: exitBB,
+    });
     parseStatements(module, thenContext, statement.body);
-    module.builder.CreateBr(exitBB);
+    if(!thenContext.hasExited()) module.builder.CreateBr(exitBB);
 
     module.builder.SetInsertPoint(elseBodyBB);
 
@@ -284,12 +330,16 @@ function parseIfStatement(statement: IfStatement, module: LLVMModule, context: C
     }
 
     // add else statement
+    let elseExited = false;
     if(statement.else) {
-        const elseContext = new Context(context.parentFunc, context);
+        const elseContext = new Context(context.parentFunc, context, {
+            exit: exitBB,
+        });
         parseStatements(module, elseContext, statement.else);
+        elseExited = elseContext.hasExited()
     }
-
-    module.builder.CreateBr(exitBB);
+    
+    if(!elseExited) module.builder.CreateBr(exitBB);
     module.builder.SetInsertPoint(exitBB);
 }
 
