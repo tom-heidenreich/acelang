@@ -68,8 +68,8 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
         }
         else {
             isIfElseChain = false
-            ifElseChain.length = 0
             const ifStatement = parseIfStatement(lineState, new Cursor(ifElseChain), wrappers)
+            ifElseChain.length = 0
             const nextStatement = parseLine({ lineState, cursor, wrappers })
             
             if(nextStatement) {
