@@ -84,4 +84,13 @@ export default class LLVMModule {
     public async runExecutable(output: string = this._name, stdio?: StdioOptions) {
         await promisedSpawn(`./${output}`, [], { stdio });
     }
+
+    public disableStackProbes() {
+        const __chkstkType = llvm.FunctionType.get(this.Types.void, [this.Types.int], false);
+        const __chkstk = llvm.Function.Create(__chkstkType, llvm.Function.LinkageTypes.ExternalLinkage, '__chkstk', this._module);
+        const __chkstkEntry = llvm.BasicBlock.Create(this._context, 'entry', __chkstk);
+        this._builder.SetInsertPoint(__chkstkEntry);
+        this._builder.CreateRetVoid();
+        this._builder.ClearInsertionPoint();
+    }
 }

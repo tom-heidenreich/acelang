@@ -13,6 +13,7 @@ import { Context, declareFunction, defineFunction, parseStatements } from "./com
 type CompilerOptions = {
     output?: string
     execute?: boolean
+    noStackProbes?: boolean
 }
 
 export default async function compile(work_dir: string, file_name: string, moduleManager: ModuleManager, LOGGER: Logger, options: CompilerOptions) {
@@ -41,6 +42,8 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     const mainFunc = module.createMain();
     const context = new Context(mainFunc);
+
+    if(options.noStackProbes) module.disableStackProbes();
 
     // declare imports
     for(const _import of imports) {

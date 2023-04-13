@@ -48,6 +48,7 @@ program.command('compile <file>')
     .option('-o, --output <file>', 'output the result to a file')
     .option('-s, --silent', 'do not log the output to the console', false)
     .option('-w, --watch', 'watch the file for changes', false)
+    .option('-disable-stack-probes', 'disable stack probes', false)
     .action((file_input, options) => {
         if(options.details) options.details = parseInt(options.details);
         
@@ -66,6 +67,7 @@ program.command('compile <file>')
         const action = () => compile(workDir, fileName, moduleManager, LOGGER, {
             output: options.output as string,
             execute: options.run,
+            noStackProbes: options.DisableStackProbes,
         });
 
         if(options.watch) {
