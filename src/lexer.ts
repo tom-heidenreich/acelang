@@ -5,7 +5,7 @@ import Logger from './util/logger';
 // TODO: refactor whole file
 
 function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 'datatype' | 'symbol', specificType?: DataType) {
-    if(!buffer.isEmpty()) {
+    if(!buffer.isEmpty() || specificType === 'string') {
         const value = buffer.clear()
         let exType: TokenType | undefined = type;
         if(type === 'symbol') {  
