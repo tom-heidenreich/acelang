@@ -2,11 +2,19 @@ import { ModuleManager } from "./modules";
 
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
+export type TokenLine = {
+    line: number;
+    char: number;
+    endLine: number;
+    endChar: number;
+}
+
 export type Token = {
     value: string;
     type: TokenType;
     specificType?: DataType;
     block?: Token[][];
+    lineInfo: TokenLine;
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
