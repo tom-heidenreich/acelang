@@ -9,7 +9,7 @@ export type Token = {
     block?: Token[][];
 }
 
-export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
+export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
 export const KEYWORDS: Keyword[] = [
     'debug',
     'const',
