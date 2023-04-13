@@ -302,7 +302,7 @@ function parseWhileStatement(statement: WhileStatement, module: LLVMModule, cont
         loop: loopBodyBB,
     });
 
-    module.builder.CreateBr(loopBodyBB);
+    condition()
     module.builder.SetInsertPoint(loopBodyBB);
 
     parseStatements(module, whileContext, statement.body);
