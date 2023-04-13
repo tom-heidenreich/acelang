@@ -63,6 +63,7 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
                 case 'boolean': return module.Values.bool(value.literal as boolean);
             }
         }
+        case 'undefined': return module.Values.undefined();
         case 'array': {
             const arrayType = module.Types.array(module.Types.convertType(value.itemType), value.items.length);
             const constants: llvm.Constant[] = value.items.map((item, index) => {

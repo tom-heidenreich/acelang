@@ -16,10 +16,6 @@ function pushBuffer(LOGGER: Logger, line: Token[], buffer: StringBuffer, type?: 
         }
         else if(KEYWORDS.includes(value as Keyword)) exType = 'keyword';
         else if(MODIFIERS.includes(value as Modifier)) exType = 'modifier';
-        else if(value === 'null' || value === 'undefined') {
-            exType = 'datatype';
-            specificType = 'undefined';
-        }
         else if(value === 'true' || value === 'false') {
             exType = 'datatype';
             specificType = 'boolean';

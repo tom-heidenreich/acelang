@@ -37,6 +37,18 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
         }
         else if(token.type === 'identifier') {
 
+            if(token.value === 'null' || token.value === 'undefined') {
+                return {
+                    type: {
+                        type: 'primitive',
+                        primitive: 'undefined'
+                    },
+                    value: {
+                        type: 'undefined',
+                    }
+                }
+            }
+
             const field = FieldResolve.resolve(lineState.env.fields, token.value);
             if(!field) {
                 throw new Error(`Unknown field: ${token.value} at line ${lineState.lineIndex}`);
