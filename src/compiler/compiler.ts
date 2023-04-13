@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { Callable, FunctionBinding, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
+import { Callable, FunctionBinding, IfStatement, Statement, Value, VariableDeclaration, WhileStatement } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, context: Context, statements: Statement[]): void {
@@ -36,6 +36,8 @@ export class Context {
     private values: Map<string, llvm.Value>;
     private parent?: Context
 
+    private blockCounts: Map<string, number> = new Map();
+
     constructor(func: llvm.Function, parent?: Context) {
         this.parentFunc = func;
         this.values = new Map();
@@ -50,6 +52,12 @@ export class Context {
         if(this.values.has(name)) return this.values.get(name);
         if(this.parent) return this.parent.get(name);
         return undefined;
+    }
+
+    public blockId(name: string): string {
+        const count = this.blockCounts.get(name) ?? 0;
+        this.blockCounts.set(name, count + 1);
+        return `${name}.${count}`;
     }
 }
 
@@ -233,8 +241,8 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
 
 function parseWhileStatement(statement: WhileStatement, module: LLVMModule, context: Context): void {
 
-    const loopBodyBB = llvm.BasicBlock.Create(module._context, 'loopBody', context.parentFunc);
-    const loopExitBB = llvm.BasicBlock.Create(module._context, 'loopExit', context.parentFunc);
+    const loopBodyBB = llvm.BasicBlock.Create(module._context, context.blockId('loopBody'), context.parentFunc);
+    const loopExitBB = llvm.BasicBlock.Create(module._context, context.blockId('loopExit'), context.parentFunc);
 
     const condition = () => {
         const conditionValue = compileValue(module, context, statement.condition);
