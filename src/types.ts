@@ -565,9 +565,8 @@ export type Environment = {
     fields: FieldEnv,
 }
 
-export type LineState = {
+export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
     env: Environment,
-    lineIndex: number,
 }

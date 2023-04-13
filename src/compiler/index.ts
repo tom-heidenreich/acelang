@@ -26,6 +26,8 @@ export default async function compile(work_dir: string, file_name: string, modul
     LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
     const tokens = lex(content, LOGGER)
 
+    fs.writeFileSync(path.join(work_dir, 'tokens.json'), JSON.stringify(tokens, null, 4));
+
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     
     // get ast

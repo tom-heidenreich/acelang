@@ -1,59 +1,60 @@
-import { Identifier, LineState, Statement, Token } from "../types"
+import { Identifier, Context, Statement, Token } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
+import lnStringify from "../util/LineStringify"
 import { parseEnvironment } from "./env"
 import { parseFunc } from "./functions"
 
-export function parseSync(lineState: LineState, cursor: Cursor<Token>): Statement {
+export function parseSync(context: Context, cursor: Cursor<Token>): Statement {
 
     // check if next token is function
     let token = cursor.next()
     if(token.type === 'keyword' && token.value === 'func') {
-        return parseFunc({ lineState, cursor, isSync: true }).statement
+        return parseFunc({ context, cursor, isSync: true }).statement
     }
 
     if(token.type !== 'block') {
-        throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${token.type} ${token.value} at ${lnStringify(token)}`)
     }
 
     const lockedFields: Identifier[] = []
     if(token.value === '()') {
         token.block?.forEach(line => {
-            if(line.length === 0) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+            if(line.length === 0) throw new Error(`Unexpected end of line at ${lnStringify(token)}`)
             else if(line.length > 1) {
-                throw new Error(`Unexpected token ${line[1].type} ${line[1].value} at line ${lineState.lineIndex}`)
+                throw new Error(`Unexpected token ${line[1].type} ${line[1].value} at ${lnStringify(token)}`)
             }
-            const token = line[0]
-            if(token.type !== 'identifier') {
-                throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+            const lineToken = line[0]
+            if(lineToken.type !== 'identifier') {
+                throw new Error(`Unexpected token ${lineToken.type} ${lineToken.value} at ${lnStringify(lineToken)}`)
             }
             // check if field exists
-            if(!FieldResolve.resolve(lineState.env.fields, token.value)) {
-                throw new Error(`Field ${token.value} does not exist at line ${lineState.lineIndex}`)
+            if(!FieldResolve.resolve(context.env.fields, lineToken.value)) {
+                throw new Error(`Field ${lineToken.value} does not exist at ${lnStringify(lineToken)}`)
             }
-            lockedFields.push(token.value)
+            lockedFields.push(lineToken.value)
         })
         token = cursor.next()
     }
 
     if(token.value !== '{}') {
-        throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${token.type} ${token.value} at ${lnStringify(token)}`)
     }
 
     if(!token.block) {
-        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected end of line at ${lnStringify(token)}`)
     }
 
     // create new env
     const env = {
         fields: {
             local: {},
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         }
     }
     
     // parse body
-    const body = parseEnvironment(lineState.build, token.block, lineState.moduleManager, env)
+    const body = parseEnvironment(context.build, token.block, context.moduleManager, env)
 
     return {
         type: 'syncStatement',

@@ -1,4 +1,4 @@
-import { Build, ClassStatement, Environment, LineState, Modifiers, Statement, Token, Type, Wrappers } from "../types"
+import { Build, ClassStatement, Environment, Context, Modifiers, Statement, Token, Type, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import ExpressionParser from "../util/ExpressionParser"
 import { parseBreakStatement } from "./break"
@@ -14,6 +14,7 @@ import { parseClassAttribute, parseClassConstructor, parseClassFunc, parseClassS
 import { parseExportStatement } from "./export"
 import { parseImportStatement } from "./import"
 import { ModuleManager } from "../modules"
+import line from "../util/LineStringify"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
@@ -31,15 +32,14 @@ export function parseEnvironment(build: Build, tokens: Token[][], moduleManager?
 
     let lineIndex = 0
     for (const line of tokens) {
-        const lineState: LineState = {
+        const context: Context = {
             build,
             moduleManager,
-            env,
-            lineIndex: lineIndex++,
+            env
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        const statement = parseLine({ lineState, cursor, wrappers })
+        const statement = parseLine({ context, cursor, wrappers })
         if(statement) {
             if(statement.type === 'exportStatement' && statement.exportType) {
                 typeModule[statement.name] = statement.exportType
@@ -50,14 +50,14 @@ export function parseEnvironment(build: Build, tokens: Token[][], moduleManager?
     }
     if(isIfElseChain) {
         isIfElseChain = false
-        tree.push(parseIfStatement({ build, moduleManager, env, lineIndex: lineIndex++ }, new Cursor(ifElseChain), wrappers))
+        tree.push(parseIfStatement({ build, moduleManager, env }, new Cursor(ifElseChain), wrappers))
         ifElseChain.length = 0
     }
 
     return { tree, typeModule }
 }
 
-function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; cursor: Cursor<Token>; wrappers?: Wrappers; }): Statement | void {
+function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; wrappers?: Wrappers; }): Statement | void {
 
     const token = cursor.peek()
 
@@ -68,9 +68,9 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
         }
         else {
             isIfElseChain = false
-            const ifStatement = parseIfStatement(lineState, new Cursor(ifElseChain), wrappers)
+            const ifStatement = parseIfStatement(context, new Cursor(ifElseChain), wrappers)
             ifElseChain.length = 0
-            const nextStatement = parseLine({ lineState, cursor, wrappers })
+            const nextStatement = parseLine({ context, cursor, wrappers })
             
             if(nextStatement) {
                 return {
@@ -87,31 +87,31 @@ function parseLine({ lineState, cursor, wrappers }: { lineState: LineState; curs
     if(token.type === 'keyword') {
         cursor.next()
         switch(token.value) {
-            case 'const': return parseConst(lineState, cursor)
-            case 'var': return parseVar(lineState, cursor)
-            case 'func': return parseFunc({ lineState, cursor, wrappers }).statement
-            case 'return': return parseReturn(lineState, cursor, wrappers)
-            case 'sync': return parseSync(lineState, cursor)
-            case 'type': return parseTypeStatement(lineState, cursor)
+            case 'const': return parseConst(context, cursor)
+            case 'var': return parseVar(context, cursor)
+            case 'func': return parseFunc({ context, cursor, wrappers }).statement
+            case 'return': return parseReturn(context, cursor, wrappers)
+            case 'sync': return parseSync(context, cursor)
+            case 'type': return parseTypeStatement(context, cursor)
             case 'if': {
                 isIfElseChain = true
                 ifElseChain.push(cursor)
                 return
             }
-            case 'while': return parseWhileStatement(lineState, cursor, wrappers)
-            case 'for': return parseForStatement(lineState, cursor, wrappers)
-            case 'break': return parseBreakStatement(lineState, cursor, wrappers)
-            case 'continue': return parseContinueStatement(lineState, cursor, wrappers)
-            case 'class': return parseClassStatement(lineState, cursor)
-            case 'export': return parseExportStatement(lineState, cursor, wrappers)
-            case 'import': return parseImportStatement(lineState, cursor, wrappers)
+            case 'while': return parseWhileStatement(context, cursor, wrappers)
+            case 'for': return parseForStatement(context, cursor, wrappers)
+            case 'break': return parseBreakStatement(context, cursor, wrappers)
+            case 'continue': return parseContinueStatement(context, cursor, wrappers)
+            case 'class': return parseClassStatement(context, cursor)
+            case 'export': return parseExportStatement(context, cursor, wrappers)
+            case 'import': return parseImportStatement(context, cursor, wrappers)
         }
-        throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
     }
     // parse steps
     return {
         type: 'expressionStatement',
-        expression: ExpressionParser.parse(lineState, cursor).value
+        expression: ExpressionParser.parse(context, cursor).value
     }
 }
 
@@ -121,46 +121,45 @@ export function parseClassEnv(build: Build, tokens: Token[][], env: Environment,
 
     let lineIndex = 0
     for (const line of tokens) {
-        const lineState: LineState = {
+        const context: Context = {
             build,
             moduleManager,
-            env,
-            lineIndex: lineIndex++,
+            env
         }
         const cursor = new Cursor(line)
         if(cursor.done) continue
-        const statement = parseClassLine({ lineState, cursor, wrappers, modifiers: {} })
+        const statement = parseClassLine({ context, cursor, wrappers, modifiers: {} })
         if(statement) tree.push(statement)
     }
 
     return { tree, env }
 }
 
-function parseClassLine({ lineState, cursor, wrappers, modifiers }: { lineState: LineState; cursor: Cursor<Token>; wrappers: Wrappers; modifiers: Modifiers }): { statement: ClassStatement, type: Type } | void {
+function parseClassLine({ context, cursor, wrappers, modifiers }: { context: Context; cursor: Cursor<Token>; wrappers: Wrappers; modifiers: Modifiers }): { statement: ClassStatement, type: Type } | void {
 
     const token = cursor.next()
 
     if(token.type === 'modifier') {
         switch(token.value) {
             case 'public': {
-                if(modifiers.access) throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+                if(modifiers.access) throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
                 modifiers.access = 'public'
-                return parseClassLine({ lineState, cursor, wrappers, modifiers })
+                return parseClassLine({ context, cursor, wrappers, modifiers })
             }
             case 'private': {
-                if(modifiers.access) throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+                if(modifiers.access) throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
                 modifiers.access = 'private'
-                return parseClassLine({ lineState, cursor, wrappers, modifiers })
+                return parseClassLine({ context, cursor, wrappers, modifiers })
             }
             case 'static': {
-                if(modifiers.isStatic) throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+                if(modifiers.isStatic) throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
                 modifiers.isStatic = true
-                return parseClassLine({ lineState, cursor, wrappers, modifiers })
+                return parseClassLine({ context, cursor, wrappers, modifiers })
             }
             case 'abstract': {
-                if(modifiers.isAbstract) throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+                if(modifiers.isAbstract) throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
                 modifiers.isAbstract = true
-                return parseClassLine({ lineState, cursor, wrappers, modifiers })
+                return parseClassLine({ context, cursor, wrappers, modifiers })
             }
         }
     }
@@ -168,15 +167,15 @@ function parseClassLine({ lineState, cursor, wrappers, modifiers }: { lineState:
         switch(token.value) {
             case 'const': {
                 modifiers.isFinal = true
-                return parseClassAttribute(lineState, cursor, wrappers, modifiers)
+                return parseClassAttribute(context, cursor, wrappers, modifiers)
             }
             case 'var': {
                 modifiers.isFinal = false
-                return parseClassAttribute(lineState, cursor, wrappers, modifiers)
+                return parseClassAttribute(context, cursor, wrappers, modifiers)
             }
-            case 'func': return parseClassFunc(lineState, cursor, wrappers, modifiers)
-            case 'constructor': return parseClassConstructor(lineState, cursor, wrappers, modifiers)
+            case 'func': return parseClassFunc(context, cursor, wrappers, modifiers)
+            case 'constructor': return parseClassConstructor(context, cursor, wrappers, modifiers)
         }
     }
-    throw new Error(`Unexpected token ${token.type} ${token.value} at line ${lineState.lineIndex}`)
+    throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
 }
