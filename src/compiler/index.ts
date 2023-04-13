@@ -45,6 +45,11 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     if(options.noStackProbes) module.disableStackProbes();
 
+    // built in functions
+    const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
+    const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
+    context.set('printf', printf);
+
     // declare imports
     for(const _import of imports) {
         if(_import.type !== 'function') throw new Error('Only function imports are supported');
@@ -59,11 +64,6 @@ export default async function compile(work_dir: string, file_name: string, modul
     // start of main function block
     const entryBB = llvm.BasicBlock.Create(module._context, 'entry', mainFunc);
     builder.SetInsertPoint(entryBB);
-
-    // built in functions
-    const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
-    const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
-    context.set('printf', printf);
 
     parseStatements(module, context, tree);
 
