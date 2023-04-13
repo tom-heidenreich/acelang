@@ -21,6 +21,7 @@ export function parseStatements(module: LLVMModule, context: Context, statements
                 return;
             }
             case 'whileStatement': return parseWhileStatement(statement, module, context);
+            case 'ifStatement': return parseIfStatement(statement, module, context);
         }
         throw new Error(`Unknown statement type ${statement.type}`);
     }
@@ -259,6 +260,37 @@ function parseWhileStatement(statement: WhileStatement, module: LLVMModule, cont
     condition();
     module.builder.SetInsertPoint(loopExitBB);
 
+}
+
+function parseIfStatement(statement: IfStatement, module: LLVMModule, context: Context) {
+
+    const thenBodyBB = llvm.BasicBlock.Create(module._context, context.blockId('thenBody'), context.parentFunc);
+    const elseBodyBB = llvm.BasicBlock.Create(module._context, context.blockId('elseBody'), context.parentFunc);
+    const exitBB = llvm.BasicBlock.Create(module._context, context.blockId('ifExit'), context.parentFunc);
+
+    const condition = compileValue(module, context, statement.condition);
+    module.builder.CreateCondBr(condition, thenBodyBB, elseBodyBB);
+
+    module.builder.SetInsertPoint(thenBodyBB);
+    const thenContext = new Context(context.parentFunc, context);
+    parseStatements(module, thenContext, statement.body);
+    module.builder.CreateBr(exitBB);
+
+    module.builder.SetInsertPoint(elseBodyBB);
+
+    // add else if statements
+    if(statement.elseIf) {
+        for(const elseIf of statement.elseIf) parseIfStatement(elseIf, module, context);
+    }
+
+    // add else statement
+    if(statement.else) {
+        const elseContext = new Context(context.parentFunc, context);
+        parseStatements(module, elseContext, statement.else);
+    }
+
+    module.builder.CreateBr(exitBB);
+    module.builder.SetInsertPoint(exitBB);
 }
 
 export function defineFunction(module: LLVMModule, context: Context, callable: Callable, callableName: string) {
