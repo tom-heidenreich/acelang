@@ -69,7 +69,7 @@ export function parseDeclaration(lineState: LineState, cursor: Cursor<Token>, is
         }
 
         // value
-        const valueToken = Values.parseValue(lineState, cursor.remaining())
+        const valueToken = Values.parseValue(lineState, cursor.remaining(), type)
         const value = valueToken.value
 
         // dynamic type

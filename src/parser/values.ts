@@ -4,7 +4,7 @@ import ExpressionParser from "../util/ExpressionParser";
 import FieldResolve from "../util/FieldResolve";
 import TypeCheck from "../util/TypeCheck";
 
-function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
+function parseValue(lineState: LineState, cursor: Cursor<Token>, predefinedType?: Type): ValueNode {
     
     if(cursor.hasOnlyOne()) {
         const token = cursor.next();
@@ -76,13 +76,13 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
                 if(token.block.length !== 1) {
                     throw new Error(`Expected 1 token in block, got ${token.block.length} at line ${lineState.lineIndex}`);
                 }
-                return parseValue(lineState, new Cursor(token.block[0]));
+                return parseValue(lineState, new Cursor(token.block[0]), predefinedType);
             }
             else if(token.value === '{}') {
-                return parseStruct(lineState, new Cursor(token.block),)
+                return parseStruct(lineState, new Cursor(token.block), predefinedType)
             }
             else if(token.value === '[]') {
-                return parseArray(lineState, new Cursor(token.block));
+                return parseArray(lineState, new Cursor(token.block), predefinedType);
             }
             else {
                 throw new Error(`Unknown block type: ${token.value} at line ${lineState.lineIndex}`);
@@ -97,14 +97,14 @@ function parseValue(lineState: LineState, cursor: Cursor<Token>): ValueNode {
     }
 }
 
-function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
+function parseArray(lineState: LineState, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
 
     const items: Value[] = []
     let type: Type | undefined;
 
     while(!cursor.done) {
         
-        const node = parseValue(lineState, new Cursor(cursor.next()))
+        const node = parseValue(lineState, new Cursor(cursor.next()), predefinedType)
         if(!type) {
             type = node.type;
         }
@@ -116,7 +116,25 @@ function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
     }
 
     if(!type) {
-        throw new Error(`Expected at least one value, got 0 at line ${lineState.lineIndex}`);
+        // throw new Error(`Expected at least one value, got 0 at line ${lineState.lineIndex}`);
+        type = {
+            type: 'primitive',
+            primitive: 'any'
+        }
+    }
+
+    if(predefinedType) {
+        if(predefinedType.type !== 'array') {
+            throw new Error(`Expected array, got ${predefinedType.type} at line ${lineState.lineIndex}`);
+        }
+        return {
+            type: predefinedType,
+            value: {
+                type: 'array',
+                items,
+                itemType: predefinedType.items
+            }
+        }
     }
 
     return {
@@ -133,7 +151,7 @@ function parseArray(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
     };
 }
 
-function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
+function parseStruct(lineState: LineState, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
     
     const type: StructType = {
         type: 'struct',
@@ -168,7 +186,7 @@ function parseStruct(lineState: LineState, cursor: Cursor<Token[]>): ValueNode {
         }
         lineCursor.next();
 
-        const { type: propertyType, value: propertyValue } = parseValue(lineState, lineCursor);
+        const { type: propertyType, value: propertyValue } = parseValue(lineState, lineCursor, predefinedType);
 
         type.properties[key] = propertyType;
         value.properties[key] = propertyValue
