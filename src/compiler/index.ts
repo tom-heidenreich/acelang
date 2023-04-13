@@ -72,10 +72,10 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     module.verify();
     
-    module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
+    await module.generateExecutable(options.output, moduleManager.getLinkedFiles(), 'inherit');
 
     if(options.execute) {
-        if(moduleManager.getLinkedFiles().length > 0) module.runExecutable(options.output, 'inherit')
+        if(moduleManager.getLinkedFiles().length > 0) await module.runExecutable(options.output, 'inherit')
         else await module.executeJIT(options.output, 'inherit');
     }
 }
