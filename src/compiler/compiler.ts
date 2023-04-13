@@ -203,6 +203,12 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             else result = module.builder.CreateICmpSGE(left, right);
             return module.builder.CreateZExt(result, module.Types.bool);
         }
+        case 'equals': {
+            const left = compileValue(module, context, value.left);
+            const right = compileValue(module, context, value.right);
+            let result = module.builder.CreateICmpEQ(left, right);
+            return module.builder.CreateZExt(result, module.Types.bool);
+        }
         case 'cast': {
             const target = compileValue(module, context, value.value);
             switch(value.currentType) {
