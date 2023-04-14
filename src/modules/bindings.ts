@@ -10,7 +10,7 @@ import line from '../util/LineStringify';
 export function parseBindingsFile(file_path: string): Binding[] {
     
     const file_content = fs.readFileSync(file_path, 'utf-8');
-    const lines = lex(file_content, new Logger())
+    const lines = lex(file_content, file_path, new Logger())
     
     const bindings = []
 

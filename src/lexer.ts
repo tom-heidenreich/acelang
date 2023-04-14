@@ -54,7 +54,7 @@ function getSpecialChar(c: string) {
     }
 }
 
-export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
+export function lex(content: string, file: string, LOGGER: Logger, inBlock: boolean = false) {
 
     const result: Token[][] = []
     const line: Token[] = []
@@ -89,7 +89,8 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
             line: structureLine,
             char: structureChar,
             endLine: lineIndex,
-            endChar: charIndex + endCharOffset
+            endChar: charIndex + endCharOffset,
+            file
         }
     }
 
@@ -123,7 +124,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '{}',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -136,7 +137,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '()',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -149,7 +150,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '[]',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);

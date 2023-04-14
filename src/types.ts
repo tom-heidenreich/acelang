@@ -7,6 +7,7 @@ export type TokenLine = {
     char: number;
     endLine: number;
     endChar: number;
+    file: string
 }
 
 export type Token = {
