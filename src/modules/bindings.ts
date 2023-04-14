@@ -74,9 +74,7 @@ function parseBinding(context: Context, cursor: Cursor<Token>): Binding {
         for(const token of tokens) {
             params.push(parseType(context, token))
         }
-    }
-    console.log('end of block', line(paramsToken));
-    
+    } 
 
     return {
         type: 'function',
