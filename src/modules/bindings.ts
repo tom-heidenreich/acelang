@@ -70,11 +70,8 @@ function parseBinding(context: Context, cursor: Cursor<Token>): Binding {
     }
     const params: Type[] = []
     for(const paramToken of paramsToken.block) {
-        const tokens = new Cursor(paramToken).split(token => token.type === 'symbol' && token.value === ',')
-        for(const token of tokens) {
-            params.push(parseType(context, token))
-        }
-    } 
+        params.push(parseType(context, new Cursor(paramToken)))
+    }
 
     return {
         type: 'function',
