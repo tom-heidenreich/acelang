@@ -1,4 +1,4 @@
-import { Fields, Context, Param, Statement, Token, Type, Wrappers } from "../types"
+import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck";
@@ -112,7 +112,8 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         },
     }
     context.env.fields.local[name.value] = {
-        type: functionType
+        type: functionType,
+        ignorePointer: true,
     }
 
     // create new wrappers
