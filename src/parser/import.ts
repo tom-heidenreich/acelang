@@ -10,29 +10,59 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
     // names
     const nameToken = cursor.next()
 
-    const names: string[] = []
+    const names: {
+        module: string,
+        alias?: string,
+    }[] = []
     if(nameToken.type === 'identifier') {
-        names.push(nameToken.value)
+        names.push({
+            module: nameToken.value,
+        })
     }
     else if(nameToken.type === 'block' && nameToken.value === '{}') {
         // destructuring
         if(!nameToken.block) throw new Error(`Unexpected end of line at ${line(nameToken)}`)
         else if(nameToken.block.length === 0) throw new Error(`Unexpected end of line at ${line(nameToken)}`)
-        else if(nameToken.block.length > 1) {
-            throw new Error(`Unexpected token ${nameToken.block[1][0].type} ${nameToken.block[1][0].value} at ${line(nameToken)}`)
-        }
 
-        names.push(...nameToken.block[0].map(token => {
-            if(token.type !== 'identifier') {
-                throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
+        const blockCursor = new Cursor(nameToken.block)
+        while(!blockCursor.done) {
+            const moduleCursor = new Cursor(blockCursor.next())
+            
+            const moduleNameToken = moduleCursor.next()
+            if(moduleNameToken.type !== 'identifier') {
+                throw new Error(`Expected identifier got ${moduleNameToken.type} ${moduleNameToken.value} at ${line(moduleNameToken)}`)
             }
-            return token.value
-        }))
+
+            if(moduleCursor.done) {
+                names.push({
+                    module: moduleNameToken.value,
+                })
+                continue
+            }
+
+            const asToken = moduleCursor.next()
+            if(asToken.type !== 'keyword' || asToken.value !== 'as') {
+                throw new Error(`Expected 'as' got ${asToken.type} ${asToken.value} at ${line(asToken)}`)
+            }
+
+            const aliasToken = moduleCursor.next()
+            if(aliasToken.type !== 'identifier') {
+                throw new Error(`Expected identifier got ${aliasToken.type} ${aliasToken.value} at ${line(aliasToken)}`)
+            }
+
+            names.push({
+                module: moduleNameToken.value,
+                alias: aliasToken.value,
+            })
+
+            throw new Error(`Alias not supported yet at ${line(aliasToken)}`)
+        }
     }
 
     // check if any name is already defined
     for(const name of names) {
-        if(context.env.fields.local[name]) throw new Error(`Name ${name} is already defined at ${line(nameToken)}`)
+        const fieldName = name.alias || name.module
+        if(context.env.fields.local[fieldName]) throw new Error(`Name ${fieldName} is already defined at ${line(nameToken)}`)
     }
 
     // from
@@ -56,9 +86,10 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
     // check if module exports all names
     const bindings = module.bindings
     for(const name of names) {
-        const filtered = bindings.filter(binding => binding.name === name)
-        if(filtered.length === 0) throw new Error(`Could not find ${name} in module ${moduleToken.value} at ${line(moduleToken)}`)
-
+        const fieldName = name.alias || name.module
+        const filtered = bindings.filter(binding => binding.name === name.module)
+        if(filtered.length === 0) throw new Error(`Could not find ${name.module} in module ${moduleToken.value} at ${line(moduleToken)}`)
+        
         const binding = filtered[0]
 
         context.build.imports.push(binding)
@@ -72,8 +103,8 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
             isSync: true,
             isBuiltIn: true,
         }
-        context.build.callables[binding.name] = callable
-        context.env.fields.local[binding.name] = {
+        context.build.callables[fieldName] = callable
+        context.env.fields.local[fieldName] = {
             type: {
                 type: 'callable',
                 params: binding.params,
