@@ -228,6 +228,19 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
             setStructure('comment');
             continue;
         }
+        if(c === ' ' || c === '\t') {
+            if(!structure || structure === 'symbol') pushBuffer(LOGGER, line, buffer, getLine());
+            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
+            setStructure(undefined);
+            continue;
+        }
+        if(c === '\n' || c == '\r' || c === ';' || (c === ',' && inBlock)) {
+            if(!structure || structure === 'symbol') pushBuffer(LOGGER, line, buffer, getLine());
+            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
+            setStructure(undefined);
+            if(line.length > 0) result.push(line.splice(0));
+            continue;
+        }
         if(SYMBOLS.includes(c as Symbol)) {
             if(structure !== 'symbol') {
                 if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
@@ -235,22 +248,6 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
                 setStructure('symbol');
             }
             buffer.append(c);
-            continue;
-        }
-        if(structure === 'symbol') {
-            throw new Error(`Unexpected symbol '${c}' at line ${lineIndex + 1}, char ${charIndex + 1}`);
-        }
-        if(c === ' ' || c === '\t') {
-            if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
-            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
-            setStructure(undefined);
-            continue;
-        }
-        if(c === '\n' || c == '\r' || c === ';' || (c === ',' && inBlock)) {
-            if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
-            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
-            setStructure(undefined);
-            if(line.length > 0) result.push(line.splice(0));
             continue;
         }
         if(structure === 'int') {
