@@ -54,13 +54,13 @@ function getSpecialChar(c: string) {
     }
 }
 
-export function lex(content: string, file: string, LOGGER: Logger, inBlock: boolean = false) {
+export function lex(content: string, file: string, LOGGER: Logger, inBlock: boolean = false, startingLine: number = 1, startingChar: number = 0): Token[][] {
 
     const result: Token[][] = []
     const line: Token[] = []
 
-    let lineIndex = 1;
-    let charIndex = 0;
+    let lineIndex = startingLine;
+    let charIndex = startingChar;
 
     let buffer = new StringBuffer();
 
@@ -93,7 +93,6 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
             file
         }
     }
-
     for(const c of content) {
         charIndex++;
         if(c === '\n') {
@@ -124,7 +123,7 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
                     line.push({
                         value: '{}',
                         type: 'block',
-                        block: lex(buffer.clear(), file, LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -137,7 +136,7 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
                     line.push({
                         value: '()',
                         type: 'block',
-                        block: lex(buffer.clear(), file, LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -150,7 +149,7 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
                     line.push({
                         value: '[]',
                         type: 'block',
-                        block: lex(buffer.clear(), file, LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
