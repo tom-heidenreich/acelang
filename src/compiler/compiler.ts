@@ -135,6 +135,11 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             if(!ref) throw new Error(`Unknown reference ${value.reference}`);
             return ref;
         }
+        case 'arrowFunction': {
+            const ref = context.get(value.name);
+            if(!ref) throw new Error(`Unexpected error. Callable ${value.name} not found`);
+            return ref;
+        }
         case 'dereference': {
             const target = compileValue(module, context, value.target);
             if(!(target.getType() instanceof llvm.PointerType)) return target;
@@ -240,7 +245,7 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
 function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMModule, context: Context): void {
     const { name, value, valueType } = statement;
 
-    // special case for arrays
+    // special cases
     if(valueType.type === 'array') {
         const arrayType = module.Types.convertType(valueType);
         const _var = module.builder.CreateAlloca(arrayType);
@@ -272,6 +277,12 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
                 module.builder.CreateStore(compiledItem, itemPtr);
             }
         }
+        return;
+    }
+    else if(valueType.type === 'callable') {
+        if(!value) throw new Error(`Expected value for callable variable ${name}`);
+        if(value.type !== 'reference' && value.type !== 'arrowFunction') throw new Error(`Expected reference or arrow function for callable variable ${name}`);
+        context.set(name, compileValue(module, context, value));
         return;
     }
 

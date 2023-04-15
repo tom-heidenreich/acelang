@@ -227,7 +227,7 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue | ArrowFunctionValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -260,6 +260,11 @@ export type DereferenceValue = {
     type: 'dereference',
     target: Value,
     targetType: Type,
+}
+
+export type ArrowFunctionValue = {
+    type: 'arrowFunction',
+    name: string
 }
 
 // expression

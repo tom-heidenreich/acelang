@@ -1,4 +1,4 @@
-import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode } from "../types"
+import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck";
@@ -7,6 +7,7 @@ import { parseEnvironment } from "./env";
 import { parseType } from "./types";
 import WrapperResolve from "../util/WrapperResolve";
 import line from "../util/LineStringify";
+import { randomUUID } from "crypto";
 
 export function parseParams(context: Context, cursor: Cursor<Token[]>) {
 
@@ -206,5 +207,110 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
     return {
         type: 'returnStatement',
         value,
+    }
+}
+
+export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, rightCursor: Cursor<Token>): ValueNode {
+    
+    const paramBlock = leftCursor.next()
+    if(paramBlock.type !== 'block' || paramBlock.value !== '()') {
+        throw new Error(`Expected (), got ${paramBlock.type} ${paramBlock.value} at ${line(paramBlock)}`)
+    }
+    if(!paramBlock.block) throw new Error(`Unexpected end of line at ${line(paramBlock)}`)
+    const params = parseParams(context, new Cursor(paramBlock.block))
+    // convert to fields
+    const paramFields = params.reduce((fields, param) => {
+        fields[param.name] = {
+            type: param.type,
+            ignorePointer: true,
+        }
+        return fields
+    }, {} as Fields)
+
+    let returnType: Type | undefined
+
+    if(!leftCursor.done) {
+        const colon = leftCursor.next()
+        if(colon.type !== 'symbol' || colon.value !== ':') {
+            throw new Error(`Expected :, got ${colon.type} ${colon.value} at ${line(colon)}`)
+        }
+        returnType = parseType(context, leftCursor.remaining())
+    }
+
+    const bodyBlock = rightCursor.next()
+    if(bodyBlock.type !== 'block' || bodyBlock.value !== '{}') {
+        throw new Error(`Expected {}, got ${bodyBlock.type} ${bodyBlock.value} at ${line(bodyBlock)}`)
+    }
+    if(!bodyBlock.block) throw new Error(`Unexpected end of line at ${line(bodyBlock)}`)
+
+    // create new env
+    const env = {
+        fields: {
+            local: paramFields,
+            parent: context.env.fields,
+        }
+    }
+
+    // add field
+    const functionType: Type = {
+        type: 'callable',
+        params: params.map(param => param.type),
+        returnType: {
+            type: 'primitive',
+            primitive: 'unknown',
+        },
+    }
+    const anonName = `_anonymous${randomUUID()}`
+    context.env.fields.local[anonName] = {
+        type: functionType,
+        ignorePointer: true,
+    }
+
+    // create new wrappers
+    const newWrappers: Wrappers = {
+        current: {
+            returnable: true,
+            returnableField: context.env.fields.local[anonName]
+        }
+        // no parent wrappers
+    }
+
+    const body = parseEnvironment(context.build, bodyBlock.block, context.moduleManager, env, newWrappers)
+
+    // check if body has return
+    const func = context.env.fields.local[anonName].type
+    if(func.type !== 'callable') {
+        throw new Error(`Unexpected type ${func.type} at ${line(bodyBlock)}`)
+    }
+
+    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+        // will return void
+        func.returnType = {
+            type: 'primitive',
+            primitive: 'void',
+        }
+    }
+    else if(returnType && !TypeCheck.matches(context.build.types, func.returnType, returnType)) {
+        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(returnType)} do not match at ${line(bodyBlock)}`)
+    }
+    else if(!returnType && !func.returnType) {
+        throw new Error(`No return type found at ${line(bodyBlock)}`)
+    }
+
+    // add function to build
+    const callable: Callable = {
+        body: body.tree,
+        params,
+        returnType: func.returnType,
+        isSync: false,
+    }
+
+    context.build.callables[anonName] = callable
+    return {
+        type: functionType,
+        value: {
+            type: 'arrowFunction',
+            name: anonName
+        }
     }
 }

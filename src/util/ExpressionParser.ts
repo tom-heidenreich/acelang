@@ -6,6 +6,7 @@ import FieldResolve from "./FieldResolve";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
 import line from "./LineStringify";
+import { parseArrowFunction } from "../parser/functions";
 
 export default class ExpressionParser {
 
@@ -62,6 +63,11 @@ export default class ExpressionParser {
         cursor.next();
         while(!cursor.done) rightCursor.push(cursor.next());
 
+        // special operators
+        switch(mainOperator) {
+            case '=>': return parseArrowFunction(context, leftCursor.toReadCursor(), rightCursor.toReadCursor());
+        }
+
         const left = this.parse(context, leftCursor.toReadCursor());
         const right = this.parse(context, rightCursor.toReadCursor());
         return this.parseOperator(context, mainOperator!, left, right, cursor.peekLast());
@@ -78,6 +84,7 @@ export default class ExpressionParser {
             case '-=': return 10;
             case '*=': return 10;
             case '/=': return 10;
+            case '=>': return 100;
             default: return 1;
         }
     }
