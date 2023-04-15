@@ -14,7 +14,7 @@ export default async function interpret(work_dir: string, file_name: string, mod
 
     // lex the file
     LOGGER.log(`Lexing file ${file_name}`), { type: 'info', detail: 1 };
-    const tokens = lex(content, LOGGER)
+    const tokens = lex(content, path.join(work_dir, file_name), LOGGER)
 
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
 

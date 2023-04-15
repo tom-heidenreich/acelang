@@ -54,13 +54,13 @@ function getSpecialChar(c: string) {
     }
 }
 
-export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
+export function lex(content: string, file: string, LOGGER: Logger, inBlock: boolean = false, startingLine: number = 1, startingChar: number = 0): Token[][] {
 
     const result: Token[][] = []
     const line: Token[] = []
 
-    let lineIndex = 1;
-    let charIndex = 0;
+    let lineIndex = startingLine;
+    let charIndex = startingChar;
 
     let buffer = new StringBuffer();
 
@@ -89,10 +89,10 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
             line: structureLine,
             char: structureChar,
             endLine: lineIndex,
-            endChar: charIndex + endCharOffset
+            endChar: charIndex + endCharOffset,
+            file
         }
     }
-
     for(const c of content) {
         charIndex++;
         if(c === '\n') {
@@ -123,7 +123,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '{}',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -136,7 +136,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '()',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -149,7 +149,7 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                     line.push({
                         value: '[]',
                         type: 'block',
-                        block: lex(buffer.clear(), LOGGER, true),
+                        block: lex(buffer.clear(), file, LOGGER, true, structureLine, structureChar),
                         lineInfo: getLine(1)
                     });
                     setStructure(undefined);
@@ -228,6 +228,19 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
             setStructure('comment');
             continue;
         }
+        if(c === ' ' || c === '\t') {
+            if(!structure || structure === 'symbol') pushBuffer(LOGGER, line, buffer, getLine());
+            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
+            setStructure(undefined);
+            continue;
+        }
+        if(c === '\n' || c == '\r' || c === ';' || (c === ',' && inBlock)) {
+            if(!structure || structure === 'symbol') pushBuffer(LOGGER, line, buffer, getLine());
+            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
+            setStructure(undefined);
+            if(line.length > 0) result.push(line.splice(0));
+            continue;
+        }
         if(SYMBOLS.includes(c as Symbol)) {
             if(structure !== 'symbol') {
                 if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
@@ -235,22 +248,6 @@ export function lex(content: string, LOGGER: Logger, inBlock: boolean = false) {
                 setStructure('symbol');
             }
             buffer.append(c);
-            continue;
-        }
-        if(structure === 'symbol') {
-            throw new Error(`Unexpected symbol '${c}' at line ${lineIndex + 1}, char ${charIndex + 1}`);
-        }
-        if(c === ' ' || c === '\t') {
-            if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
-            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
-            setStructure(undefined);
-            continue;
-        }
-        if(c === '\n' || c == '\r' || c === ';' || (c === ',' && inBlock)) {
-            if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
-            else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
-            setStructure(undefined);
-            if(line.length > 0) result.push(line.splice(0));
             continue;
         }
         if(structure === 'int') {

@@ -1,27 +1,28 @@
-import { ClassStatement, ClassType, Fields, FunctionDeclaration, LineState, Modifiers, Statement, StructType, Token, Type, VariableDeclaration, Wrappers } from "../types";
+import { ClassStatement, ClassType, Fields, FunctionDeclaration, Context, Modifiers, Statement, StructType, Token, Type, VariableDeclaration, Wrappers } from "../types";
 import Cursor from "../util/cursor";
 import FieldResolve from "../util/FieldResolve";
+import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import { parseClassEnv, parseEnvironment } from "./env";
 import { parseFunc, parseParams } from "./functions";
 import { parseDeclaration } from "./vars";
 
-export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>): Statement {
+export function parseClassStatement(context: Context, cursor: Cursor<Token>): Statement {
 
     // get class name
     const nameToken = cursor.next()
     if(nameToken.type !== 'identifier') {
-        throw new Error(`Unexpected token ${nameToken.type} ${nameToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${nameToken.type} ${nameToken.value} at ${line(nameToken)}`)
     }
     const name = nameToken.value
 
     // check if field already exists
-    if(lineState.env.fields.local[name]) {
-        throw new Error(`Field ${name} already exists at line ${lineState.lineIndex}`)
+    if(context.env.fields.local[name]) {
+        throw new Error(`Field ${name} already exists at ${line(nameToken)}`)
     }
     // check if type already exists
-    if(lineState.build.types[name]) {
-        throw new Error(`Type ${name} already exists at line ${lineState.lineIndex}`)
+    if(context.build.types[name]) {
+        throw new Error(`Type ${name} already exists at ${line(nameToken)}`)
     }
 
     // inheritance
@@ -32,16 +33,16 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
         cursor.next()
         const parentNameToken = cursor.next()
         if(parentNameToken.type !== 'identifier') {
-            throw new Error(`Unexpected token ${parentNameToken.type} ${parentNameToken.value} at line ${lineState.lineIndex}`)
+            throw new Error(`Unexpected token ${parentNameToken.type} ${parentNameToken.value} at ${line(parentNameToken)}`)
         }
         const parentName = parentNameToken.value
-        const parentField = FieldResolve.resolve(lineState.env.fields, parentName)
+        const parentField = FieldResolve.resolve(context.env.fields, parentName)
         if(!parentField) {
-            throw new Error(`Field ${parentName} does not exist at line ${lineState.lineIndex}`)
+            throw new Error(`Field ${parentName} does not exist at ${line(parentNameToken)}`)
         }
         const fieldType = parentField.type
         if(fieldType.type !== 'class') {
-            throw new Error(`Field ${parentName} is not a class at line ${lineState.lineIndex}`)
+            throw new Error(`Field ${parentName} is not a class at ${line(parentNameToken)}`)
         }
         parentType = fieldType
     }
@@ -49,16 +50,16 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     // get class body
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
     }
-    else if(!bodyToken.block) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    else if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
     
     // create new type
     const thisType: Type = {
         type: 'primitive',
         primitive: 'any',
     }
-    lineState.build.types[name] = thisType
+    context.build.types[name] = thisType
 
     // create new env
     const env = {
@@ -68,7 +69,7 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
                     type: thisType,
                 }
             },
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         },
     }
     // create new wrappers
@@ -79,11 +80,11 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
 
     // parse class body
-    let body = parseClassEnv(lineState.build, bodyToken.block, env, newWrappers, lineState.moduleManager)
+    let body = parseClassEnv(context.build, bodyToken.block, env, newWrappers, context.moduleManager)
 
     const privateType = classToPrivateType(body.tree, parentType)
     // add type to build (temporarily)
-    lineState.build.types[name] = privateType
+    context.build.types[name] = privateType
 
     // create new env
     const env2 = {
@@ -93,22 +94,22 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
                     type: privateType
                 }
             },
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         }
     }
     // parse class body TODO: should only check types
-    body = parseClassEnv(lineState.build, bodyToken.block, env2, newWrappers, lineState.moduleManager)
+    body = parseClassEnv(context.build, bodyToken.block, env2, newWrappers, context.moduleManager)
 
     // add real type to build
     const publicType = classToPublicType(body.tree, parentType)
-    lineState.build.types[name] = publicType
+    context.build.types[name] = publicType
 
     // add static to fields
-    lineState.env.fields.local[name] = {
+    context.env.fields.local[name] = {
         type: classToStaticType(body.tree, publicType, privateType, parentType),
     }
 
-    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
+    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(cursor.peek())}`)
 
     return {
         type: 'classDeclaration',
@@ -117,10 +118,10 @@ export function parseClassStatement(lineState: LineState, cursor: Cursor<Token>)
     }
 }
 
-export function parseClassAttribute(lineState: LineState, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
+export function parseClassAttribute(context: Context, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
 
     // get declaration
-    const { statement, type } = parseDeclaration(lineState, cursor, false)
+    const { statement, type } = parseDeclaration(context, cursor, false)
     const declaration = statement as VariableDeclaration
 
     return {
@@ -134,10 +135,10 @@ export function parseClassAttribute(lineState: LineState, cursor: Cursor<Token>,
     }
 }
 
-export function parseClassFunc(lineState: LineState, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
+export function parseClassFunc(context: Context, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
 
     // get declaration
-    const { statement, type } = parseFunc({ lineState, cursor, wrappers })
+    const { statement, type } = parseFunc({ context, cursor, wrappers })
     const declaration = statement as FunctionDeclaration
 
     return {
@@ -153,17 +154,17 @@ export function parseClassFunc(lineState: LineState, cursor: Cursor<Token>, wrap
     }
 }
 
-export function parseClassConstructor(lineState: LineState, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
+export function parseClassConstructor(context: Context, cursor: Cursor<Token>, wrappers: Wrappers, modifiers: Modifiers): { statement: ClassStatement, type: Type } {
 
     // params
     const paramsToken = cursor.next()
     if(paramsToken.type !== 'block' || paramsToken.value !== '()') {
-        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at ${line(paramsToken)}`)
     }
     if(!paramsToken.block) {
-        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected end of line at ${line(paramsToken)}`)
     }
-    const params = parseParams(lineState, new Cursor(paramsToken.block))
+    const params = parseParams(context, new Cursor(paramsToken.block))
     // convert to fields
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
@@ -175,22 +176,22 @@ export function parseClassConstructor(lineState: LineState, cursor: Cursor<Token
     // body
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
     }
     if(!bodyToken.block) {
-        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
     }
 
     // create new env
     const env = {
         fields: {
             local: paramFields,
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         },
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, wrappers)
+    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, wrappers)
 
     return {
         type: {

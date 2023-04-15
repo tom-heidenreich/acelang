@@ -24,7 +24,7 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     // lex the file
     LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
-    const tokens = lex(content, LOGGER)
+    const tokens = lex(content, path.join(work_dir, file_name), LOGGER)
 
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     

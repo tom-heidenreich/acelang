@@ -7,6 +7,7 @@ export type TokenLine = {
     char: number;
     endLine: number;
     endChar: number;
+    file: string
 }
 
 export type Token = {
@@ -565,9 +566,8 @@ export type Environment = {
     fields: FieldEnv,
 }
 
-export type LineState = {
+export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
     env: Environment,
-    lineIndex: number,
 }

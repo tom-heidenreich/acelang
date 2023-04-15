@@ -1,39 +1,40 @@
-import { IfStatement, LineState, Statement, Token, Wrappers } from "../types";
+import { IfStatement, Context, Statement, Token, Wrappers } from "../types";
 import Cursor from "../util/cursor";
+import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import Values from "./values";
 
-export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
+export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
 
     // if statement
     const cursor = cursors.next()
     
     const condition = cursor.next()
     if(condition.type !== 'block' || condition.value !== '()') {
-        throw new Error(`Unexpected token ${condition.type} ${condition.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${condition.type} ${condition.value} at ${line(condition)}`)
     }
-    else if(!condition.block) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
-    else if(condition.block.length === 0) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    else if(!condition.block) throw new Error(`Unexpected end of line at ${line(condition)}`)
+    else if(condition.block.length === 0) throw new Error(`Unexpected end of line at ${line(condition)}`)
     else if(condition.block.length > 1) {
-        throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at ${line(condition)}`)
     }
-    const conditionValue = Values.parseValue(lineState, new Cursor(condition.block[0]))
-    if(!TypeCheck.matchesPrimitive(lineState.build.types, conditionValue.type, 'boolean')) {
-        throw new Error(`Expected boolean value at line ${lineState.lineIndex}`)
+    const conditionValue = Values.parseValue(context, new Cursor(condition.block[0]))
+    if(!TypeCheck.matchesPrimitive(context.build.types, conditionValue.type, 'boolean')) {
+        throw new Error(`Expected boolean value at ${line(condition)}`)
     }
 
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
     }
-    else if(!bodyToken.block) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    else if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
 
     // create new env
     const env = {
         fields: {
             local: {},
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         }
     }
     // create new wrappers
@@ -45,9 +46,9 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
 
-    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
+    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
     // parse else
     const elseIf: IfStatement[] = []
@@ -55,9 +56,9 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
     while(!cursors.done) {
         const next = cursors.next()
         const peek = next.peek(1)
-        if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(lineState, next))
+        if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(context, next))
         else {
-            elseStatement = parseElseStatement(lineState, next)
+            elseStatement = parseElseStatement(context, next)
             break
         }
     }
@@ -71,39 +72,39 @@ export function parseIfStatement(lineState: LineState, cursors: Cursor<Cursor<To
     }
 }
 
-function parseElseIfStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): IfStatement {
+function parseElseIfStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): IfStatement {
     
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
-        throw new Error(`Unexpected token ${keyword.type} ${keyword.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${keyword.type} ${keyword.value} at ${line(keyword)}`)
     }
 
     const ifKeyword = cursor.next()
     if(ifKeyword.type !== 'keyword' || ifKeyword.value !== 'if') {
-        throw new Error(`Unexpected token ${ifKeyword.type} ${ifKeyword.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${ifKeyword.type} ${ifKeyword.value} at ${line(ifKeyword)}`)
     }
     
-    return parseIfStatement(lineState, new Cursor([cursor]), wrappers)
+    return parseIfStatement(context, new Cursor([cursor]), wrappers)
 }
 
-function parseElseStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement[] {
+function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement[] {
 
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
-        throw new Error(`Unexpected token ${keyword.type} ${keyword.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${keyword.type} ${keyword.value} at ${line(keyword)}`)
     }
 
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
     }
-    else if(!bodyToken.block) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    else if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
 
     // create new env
     const env = {
         fields: {
             local: {},
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         }
     }
     // create new wrappers
@@ -115,9 +116,9 @@ function parseElseStatement(lineState: LineState, cursor: Cursor<Token>, wrapper
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
 
-    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
+    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
     return body.tree
 }
