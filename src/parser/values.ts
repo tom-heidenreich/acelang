@@ -188,7 +188,7 @@ function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?:
         }
         lineCursor.next();
 
-        const { type: propertyType, value: propertyValue } = parseValue(context, lineCursor, predefinedType);
+        const { type: propertyType, value: propertyValue } = parseValue(context, lineCursor.remaining(), predefinedType);
 
         type.properties[key] = propertyType;
         value.properties[key] = propertyValue
