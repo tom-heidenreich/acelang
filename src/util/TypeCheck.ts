@@ -148,6 +148,9 @@ export default class TypeCheck {
         else if(type.type === 'pointer') {
             return `${TypeCheck.stringify(type.pointer)}*`;
         }
+        else if(type.type === 'callable') {
+            return `((${type.params.map(TypeCheck.stringify).join(', ')}) => ${TypeCheck.stringify(type.returnType)})`
+        }
         return 'unknown';
     }
 
