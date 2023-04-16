@@ -45,13 +45,22 @@ export default class ExpressionParser {
             // no operators found, but we have more than one token
             return parseOperatorlessExpression(context, cursor.reset());
         }
-        else if(mainOperatorIndex === 0 && mainOperator === '$') {
-            // dereference
-            const resetCursor = cursor.reset();
-            const next = resetCursor.next();
-            const value = Values.parseValue(context, cursor.remaining());
-            return Values.dereference(context, value, next);
-            
+        // prefix operator
+        else if(mainOperatorIndex === 0) {
+            if(mainOperator === '$') {
+                // dereference
+                const resetCursor = cursor.reset();
+                const next = resetCursor.next();
+                const value = Values.parseValue(context, cursor.remaining());
+                return Values.dereference(context, value, next);
+            }
+            else if(mainOperator === '*') {
+                // pointer
+                const resetCursor = cursor.reset();
+                const next = resetCursor.next();
+                const value = Values.parseValue(context, cursor.remaining());
+                return Values.pointerCast(context, value, next);
+            }
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
             throw new Error(`Operator ${mainOperator} at ${line(cursor.peekLast())} cannot be used as prefix or suffix`);

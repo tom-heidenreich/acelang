@@ -91,7 +91,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             const items = type.items
             names.forEach(name => {
                 context.env.fields.local[name] = {
-                    type: items,
+                    type: {
+                        type: 'pointer',
+                        pointer: items
+                    }
                 }
             })
         }
@@ -103,7 +106,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                         throw new Error(`Field ${name} does not exist at ${line(valueToken)}`)
                     }
                     context.env.fields.local[name] = {
-                        type: properties[name],
+                        type: {
+                            type: 'pointer',
+                            pointer: properties[name]
+                        },
                     }
                 })
             }
@@ -111,7 +117,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                 const values = type.values
                 names.forEach(name => {
                     context.env.fields.local[name] = {
-                        type: values,
+                        type: {
+                            type: 'pointer',
+                            pointer: values
+                        },
                     }
                 })
             }
@@ -121,12 +130,18 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         }
         else {
             context.env.fields.local[names[0]] = {
-                type,
+                type: {
+                    type: 'pointer',
+                    pointer: type
+                }
             }
         }
 
         if(names.length === 1) return {
-            type,
+            type: {
+                type: 'pointer',
+                pointer: type
+            },
             statement: {
                 type: 'variableDeclaration',
                 name: names[0],
@@ -135,7 +150,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else return {
-            type,
+            type: {
+                type: 'pointer',
+                pointer: type
+            },
             statement: {
                 type: 'multiStatement',
                 statements: names.map(name => ({
@@ -167,7 +185,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             const items = type.items
             names.forEach(name => {
                 context.env.fields.local[name] = {
-                    type: items,
+                    type: {
+                        type: 'pointer',
+                        pointer: items
+                    }
                 }
             })
         }
@@ -179,7 +200,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                         throw new Error(`Field ${name} does not exist at ${line(cursor.peek())}`)
                     }
                     context.env.fields.local[name] = {
-                        type: properties[name],
+                        type: {
+                            type: 'pointer',
+                            pointer: properties[name]
+                        }
                     }
                 })
             }
@@ -187,7 +211,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                 const values = type.values
                 names.forEach(name => {
                     context.env.fields.local[name] = {
-                        type: values,
+                        type: {
+                            type: 'pointer',
+                            pointer: values
+                        }
                     }
                 })
             }
@@ -197,12 +224,18 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         }
         else {
             context.env.fields.local[names[0]] = {
-                type,
+                type: {
+                    type: 'pointer',
+                    pointer: type
+                }
             }
         }
 
         if(names.length === 1) return {
-            type,
+            type: {
+                type: 'pointer',
+                pointer: type
+            },
             statement: {
                 type: 'variableDeclaration',
                 name: names[0],
@@ -210,7 +243,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else return {
-            type,
+            type: {
+                type: 'pointer',
+                pointer: type
+            },
             statement: {
                 type: 'multiStatement',
                 statements: names.map(name => ({

@@ -70,7 +70,6 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
             type: param.type,
-            ignorePointer: true,
         }
         return fields
     }, {} as Fields)
@@ -114,7 +113,6 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
     }
     context.env.fields.local[name.value] = {
         type: functionType,
-        ignorePointer: true,
     }
 
     // create new wrappers
@@ -222,7 +220,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     const paramFields = params.reduce((fields, param) => {
         fields[param.name] = {
             type: param.type,
-            ignorePointer: true,
         }
         return fields
     }, {} as Fields)
@@ -263,7 +260,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     const anonName = `_anonymous${randomUUID()}`
     context.env.fields.local[anonName] = {
         type: functionType,
-        ignorePointer: true,
     }
 
     // create new wrappers

@@ -54,15 +54,8 @@ function parseValue(context: Context, cursor: Cursor<Token>, predefinedType?: Ty
             if(!field) {
                 throw new Error(`Unknown field: ${token.value} at ${line(token)}`);
             }
-
-            let type: Type = {
-                type: 'pointer',
-                pointer: field.type
-            }
-            if(field.ignorePointer) type = type.pointer;
-
             return {
-                type,
+                type: field.type,
                 value: {
                     type: 'reference',
                     reference: token.value,
@@ -225,11 +218,27 @@ function dereference(context: Context, target: ValueNode, token: Token): ValueNo
     }
 }
 
+function pointerCast(context: Context, target: ValueNode, token: Token): ValueNode {
+    const { type, value } = target;
+    return {
+        type: {
+            type: 'pointer',
+            pointer: type
+        },
+        value: {
+            type: 'pointerCast',
+            target: value,
+            targetType: type
+        }
+    }
+}
+
 const Values = {
     parseValue,
     parseArray,
     parseStruct,
     stringify,
-    dereference
+    dereference,
+    pointerCast
 }
 export default Values 

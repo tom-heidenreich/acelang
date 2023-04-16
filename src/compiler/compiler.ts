@@ -145,11 +145,25 @@ function compileValue(module: LLVMModule, context: Context, value: Value): llvm.
             if(!(target.getType() instanceof llvm.PointerType)) return target;
             return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
         }
+        case 'pointerCast': {
+            const target = compileValue(module, context, value.target);
+            return module.builder.CreatePointerCast(target, llvm.PointerType.get(module.Types.convertType(value.targetType), 0));
+        }
         case 'call': {
             const argValues = value.args.map(arg => compileValue(module, context, arg));
             const callable = compileValue(module, context, value.callable);
             if(callable instanceof llvm.Function) return module.builder.CreateCall(callable, argValues);
-            throw new Error(`Unknown callable type ${value.callable.type}`);
+            if(callable.getType() instanceof llvm.PointerType) {
+                const elementType = callable.getType().getPointerElementType()
+                if(elementType instanceof llvm.FunctionType) {
+                    return module.builder.CreateCall(elementType, callable, argValues);
+                }
+                throw new Error(`Cannot call pointer type. ${callable.getType().isPointerTy() ? 'Did you forget to dereference?' : ''}`);
+            }
+            if(!(callable.getType() instanceof llvm.FunctionType)) {
+                throw new Error(`Cannot call non-function type.`);
+            }
+            return module.builder.CreateCall(callable.getType(), callable, argValues);
         }
         case 'assign': {
             const target = compileValue(module, context, value.target);
@@ -279,12 +293,7 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
         }
         return;
     }
-    else if(valueType.type === 'callable') {
-        if(!value) throw new Error(`Expected value for callable variable ${name}`);
-        if(value.type !== 'reference' && value.type !== 'arrowFunction') throw new Error(`Expected reference or arrow function for callable variable ${name}`);
-        context.set(name, compileValue(module, context, value));
-        return;
-    }
+    else if(valueType.type === 'callable') throw new Error(`Cannot store callable in variable ${name}`);
 
     let compiledValue: llvm.Value | undefined;
     if(value) compiledValue = compileValue(module, context, value);

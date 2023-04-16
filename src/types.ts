@@ -140,7 +140,6 @@ export type Modifiers = {
 // fields
 export type Field = {
     type: Type,
-    ignorePointer?: boolean,
 }
 
 export type Fields = {
@@ -227,7 +226,7 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue | ArrowFunctionValue)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue | PointerCastValue | ArrowFunctionValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -258,6 +257,12 @@ export type ArrayValue = {
 
 export type DereferenceValue = {
     type: 'dereference',
+    target: Value,
+    targetType: Type,
+}
+
+export type PointerCastValue = {
+    type: 'pointerCast',
     target: Value,
     targetType: Type,
 }
