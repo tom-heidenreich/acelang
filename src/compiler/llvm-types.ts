@@ -40,6 +40,7 @@ export function getTypes(builder: llvm.IRBuilder, context: llvm.LLVMContext): Ty
             case 'array': return primitives.array(convertType(type.items), type.size);
             case 'struct': return primitives.struct(Object.entries(type.properties).map(([_, type]) => convertType(type)));
             case 'pointer': return llvm.PointerType.get(convertType(type.pointer), 0);
+            case 'callable': return llvm.FunctionType.get(convertType(type.returnType), type.params.map(convertType), false);
         }
         throw new Error(`Unknown type ${type.type}`);
     }
