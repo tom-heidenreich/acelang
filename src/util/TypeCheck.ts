@@ -51,6 +51,14 @@ export default class TypeCheck {
             }
             return false;
         }
+        else if(match.type === 'callable') {
+            if(against.type !== 'callable') return false;
+            if(match.params.length !== against.params.length) return false;
+            for(let i = 0; i < match.params.length; i++) {
+                if(!TypeCheck.matches(types, match.params[i], against.params[i])) return false;
+            }
+            return TypeCheck.matches(types, match.returnType, against.returnType);
+        }
         // against
         else if(against.type === 'primitive') {
             return TypeCheck.matchesPrimitive(types, match, against.primitive);
