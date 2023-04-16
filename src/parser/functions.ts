@@ -303,7 +303,10 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
 
     context.build.callables[anonName] = callable
     return {
-        type: functionType,
+        type: {
+            type: 'pointer',
+            pointer: functionType,
+        },
         value: {
             type: 'arrowFunction',
             name: anonName
