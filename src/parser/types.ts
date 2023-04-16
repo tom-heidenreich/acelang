@@ -135,6 +135,33 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
                 pointer: last
             });
         }
+        else if(next.type === 'operator' && next.value === '=>') {
+            // only param block must be in writeCursor
+            if(writeCursor.size() !== 1) {
+                throw new Error(`Expected one type, got ${writeCursor.size()} at ${line(next)}`);
+            }
+            const paramBlock = writeCursor.asList()[0];
+            if(paramBlock.type !== 'block' || paramBlock.value !== '()') {
+                throw new Error(`Expected block '()', got ${paramBlock.type} ${paramBlock.value} at ${line(paramBlock)}`);
+            }
+            if(!paramBlock.block) {
+                throw new Error(`Unexpected end of block at ${line(paramBlock)}`);
+            }
+
+            const paramTypes: Type[] = []
+            for(const paramTokens of paramBlock.block) {
+                paramTypes.push(parseType(context, new Cursor(paramTokens)));
+            }
+            writeCursor.clear();
+
+            const returnType = parseType(context, cursor.remaining());
+
+            types.push({
+                type: 'callable',
+                params: paramTypes,
+                returnType: returnType
+            });
+        }
         else {
             writeCursor.push(next);
         }
