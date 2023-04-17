@@ -95,7 +95,12 @@ export default class TypeCheck {
         if(type.type === 'primitive' && type.primitive === 'any') return type;
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
-            return type.properties[key.value.literal.toString()];
+            if(key.value.literalType === 'string') return type.properties[key.value.literal.toString()];
+            else if(key.value.literalType === 'int') {
+                const keys = Object.keys(type.properties);
+                return type.properties[keys[key.value.literal as number]];
+            }
+            return undefined;
         }
         else if(type.type === 'object') {
             return type.values;
