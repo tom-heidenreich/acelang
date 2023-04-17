@@ -241,15 +241,6 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
             if(line.length > 0) result.push(line.splice(0));
             continue;
         }
-        if(SYMBOLS.includes(c as Symbol)) {
-            if(structure !== 'symbol') {
-                if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
-                else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
-                setStructure('symbol');
-            }
-            buffer.append(c);
-            continue;
-        }
         if(structure === 'int') {
             if(!isNaN(Number(c))) {
                 buffer.append(c);
@@ -276,6 +267,15 @@ export function lex(content: string, file: string, LOGGER: Logger, inBlock: bool
         if(!isNaN(Number(c))) {
             pushBuffer(LOGGER, line, buffer, getLine());
             setStructure('int');
+            buffer.append(c);
+            continue;
+        }
+        if(SYMBOLS.includes(c as Symbol)) {
+            if(structure !== 'symbol') {
+                if(!structure) pushBuffer(LOGGER, line, buffer, getLine());
+                else pushBuffer(LOGGER, line, buffer, getLine(), 'datatype', structure);
+                setStructure('symbol');
+            }
             buffer.append(c);
             continue;
         }
