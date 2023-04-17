@@ -115,6 +115,11 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         type: functionType,
     }
 
+    // add self to body env
+    env.fields.local[name.value] = {
+        type: functionType
+    }
+
     // create new wrappers
     const newWrappers: Wrappers = {
         current: {

@@ -386,6 +386,9 @@ export function defineFunction(module: LLVMModule, context: Context, callable: C
     // create new context
     const newContext = new Context(_function, context);
 
+    // add self to context
+    newContext.set(callableName, _function);
+
     for(let i = 0; i < _function.arg_size(); i++) {
         const arg = _function.getArg(i);
         const param = callable.params[i];
