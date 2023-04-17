@@ -134,6 +134,7 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
     }
 
     if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+        if(returnType) throw new Error(`Return Types ${TypeCheck.stringify(returnType)} and void do not match at ${line(bodyToken)}`)
         // will return void
         func.returnType = {
             type: 'primitive',
