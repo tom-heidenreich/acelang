@@ -171,6 +171,11 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 }
 
                 const property = Values.parseValue(context, new Cursor(token.block[0]));
+
+                if(!TypeCheck.matchesPrimitive(context.build.types, property.type, 'int')) {
+                    throw new Error(`Expected int, got ${TypeCheck.stringify(property.type)} at ${line(token)}`);
+                }
+
                 const propertyType = TypeCheck.resolveObject(context.build.types, lastValueType, property);
                 if(!propertyType) throw new Error(`Cannot access unknown property at ${line(token)}`);
 
@@ -198,23 +203,14 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
 
                 if(lastValue.type.type !== 'pointer') throw new Error(`Cannot access non-pointer at ${line(token)}`);
                 const lastValueType = TypeCheck.dereference(lastValue.type)
-                if(!TypeCheck.matchesPrimitive(context.build.types, lastValueType, 'object')) {
-                    throw new Error(`Cannot access non-object at ${line(token)}`);
-                }
 
-                const propertyNode: ValueNode = {
-                    type: {
-                        type: 'primitive',
-                        primitive: 'string'
-                    },
-                    value: {
-                        type: 'literal',
-                        literal: property.value,
-                        literalType: 'string'
-                    }
-                }
-                const propertyType = TypeCheck.resolveObject(context.build.types, lastValueType, propertyNode)
-                if(!propertyType) throw new Error(`Cannot access unknown property at ${line(token)}`);
+                if(lastValueType.type !== 'struct') throw new Error(`Cannot access non-struct at ${line(token)}`);
+
+                const keys = Object.keys(lastValueType.properties);
+                const propertyIndex = keys.indexOf(property.value);
+
+                if(propertyIndex === -1) throw new Error(`Cannot access unknown property at ${line(token)}`);
+                const propertyType = lastValueType.properties[keys[propertyIndex]];
 
                 lastValue = {
                     type: {
@@ -225,7 +221,11 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                         type: 'member',
                         targetType: lastValueType,
                         target: lastValue.value,
-                        property: propertyNode.value
+                        property: {
+                            type: 'literal',
+                            literal: propertyIndex,
+                            literalType: 'int'
+                        }
                     }
                 }
             }
