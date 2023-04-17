@@ -18,7 +18,9 @@ export function parseStatements(module: LLVMModule, context: Context, statements
             case 'functionDeclaration': return
             case 'returnStatement': {
                 const value = compileValue(module, context, statement.value);
-                module.builder.CreateRet(value);
+                if(value.getType().isVoidTy()) module.builder.CreateRetVoid();
+                else module.builder.CreateRet(value);
+                context.exit();
                 return;
             }
             case 'whileStatement': return parseWhileStatement(statement, module, context);
@@ -393,8 +395,11 @@ export function defineFunction(module: LLVMModule, context: Context, callable: C
     // parse statements
     parseStatements(module, newContext, callable.body);
 
-    // return void if no return type
-    if(callable.returnType.type === 'primitive' && callable.returnType.primitive === 'void') {
+    // return if no return statement
+    if(!newContext.hasExited()) {
+        if(callable.returnType.type !== 'primitive' || callable.returnType.primitive !== 'void') {
+            throw new Error(`Function ${callableName} must return a value`);
+        }
         module.builder.CreateRetVoid();
     }
 
