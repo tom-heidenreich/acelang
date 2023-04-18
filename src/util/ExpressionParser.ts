@@ -1,17 +1,19 @@
-import { LineState, Operator, PrimitiveType, Token, Type, ValueNode } from "../types";
+import { Context, Operator, PrimitiveType, Token, Type, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import Values from "../parser/values";
 import FieldResolve from "./FieldResolve";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
+import line from "./LineStringify";
+import { parseArrowFunction } from "../parser/functions";
 
 export default class ExpressionParser {
 
-    public static parse(lineState: LineState, cursor: Cursor<Token>): ValueNode {
+    public static parse(context: Context, cursor: Cursor<Token>): ValueNode {
 
-        if(cursor.done) throw new Error(`Invalid expression at line ${lineState.lineIndex}`)
-        else if (cursor.hasOnlyOne()) return Values.parseValue(lineState, cursor);
+        if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
+        else if (cursor.hasOnlyOne()) return Values.parseValue(context, cursor);
 
         let mainOperatorIndex = -1;
         let mainOperator: Operator | undefined;
@@ -41,18 +43,27 @@ export default class ExpressionParser {
 
         if(mainOperatorIndex === -1) {
             // no operators found, but we have more than one token
-            return parseOperatorlessExpression(lineState, cursor.reset());
+            return parseOperatorlessExpression(context, cursor.reset());
         }
-        else if(mainOperatorIndex === 0 && mainOperator === '$') {
-            // dereference
-            const resetCursor = cursor.reset();
-            resetCursor.next();
-            const value = Values.parseValue(lineState, cursor.remaining());
-            return Values.dereference(lineState, value);
-            
+        // prefix operator
+        else if(mainOperatorIndex === 0) {
+            if(mainOperator === '$') {
+                // dereference
+                const resetCursor = cursor.reset();
+                const next = resetCursor.next();
+                const value = Values.parseValue(context, cursor.remaining());
+                return Values.dereference(context, value, next);
+            }
+            else if(mainOperator === '*') {
+                // pointer
+                const resetCursor = cursor.reset();
+                const next = resetCursor.next();
+                const value = Values.parseValue(context, cursor.remaining());
+                return Values.pointerCast(context, value, next);
+            }
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
-            throw new Error(`Operator ${mainOperator} at line ${lineState.lineIndex} cannot be used as prefix or suffix`);
+            throw new Error(`Operator ${mainOperator} at ${line(cursor.peekLast())} cannot be used as prefix or suffix`);
         }
 
         // split the cursor into left and right
@@ -61,9 +72,14 @@ export default class ExpressionParser {
         cursor.next();
         while(!cursor.done) rightCursor.push(cursor.next());
 
-        const left = this.parse(lineState, leftCursor.toReadCursor());
-        const right = this.parse(lineState, rightCursor.toReadCursor());
-        return this.parseOperator(lineState, mainOperator!, left, right);
+        // special operators
+        switch(mainOperator) {
+            case '=>': return parseArrowFunction(context, leftCursor.toReadCursor(), rightCursor.toReadCursor());
+        }
+
+        const left = this.parse(context, leftCursor.toReadCursor());
+        const right = this.parse(context, rightCursor.toReadCursor());
+        return this.parseOperator(context, mainOperator!, left, right, cursor.peekLast());
     }
 
     private static getPrecedence(op: Operator): number {
@@ -77,32 +93,33 @@ export default class ExpressionParser {
             case '-=': return 10;
             case '*=': return 10;
             case '/=': return 10;
+            case '=>': return 100;
             default: return 1;
         }
     }
 
-    private static parseOperator(lineState: LineState, operator: Operator, left: ValueNode, right: ValueNode): ValueNode {
+    private static parseOperator(context: Context, operator: Operator, left: ValueNode, right: ValueNode, token: Token): ValueNode {
         switch(operator) {
-            case '=': return parseAssignExpression(lineState, left, right);
-            case '+=': return parsePlusAssignExpression(lineState, left, right);
-            case '-=': return parseMinusAssignExpression(lineState, left, right);
-            case '*=': return parseMultiplyAssignExpression(lineState, left, right);
-            case '/=': return parseDivideAssignExpression(lineState, left, right);
-            case '+': return parsePlusExpression(lineState, left, right);
-            case '-': return parseMinusExpression(lineState, left, right);
-            case '*': return parseMultiplyExpression(lineState, left, right);
-            case '/': return parseDivideExpression(lineState, left, right);
-            case '==': return parseEqualsExpression(lineState, left, right);
-            case '<': return parseLessThanExpression(lineState, left, right);
-            case '<=': return parseLessThanEqualsExpression(lineState, left, right);
-            case '>': return parseGreaterThanExpression(lineState, left, right);
-            case '>=': return parseGreaterThanEqualsExpression(lineState, left, right);
-            default: throw new Error(`Unknown operator: ${operator} at line ${lineState.lineIndex}`);
+            case '=': return parseAssignExpression(context, left, right, token);
+            case '+=': return parsePlusAssignExpression(context, left, right, token);
+            case '-=': return parseMinusAssignExpression(context, left, right, token);
+            case '*=': return parseMultiplyAssignExpression(context, left, right, token);
+            case '/=': return parseDivideAssignExpression(context, left, right, token);
+            case '+': return parsePlusExpression(context, left, right, token);
+            case '-': return parseMinusExpression(context, left, right, token);
+            case '*': return parseMultiplyExpression(context, left, right, token);
+            case '/': return parseDivideExpression(context, left, right, token);
+            case '==': return parseEqualsExpression(context, left, right);
+            case '<': return parseLessThanExpression(context, left, right, token);
+            case '<=': return parseLessThanEqualsExpression(context, left, right, token);
+            case '>': return parseGreaterThanExpression(context, left, right, token);
+            case '>=': return parseGreaterThanEqualsExpression(context, left, right, token);
+            default: throw new Error(`Unknown operator: ${operator} at ${line(token)}`);
         }
     }
 }
 
-function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>): ValueNode {
+function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): ValueNode {
 
     let lastValue: ValueNode | undefined;
 
@@ -111,10 +128,10 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
 
         if(token.type === 'block') {
 
-            if(!token.block) throw new Error(`Unexpected end of block at line ${lineState.lineIndex}`);
+            if(!token.block) throw new Error(`Unexpected end of block at ${line(token)}`);
             if(!lastValue) {
-                if (token.block.length !== 1) throw new Error(`Expected end of block at line ${lineState.lineIndex}`)
-                lastValue = Values.parseValue(lineState, new Cursor(token.block[0]));
+                if (token.block.length !== 1) throw new Error(`Expected end of block at ${line(token)}`)
+                lastValue = Values.parseValue(context, new Cursor(token.block[0]));
                 continue;
             }
 
@@ -122,15 +139,15 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             if(token.value === '()') {
 
                 const lastValueType = TypeCheck.dereference(lastValue.type)
-                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at line ${lineState.lineIndex}`)
+                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at ${line(token)}`)
 
-                const args = token.block.map(block => Values.parseValue(lineState, new Cursor(block)));
+                const args = token.block.map(block => Values.parseValue(context, new Cursor(block)));
                 const params = lastValueType.params;
 
-                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
                 for(let i = 0; i < params.length; i++) {
-                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
-                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    if(!TypeCheck.matchesValue(context.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at ${line(token)}`);
                     }
                 }
 
@@ -145,21 +162,31 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
             }
             // member access
             else if(token.value === '[]') {
-                if(token.block.length !== 1) throw new Error(`Expected end of block at line ${lineState.lineIndex}`);
+                if(token.block.length !== 1) throw new Error(`Expected end of block at ${line(token)}`);
 
-                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
-                    throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
+                if(lastValue.type.type !== 'pointer') throw new Error(`Cannot access non-pointer at ${line(token)}`);
+                const lastValueType = TypeCheck.dereference(lastValue.type)
+                if(!TypeCheck.matchesPrimitive(context.build.types, lastValueType, 'object')) {
+                    throw new Error(`Cannot access non-object at ${line(token)}`);
                 }
 
-                const property = Values.parseValue(lineState, new Cursor(token.block[0]));
-                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, property);
-                if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
+                const property = Values.parseValue(context, new Cursor(token.block[0]));
+
+                if(!TypeCheck.matchesPrimitive(context.build.types, property.type, 'int')) {
+                    throw new Error(`Expected int, got ${TypeCheck.stringify(property.type)} at ${line(token)}`);
+                }
+
+                const propertyType = TypeCheck.resolveObject(context.build.types, lastValueType, property);
+                if(!propertyType) throw new Error(`Cannot access unknown property at ${line(token)}`);
 
                 lastValue = {
-                    type: propertyType,
+                    type: {
+                        type: 'pointer',
+                        pointer: propertyType
+                    },
                     value: {
                         type: 'member',
-                        targetType: lastValue.type,
+                        targetType: lastValueType,
                         target: lastValue.value,
                         property: property.value
                     }
@@ -169,42 +196,42 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
         else if(token.type === 'symbol') {
             // member access
             if(token.value === '.') {
-                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+                if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
 
                 const property = cursor.next();
-                if(property.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`)
+                if(property.type !== 'identifier') throw new Error(`Expected identifier at ${line(token)}`)
 
-                if(!TypeCheck.matchesPrimitive(lineState.build.types, lastValue.type, 'object')) {
-                    throw new Error(`Cannot access non-object at line ${lineState.lineIndex}`);
-                }
+                if(lastValue.type.type !== 'pointer') throw new Error(`Cannot access non-pointer at ${line(token)}`);
+                const lastValueType = TypeCheck.dereference(lastValue.type)
 
-                const propertyNode: ValueNode = {
-                    type: {
-                        type: 'primitive',
-                        primitive: 'string'
-                    },
-                    value: {
-                        type: 'literal',
-                        literal: property.value,
-                        literalType: 'string'
-                    }
-                }
-                const propertyType = TypeCheck.resolveObject(lineState.build.types, lastValue.type, propertyNode)
-                if(!propertyType) throw new Error(`Cannot access unknown property at line ${lineState.lineIndex}`);
+                if(lastValueType.type !== 'struct') throw new Error(`Cannot access non-struct at ${line(token)}`);
+
+                const keys = Object.keys(lastValueType.properties);
+                const propertyIndex = keys.indexOf(property.value);
+
+                if(propertyIndex === -1) throw new Error(`Cannot access unknown property at ${line(token)}`);
+                const propertyType = lastValueType.properties[keys[propertyIndex]];
 
                 lastValue = {
-                    type: propertyType,
+                    type: {
+                        type: 'pointer',
+                        pointer: propertyType
+                    },
                     value: {
                         type: 'member',
-                        targetType: lastValue.type,
+                        targetType: lastValueType,
                         target: lastValue.value,
-                        property: propertyNode.value
+                        property: {
+                            type: 'literal',
+                            literal: propertyIndex,
+                            literalType: 'int'
+                        }
                     }
                 }
             }
             // undefined check
             else if(token.value === '?') {
-                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+                if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
 
                 lastValue = {
                     type: {
@@ -223,30 +250,30 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
         }
         else if(token.type === 'keyword') {
             if(token.value === 'new') {
-                if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at line ${lineState.lineIndex}`);
+                if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at ${line(token)}`);
 
                 const className = cursor.next();
-                if(className.type !== 'identifier') throw new Error(`Expected identifier at line ${lineState.lineIndex}`);
+                if(className.type !== 'identifier') throw new Error(`Expected identifier at line ${line(token)}`);
 
                 const argsToken = cursor.next();
-                if(argsToken.type !== 'block' || argsToken.value !== '()') throw new Error(`Expected end of block at line ${lineState.lineIndex}`);
-                else if(!argsToken.block) throw new Error(`Unexpected end of block at line ${lineState.lineIndex}`);
+                if(argsToken.type !== 'block' || argsToken.value !== '()') throw new Error(`Expected end of block at ${line(token)}`);
+                else if(!argsToken.block) throw new Error(`Unexpected end of block at ${line(token)}`);
 
-                const args = argsToken.block.map(block => Values.parseValue(lineState, new Cursor(block)));
+                const args = argsToken.block.map(block => Values.parseValue(context, new Cursor(block)));
 
                 // get class
-                const classField = FieldResolve.resolve(lineState.env.fields, className.value);
-                if(!classField) throw new Error(`Unknown class ${className.value} at line ${lineState.lineIndex}`);
+                const classField = FieldResolve.resolve(context.env.fields, className.value);
+                if(!classField) throw new Error(`Unknown class ${className.value} at ${line(token)}`);
                 const resolvedType = classField.type
 
-                if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at line ${lineState.lineIndex}`);
+                if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at ${line(token)}`);
 
                 // check args
                 const params = resolvedType.params;
-                if(args.length < params.length) throw new Error(`Too few arguments at line ${lineState.lineIndex}`);
+                if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
                 for(let i = 0; i < params.length; i++) {
-                    if(!TypeCheck.matchesValue(lineState.build.types, params[i], args[i])) {
-                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at line ${lineState.lineIndex}`);
+                    if(!TypeCheck.matchesValue(context.build.types, params[i], args[i])) {
+                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at ${line(token)}`);
                     }
                 }
 
@@ -260,9 +287,9 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                 }
             }
             else if(token.value === 'as') {
-                if(!lastValue) throw new Error(`Invalid expression at line ${lineState.lineIndex}`);
+                if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
 
-                const type = parseType(lineState, cursor.remaining());
+                const type = parseType(context, cursor.remaining());
 
                 // check if both types are primitive
                 if(lastValue.type.type === 'primitive' && type.type === 'primitive') {
@@ -279,8 +306,8 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
                     continue;
                 }
 
-                if(!TypeCheck.matches(lineState.build.types, lastValue.type, type)) {
-                    throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at line ${lineState.lineIndex}`);
+                if(!TypeCheck.matches(context.build.types, lastValue.type, type)) {
+                    throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at ${line(token)}`);
                 }
 
                 lastValue = {
@@ -291,21 +318,21 @@ function parseOperatorlessExpression(lineState: LineState, cursor: Cursor<Token>
         }
         // value
         else {
-            if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at line ${lineState.lineIndex}`);
-            const value = Values.parseValue(lineState, new Cursor([token]));
+            if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at ${line(token)}`);
+            const value = Values.parseValue(context, new Cursor([token]));
             lastValue = value;
         }
     }
 
-    if(!lastValue) throw new Error(`Expected value at line ${lineState.lineIndex}`);
+    if(!lastValue) throw new Error(`Expected value at ${line(cursor.peekLast())}`);
     return lastValue;
 }
 
-function parseAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
     const leftType = TypeCheck.dereference(left.type);
-    if(!TypeCheck.matches(lineState.build.types, leftType, right.type)) {
-        throw new Error(`Cannot assign ${TypeCheck.stringify(right.type)} to ${TypeCheck.stringify(leftType)} at line ${lineState.lineIndex}`);
+    if(!TypeCheck.matches(context.build.types, leftType, right.type)) {
+        throw new Error(`Cannot assign ${TypeCheck.stringify(right.type)} to ${TypeCheck.stringify(leftType)} at ${line(token)}`);
     }
 
     return {
@@ -321,26 +348,26 @@ function parseAssignExpression(lineState: LineState, left: ValueNode, right: Val
     }
 }
 
-function parsePlusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    return parseAssignExpression(lineState, left, parsePlusExpression(lineState, Values.dereference(lineState, left), right));
+function parsePlusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
+    return parseAssignExpression(context, left, parsePlusExpression(context, Values.dereference(context, left, token), right, token), token);
 }
 
-function parseMinusAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    return parseAssignExpression(lineState, left, parseMinusExpression(lineState, Values.dereference(lineState, left), right));
+function parseMinusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
+    return parseAssignExpression(context, left, parseMinusExpression(context, Values.dereference(context, left, token), right, token), token);
 }
 
-function parseMultiplyAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    return parseAssignExpression(lineState, left, parseMultiplyExpression(lineState, Values.dereference(lineState, left), right));
+function parseMultiplyAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
+    return parseAssignExpression(context, left, parseMultiplyExpression(context, Values.dereference(context, left, token), right, token), token);
 }
 
-function parseDivideAssignExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
-    return parseAssignExpression(lineState, left, parseDivideExpression(lineState, Values.dereference(lineState, left), right));
+function parseDivideAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
+    return parseAssignExpression(context, left, parseDivideExpression(context, Values.dereference(context, left, token), right, token), token);
 }
 
-function parsePlusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -394,14 +421,14 @@ function parsePlusExpression(lineState: LineState, left: ValueNode, right: Value
         }
     }
     else {
-        throw new Error(`Cannot add ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot add ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseMinusExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseMinusExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -438,14 +465,14 @@ function parseMinusExpression(lineState: LineState, left: ValueNode, right: Valu
         }
     }
     else {
-        throw new Error(`Cannot subtract ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot subtract ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseMultiplyExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -482,14 +509,14 @@ function parseMultiplyExpression(lineState: LineState, left: ValueNode, right: V
         }
     }
     else {
-        throw new Error(`Cannot multiply ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot multiply ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseDivideExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseDivideExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -526,11 +553,11 @@ function parseDivideExpression(lineState: LineState, left: ValueNode, right: Val
         }
     }
     else {
-        throw new Error(`Cannot divide ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot divide ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseEqualsExpression(context: Context, left: ValueNode, right: ValueNode): ValueNode {
     return {
         type: {
             type: 'primitive',
@@ -544,10 +571,10 @@ function parseEqualsExpression(lineState: LineState, left: ValueNode, right: Val
     }
 }
 
-function parseLessThanExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseLessThanExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -584,14 +611,14 @@ function parseLessThanExpression(lineState: LineState, left: ValueNode, right: V
         }
     }
     else {
-        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseGreaterThanExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -628,14 +655,14 @@ function parseGreaterThanExpression(lineState: LineState, left: ValueNode, right
         }
     }
     else {
-        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseLessThanEqualsExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -672,14 +699,14 @@ function parseLessThanEqualsExpression(lineState: LineState, left: ValueNode, ri
         }
     }
     else {
-        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 
-function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode, right: ValueNode): ValueNode {
+function parseGreaterThanEqualsExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
-    const leftType = TypeCheck.resolvePrimitive(lineState.build.types, left.type);
-    const rightType = TypeCheck.resolvePrimitive(lineState.build.types, right.type);
+    const leftType = TypeCheck.resolvePrimitive(context.build.types, left.type);
+    const rightType = TypeCheck.resolvePrimitive(context.build.types, right.type);
 
     // sorted by priority
 
@@ -716,7 +743,7 @@ function parseGreaterThanEqualsExpression(lineState: LineState, left: ValueNode,
         }
     }
     else {
-        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at line ${lineState.lineIndex}`);
+        throw new Error(`Cannot compare ${TypeCheck.stringify(left.type)} and ${TypeCheck.stringify(right.type)} at ${line(token)}`);
     }
 }
 

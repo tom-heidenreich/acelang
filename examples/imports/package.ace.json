@@ -1,0 +1,7 @@
+{
+    "main": "imports.ace",
+    "modules": {
+        "time": "modules/time",
+        "hello": "modules/hello"
+    }
+}

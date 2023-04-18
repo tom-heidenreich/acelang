@@ -1,4 +1,4 @@
-import { DataType, Literal, Type, Types, ValueNode } from "../types";
+import { ArrayType, DataType, Literal, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
@@ -51,6 +51,14 @@ export default class TypeCheck {
             }
             return false;
         }
+        else if(match.type === 'callable') {
+            if(against.type !== 'callable') return false;
+            if(match.params.length !== against.params.length) return false;
+            for(let i = 0; i < match.params.length; i++) {
+                if(!TypeCheck.matches(types, match.params[i], against.params[i])) return false;
+            }
+            return TypeCheck.matches(types, match.returnType, against.returnType);
+        }
         // against
         else if(against.type === 'primitive') {
             return TypeCheck.matchesPrimitive(types, match, against.primitive);
@@ -73,16 +81,26 @@ export default class TypeCheck {
         }
         else if(against.type === 'array') {
             if(match.type !== 'array') return false;
-            return TypeCheck.matches(types, match.items, against.items, againstValue);
+            return TypeCheck.arrayMatches(types, match, against);
         }
         return false;
+    }
+
+    public static arrayMatches(types: Types, match: ArrayType, against: ArrayType) {
+        if(match.size !== against.size) return false;
+        return TypeCheck.matches(types, match.items, against.items);
     }
 
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'primitive' && type.primitive === 'any') return type;
         else if(type.type === 'struct') {
             if(key.value.type !== 'literal') return undefined;
-            return type.properties[key.value.literal.toString()];
+            if(key.value.literalType === 'string') return type.properties[key.value.literal.toString()];
+            else if(key.value.literalType === 'int') {
+                const keys = Object.keys(type.properties);
+                return type.properties[keys[key.value.literal as number]];
+            }
+            return undefined;
         }
         else if(type.type === 'object') {
             return type.values;
@@ -135,13 +153,16 @@ export default class TypeCheck {
             return '{ ' + Object.keys(type.properties).map(key => `${key}: ${TypeCheck.stringify(type.properties[key])}`).join(', ') + ' }';
         }
         else if(type.type === 'array') {
-            return `${TypeCheck.stringify(type.items)}[]`;
+            return `${TypeCheck.stringify(type.items)}[${type.size}]`;
         }
         else if(type.type === 'literal') {
             return type.literal;
         }
         else if(type.type === 'pointer') {
             return `${TypeCheck.stringify(type.pointer)}*`;
+        }
+        else if(type.type === 'callable') {
+            return `((${type.params.map(TypeCheck.stringify).join(', ')}) => ${TypeCheck.stringify(type.returnType)})`
         }
         return 'unknown';
     }

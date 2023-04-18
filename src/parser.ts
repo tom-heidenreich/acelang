@@ -45,6 +45,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][]) {
             printf: printfFunction
         },
         imports: [],
+        exports: [],
     }
 
     const { tree, typeModule } = parseEnvironment(build, tokens, moduleManager, {
@@ -64,5 +65,5 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][]) {
         },
     })
 
-    return { tree, typeModule, callables: build.callables, imports: build.imports }
+    return { tree, typeModule, callables: build.callables, imports: build.imports, exports: build.exports }
 }

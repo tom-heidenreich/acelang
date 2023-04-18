@@ -1,17 +1,22 @@
-import { LineState, Statement, Token, Wrappers } from "../types"
+import { Binding, Build, Context, Statement, Token, Wrappers, Type } from "../types"
+import line from "../util/LineStringify"
+import TypeCheck from "../util/TypeCheck"
 import Cursor from "../util/cursor"
 import Values from "./values"
 
-export function parseExportStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
-    if(wrappers) throw new Error(`Unexpected export at line ${lineState.lineIndex}`)
+export function parseExportStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+    if(wrappers) throw new Error(`Unexpected export at ${line(cursor.peekLast())}`)
 
     const valueCursor = cursor.until(token => token.type === 'keyword' && token.value === 'as')
-    const valueNode = Values.parseValue(lineState, valueCursor)
+    const valueNode = Values.parseValue(context, valueCursor)
 
     if(cursor.done) {
         if(valueNode.value.type !== 'reference') {
-            throw new Error(`Cannot export anonymous value at line ${lineState.lineIndex}`)
+            throw new Error(`Cannot export anonymous value at ${line(cursor.peek())}`)
         }
+
+        addToBuild(context.build, valueNode.value.reference, TypeCheck.dereference(valueNode.type))
+
         return {
             type: 'exportStatement',
             value: valueNode.value,
@@ -23,14 +28,16 @@ export function parseExportStatement(lineState: LineState, cursor: Cursor<Token>
         // as
         const asToken = cursor.next()
         if(asToken.type !== 'keyword' || asToken.value !== 'as') {
-            throw new Error(`Expected 'as' got ${asToken.type} ${asToken.value} at line ${lineState.lineIndex}`)
+            throw new Error(`Expected 'as' got ${asToken.type} ${asToken.value} at ${line(asToken)}`)
         }
 
         // name
         const nameToken = cursor.next()
         if(nameToken.type !== 'identifier') {
-            throw new Error(`Expected identifier got ${nameToken.type} ${nameToken.value} at line ${lineState.lineIndex}`)
+            throw new Error(`Expected identifier got ${nameToken.type} ${nameToken.value} at ${line(nameToken)}`)
         }
+
+        addToBuild(context.build, nameToken.value, TypeCheck.dereference(valueNode.type))
 
         return {
             type: 'exportStatement',
@@ -39,4 +46,23 @@ export function parseExportStatement(lineState: LineState, cursor: Cursor<Token>
             name: nameToken.value,
         }
     }
+}
+
+function addToBuild(build: Build, name: string, type: Type) {
+    if(type.type !== 'callable') throw new Error('Currently only callable types can be exported')
+
+    // check if export already exists
+    const exists = build.exports.find(binding => binding.name === name)
+    if(exists) {
+        throw new Error(`Export with name ${name} already exists`)
+    }
+
+    const binding: Binding = {
+        type: 'function',
+        name,
+        params: type.params,
+        returnType: type.returnType,
+    }
+
+    build.exports.push(binding)
 }

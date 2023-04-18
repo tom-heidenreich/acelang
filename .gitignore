@@ -1,6 +1,7 @@
 # modules
 node_modules
 ace_modules
+global
 
 # build
 *.exe
@@ -15,6 +16,3 @@ tmp
 # log
 log
 log.txt
-
-# example
-index.ace

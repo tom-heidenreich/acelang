@@ -1,0 +1,5 @@
+import { current_milliseconds } from 'time'
+printf('Current time: %d\n', current_milliseconds())
+
+import { hello } from 'hello'
+printf('%s\n', hello())

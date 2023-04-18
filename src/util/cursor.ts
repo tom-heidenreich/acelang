@@ -24,6 +24,11 @@ export default class Cursor<T> {
         return this.array[this.cursor];
     }
 
+    public peekLast() {
+        if(this.cursor <= 0) throw new Error('Cursor out of bounds');
+        return this.array[this.cursor - 1];
+    }
+
     public get done() {
         return this.cursor >= this.array.length;
     }

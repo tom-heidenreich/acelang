@@ -1,16 +1,16 @@
 import * as fs from 'fs';
 
-import { Binding, DATATYPES, LineState, Token, Type, Types } from "../types"
+import { Binding, DATATYPES, Context, Token, Type, Types } from "../types"
 import { lex } from '../lexer';
 import Logger from '../util/logger';
 import Cursor from '../util/cursor';
 import { parseType } from '../parser/types';
-import { ModuleManager } from '.';
+import line from '../util/LineStringify';
 
 export function parseBindingsFile(file_path: string): Binding[] {
     
     const file_content = fs.readFileSync(file_path, 'utf-8');
-    const lines = lex(file_content, new Logger())
+    const lines = lex(file_content, file_path, new Logger())
     
     const bindings = []
 
@@ -25,27 +25,27 @@ export function parseBindingsFile(file_path: string): Binding[] {
         types: defaultTypes,
         callables: {},
         imports: [],
+        exports: [],
     }
     const env = { fields: { local: {} } }
     
     let lineIndex = 0;
     for(const tokens of lines) {
 
-        const lineState: LineState = {
-            lineIndex,
+        const context: Context = {
             build,
             env
         }
         lineIndex++;
 
-        bindings.push(parseBinding(lineState, new Cursor(tokens)))
+        bindings.push(parseBinding(context, new Cursor(tokens)))
     }
     
     return bindings
 }
 
 // TODO: not only support function bindings
-function parseBinding(lineState: LineState, cursor: Cursor<Token>): Binding {
+function parseBinding(context: Context, cursor: Cursor<Token>): Binding {
     
     const declareToken = cursor.next()
     if(declareToken.type !== 'keyword' || declareToken.value !== 'declare') {
@@ -53,7 +53,7 @@ function parseBinding(lineState: LineState, cursor: Cursor<Token>): Binding {
     }
 
     const returnTypeToken = cursor.next()
-    const returnType = parseType(lineState, new Cursor([returnTypeToken]))
+    const returnType = parseType(context, new Cursor([returnTypeToken]))
 
     const nameToken = cursor.next()
     if(nameToken.type !== 'identifier') {
@@ -63,14 +63,14 @@ function parseBinding(lineState: LineState, cursor: Cursor<Token>): Binding {
     // params
     const paramsToken = cursor.next()
     if(paramsToken.type !== 'block' || paramsToken.value !== '()') {
-        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at ${line(paramsToken)}`)
     }
     if(!paramsToken.block) {
-        throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected end of line at ${line(paramsToken)}`)
     }
     const params: Type[] = []
     for(const paramToken of paramsToken.block) {
-        params.push(parseType(lineState, new Cursor(paramToken)))
+        params.push(parseType(context, new Cursor(paramToken)))
     }
 
     return {

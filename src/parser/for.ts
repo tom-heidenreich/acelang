@@ -1,10 +1,11 @@
-import { LineState, Statement, Token, Wrappers } from "../types";
+import { Context, Statement, Token, Wrappers } from "../types";
 import Cursor from "../util/cursor";
+import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import Values from "./values";
 
-export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+export function parseForStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
 
     // get identifier
     const identifier = cursor.next()
@@ -14,16 +15,16 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
     cursor.next()
 
     // get iterable
-    const iterable = Values.parseValue(lineState, new Cursor([cursor.next()]))
+    const iterable = Values.parseValue(context, new Cursor([cursor.next()]))
     if(iterable.type.type !== 'array') {
         throw new Error(`Expected array, got ${TypeCheck.stringify(iterable.type)}`)
     }
 
     const bodyToken = cursor.next()
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at line ${lineState.lineIndex}`)
+        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
     }
-    else if(!bodyToken.block) throw new Error(`Unexpected end of line at line ${lineState.lineIndex}`)
+    else if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
 
     // create new env
     const env = {
@@ -33,7 +34,7 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
                     type: iterable.type,
                 }
             },
-            parent: lineState.env.fields,
+            parent: context.env.fields,
         }
     }
     // create new wrappers
@@ -46,9 +47,9 @@ export function parseForStatement(lineState: LineState, cursor: Cursor<Token>, w
     }
 
     // parse body
-    const body = parseEnvironment(lineState.build, bodyToken.block, lineState.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
     
-    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at line ${lineState.lineIndex}`)
+    if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(cursor.peek())}`)
 
     return {
         type: 'forStatement',

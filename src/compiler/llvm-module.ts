@@ -13,7 +13,7 @@ const promisedSpawn = (command: string, args: string[], options: { stdio?: Stdio
     });
 });
 
-const TEMP_PATH = path.join(__dirname, '..', 'tmp');
+const TEMP_PATH = path.join(__dirname, '..', '..', 'tmp');
 
 export default class LLVMModule {
     
@@ -33,7 +33,7 @@ export default class LLVMModule {
         this._module = new llvm.Module(name, this._context);
         this._builder = new llvm.IRBuilder(this._context);
 
-        this.Types = getTypes(this._builder);
+        this.Types = getTypes(this._builder, this._context);
         this.Values = getValues(this._builder, this._context);
     }
 
@@ -65,18 +65,32 @@ export default class LLVMModule {
 
     public async executeJIT(output: string = this._name, stdio?: StdioOptions) {
         if(!fs.existsSync(TEMP_PATH)) fs.mkdirSync(TEMP_PATH, { recursive: true });
-        fs.writeFileSync(path.join(TEMP_PATH, `${output}.ll`), this.print());
-        await promisedSpawn('lli', [path.join(TEMP_PATH, `${output}.ll`)], { stdio })
+        fs.writeFileSync(path.join(TEMP_PATH, `${path.basename(output)}.ll`), this.print());
+        await promisedSpawn('lli', [path.join(TEMP_PATH, `${path.basename(output)}.ll`)], { stdio })
     }
 
     public async generateExecutable(output: string = this._name, linkedObjFiles: string[], stdio?: StdioOptions) {
-        await this.generateObject(output, stdio);
-        await promisedSpawn('gcc', [...linkedObjFiles, path.join(TEMP_PATH, `${output}.o`), '-o', `./${output}`], { stdio });
+        await this.generateObject(output, stdio, true);
+        await promisedSpawn('gcc', [...linkedObjFiles, path.join(TEMP_PATH, `${path.basename(output)}.o`), '-o', `./${output}`], { stdio });
     }
 
-    public async generateObject(output: string = this._name, stdio?: StdioOptions) {
+    public async generateObject(output: string = this._name, stdio?: StdioOptions, isTmp: boolean = false) {
         if(!fs.existsSync(TEMP_PATH)) fs.mkdirSync(TEMP_PATH, { recursive: true });
-        llvm.WriteBitcodeToFile(this._module, path.join(TEMP_PATH, `${output}.bc`));
-        await promisedSpawn('llc', ['-filetype=obj', path.join(TEMP_PATH, `${output}.bc`), '-o', path.join(TEMP_PATH, `${output}.o`)], { stdio });
+        llvm.WriteBitcodeToFile(this._module, path.join(TEMP_PATH, `${path.basename(output)}.bc`));
+        const objFile = isTmp ? path.join(TEMP_PATH, `${path.basename(output)}.o`) : `./${output}.o`;
+        await promisedSpawn('llc', ['-filetype=obj', path.join(TEMP_PATH, `${path.basename(output)}.bc`), '-o', objFile], { stdio });
+    }
+
+    public async runExecutable(output: string = this._name, stdio?: StdioOptions) {
+        await promisedSpawn(`./${output}`, [], { stdio });
+    }
+
+    public disableStackProbes() {
+        const __chkstkType = llvm.FunctionType.get(this.Types.void, [this.Types.int], false);
+        const __chkstk = llvm.Function.Create(__chkstkType, llvm.Function.LinkageTypes.ExternalLinkage, '__chkstk', this._module);
+        const __chkstkEntry = llvm.BasicBlock.Create(this._context, 'entry', __chkstk);
+        this._builder.SetInsertPoint(__chkstkEntry);
+        this._builder.CreateRetVoid();
+        this._builder.ClearInsertionPoint();
     }
 }

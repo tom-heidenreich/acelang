@@ -2,14 +2,23 @@ import { ModuleManager } from "./modules";
 
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
+export type TokenLine = {
+    line: number;
+    char: number;
+    endLine: number;
+    endChar: number;
+    file: string
+}
+
 export type Token = {
     value: string;
     type: TokenType;
     specificType?: DataType;
     block?: Token[][];
+    lineInfo: TokenLine;
 }
 
-export const DATATYPES: DataType[] = ['string', 'int', 'float', 'void', 'any', 'undefined']
+export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
 export const KEYWORDS: Keyword[] = [
     'debug',
     'const',
@@ -131,7 +140,6 @@ export type Modifiers = {
 // fields
 export type Field = {
     type: Type,
-    ignorePointer?: boolean,
 }
 
 export type Fields = {
@@ -183,7 +191,8 @@ export type ObjectType = {
 
 export type ArrayType = {
     type: 'array',
-    items: Type
+    items: Type,
+    size: number,
 }
 
 export type CallableType = {
@@ -217,7 +226,7 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue)
+export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue | PointerCastValue | ArrowFunctionValue)
 
 export type LiteralValue = {
     type: 'literal',
@@ -243,12 +252,24 @@ export type StructValue = {
 export type ArrayValue = {
     type: 'array',
     items: Value[],
+    itemType: Type,
 }
 
 export type DereferenceValue = {
     type: 'dereference',
     target: Value,
     targetType: Type,
+}
+
+export type PointerCastValue = {
+    type: 'pointerCast',
+    target: Value,
+    targetType: Type,
+}
+
+export type ArrowFunctionValue = {
+    type: 'arrowFunction',
+    name: string
 }
 
 // expression
@@ -548,15 +569,15 @@ export type Build = {
     types: Types,
     callables: {[name: string]: Callable},
     imports: Binding[],
+    exports: Binding[],
 }
 
 export type Environment = {
     fields: FieldEnv,
 }
 
-export type LineState = {
+export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
     env: Environment,
-    lineIndex: number,
 }
