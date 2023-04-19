@@ -13,7 +13,7 @@ export class Controller {
     private lineCursor = new WriteCursor<Token>();
     private bufferCursor = new WriteCursor<string>();
 
-    private sharedResources: Map<string, any> = new Map();
+    private sharedResources: Map<string, any>;
 
     private startLine = 0;
     private startCol = 0;
@@ -23,12 +23,14 @@ export class Controller {
 
     private file: string
 
-    constructor(lexer: Lexer, startLine: number, startCol: number, file: string) {
+    constructor(lexer: Lexer, startLine: number, startCol: number, file: string, startEnv: {[key: string]: any} = {}) {
         this.lexer = lexer;
 
         this.currentLine = startLine;
         this.currentCol = startCol;
         this.file = file;
+
+        this.sharedResources = new Map(Object.entries(startEnv));
     }
 
     public setStructure (structure: string | undefined) {
@@ -117,6 +119,10 @@ export class Controller {
     public get shared() {
         return this.sharedResources;
     }
+
+    public lex(content: string, env: {[key: string]: any} = {}) {
+        return this.lexer.lex(content, this.currentLine, this.currentCol, env);
+    }
 }
 
 export default class Lexer {
@@ -171,9 +177,9 @@ export default class Lexer {
         return this.tokenizers
     }
 
-    public lex(content: string, startLine: number = 1, startCol: number = 0) {
+    public lex(content: string, startLine: number = 1, startCol: number = 0, env: {[key: string]: any} = {}) {
 
-        const controller = new Controller(this, startLine, startCol, this.file);
+        const controller = new Controller(this, startLine, startCol, this.file, env);
 
         for(const c of content) {
             controller.countCol();

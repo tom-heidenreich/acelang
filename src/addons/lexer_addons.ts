@@ -9,7 +9,7 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
             consumer: {
                 id: 'new-line',
                 priority: LexerPriority.HIGHER,
-                accept: (c) => c === '\n' || c === '\r',
+                accept: (c, controller) => c === '\n' || c === '\r' || (controller.shared.get('commaAsNewLine') && c === ','),
                 willConsume: () => true,
                 onConsume: (c, controller) => {
                     controller.createToken();
@@ -66,6 +66,7 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
                 accept: (c) => c === '{',
                 willConsume: () => true,
                 onConsume: (c, controller) => {
+                    controller.createToken();
                     controller.shared.set('curlyBlockCount', 1);
                     controller.setStructure('block-curly');
                 }
@@ -116,6 +117,7 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
                 accept: (c) => c === '[',
                 willConsume: () => true,
                 onConsume: (c, controller) => {
+                    controller.createToken();
                     controller.setStructure('block-brackets');
                     controller.shared.set('bracketsBlockCount', 1);
                 }
@@ -166,6 +168,7 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
                 accept: (c) => c === '(',
                 willConsume: () => true,
                 onConsume: (c, controller) => {
+                    controller.createToken();
                     controller.setStructure('block-paren');
                     controller.shared.set('parenBlockCount', 1);
                 }
@@ -441,7 +444,9 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
             }
         },
         'block-curly': (value, controller) => {
-            const body = controller.lexer.lex(value)
+            const body = controller.lex(value, {
+                commaAsNewLine: true,
+            })
             return {
                 type: 'block',
                 value: '{}',
@@ -449,18 +454,22 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
             }
         },
         'block-brackets': (value, controller) => {
-            const body = controller.lexer.lex(value)
+            const body = controller.lex(value, {
+                commaAsNewLine: true,
+            })
             return {
                 type: 'block',
-                value: '{}',
+                value: '[]',
                 block: body
             }
         },
         'block-paren': (value, controller) => {
-            const body = controller.lexer.lex(value)
+            const body = controller.lex(value, {
+                commaAsNewLine: true,
+            })
             return {
                 type: 'block',
-                value: '{}',
+                value: '()',
                 block: body
             }
         },
