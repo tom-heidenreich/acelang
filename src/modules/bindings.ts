@@ -59,7 +59,7 @@ function parseBinding(context: Context, cursor: Cursor<Token>): Binding {
 
     const nameToken = cursor.next()
     if(nameToken.type !== 'identifier') {
-        throw new Error(`Expected identifier got ${nameToken.type} ${nameToken.value}`)
+        throw new Error(`Expected identifier got ${nameToken.type} ${nameToken.value} at ${line(nameToken)}`)
     }
 
     // params
