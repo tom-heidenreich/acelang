@@ -3,6 +3,41 @@ import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority } from "../type
 export const DEFAULT_LEXER_ADDON: LexerAddon = {
     name: 'default',
     consumers: [
+        // escape
+        {
+            structure: '*',
+            consumer: {
+                id: 'escape',
+                priority: 100000,
+                accept: (c) => c === '\\',
+                willConsume: () => true,
+                onConsume: (c, controller) => {
+                    controller.shared.set('isEscaped', true);
+                }
+            }
+        },
+        {
+            structure: '*',
+            consumer: {
+                id: 'escape-continue',
+                priority: 100000,
+                accept: (c, controller) => controller.shared.get('isEscaped'),
+                willConsume: () => true,
+                onConsume: (c, controller) => {
+                    switch(c) {
+                        case 'n': controller.append('\n'); break;
+                        case 'r': controller.append('\r'); break;
+                        case 't': controller.append('\t'); break;
+                        case 'b': controller.append('\b'); break;
+                        case 'f': controller.append('\f'); break;
+                        case 'v': controller.append('\v'); break;
+                        case '0': controller.append('\0'); break;
+                        case '\\': controller.append('\\'); break;
+                    }
+                    controller.shared.set('isEscaped', false);
+                }
+            }
+        },
         // new line
         {
             structure: '*',
