@@ -454,6 +454,16 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
     tokenizers: {
         none: (value, controller) => {
             if(value === '') return false;
+            
+            // boolean
+            if(value === 'true' || value === 'false') {
+                return {
+                    type: 'datatype',
+                    value,
+                    specificType: 'boolean',
+                }
+            }
+
             if(controller.lexer.getRegisteredKeywords().includes(value)) {
                 return {
                     type: 'keyword',
@@ -543,7 +553,8 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
         dataTypes: [
             'int',
             'float',
-            'string'
+            'string',
+            'boolean'
         ],
         keywords: KEYWORDS
     }
