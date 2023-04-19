@@ -4,7 +4,7 @@ import LLVMModule from "./llvm-module";
 
 import * as fs from 'fs';
 import path from 'path';
-import { lex } from "../lexer";
+import Lexer from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { ModuleManager } from "../modules";
@@ -24,7 +24,8 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     // lex the file
     LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
-    const tokens = lex(content, path.join(work_dir, file_name), LOGGER)
+    const lexer = new Lexer(path.join(work_dir, file_name))
+    const tokens = lexer.lex(content)
 
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     

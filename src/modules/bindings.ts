@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 
 import { Binding, DATATYPES, Context, Token, Type, Types } from "../types"
-import { lex } from '../lexer';
+import Lexer from '../lexer';
 import Logger from '../util/logger';
 import Cursor from '../util/cursor';
 import { parseType } from '../parser/types';
@@ -10,7 +10,9 @@ import line from '../util/LineStringify';
 export function parseBindingsFile(file_path: string): Binding[] {
     
     const file_content = fs.readFileSync(file_path, 'utf-8');
-    const lines = lex(file_content, file_path, new Logger())
+
+    const lexer = new Lexer(file_path)
+    const lines = lexer.lex(file_content)
     
     const bindings = []
 

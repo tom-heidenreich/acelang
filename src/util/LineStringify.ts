@@ -6,6 +6,10 @@ export default function line(token: Token) {
     return `${format(line)} in ${path.resolve(line.file)}`
 }
 
+export function lineInfo(line: TokenLine) {
+    return `${format(line)} in ${path.resolve(line.file)}`
+}
+
 function format(line: TokenLine) {
     if(line.line === line.endLine && line.char === line.endChar) {
         return `Ln ${line.line}, Col ${line.char}`

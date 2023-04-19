@@ -1,3 +1,4 @@
+import { Controller } from "./lexer";
 import { ModuleManager } from "./modules";
 
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
@@ -12,10 +13,17 @@ export type TokenLine = {
 
 export type Token = {
     value: string;
-    type: TokenType;
-    specificType?: DataType;
+    type: string;
+    specificType?: string;
     block?: Token[][];
     lineInfo: TokenLine;
+}
+
+export type SimpleToken = {
+    value: string;
+    type: string;
+    specificType?: string;
+    block?: Token[][];
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
@@ -70,7 +78,7 @@ export const OPERATORS: Operator[] = [
     '=>',
     '$'
 ]
-export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|', '?']
+export const SYMBOLS: Symbol[] = [':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
@@ -580,4 +588,45 @@ export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
     env: Environment,
+}
+
+// addons
+export type LexerAddon = {
+    name: string,
+    consumers: {
+        structure?: string,
+        consumer: Consumer,
+    }[],
+    tokenizers?: {
+        [key: string]: Tokenizer
+    },
+    register?: {
+        tokenTypes?: string[],
+        symbols?: string[],
+        operators?: string[],
+        keywords?: string[],
+        dataTypes?: string[]
+    }
+}
+
+export type Consumer = {
+    id?: string,
+    priority?: number,
+    accept: (c: string, controller: Controller) => boolean,
+    willConsume: (c: string) => boolean,
+    onConsume?: (c: string, controller: Controller) => void,
+    onChar?: (c: string, controller: Controller) => void
+}
+
+export type Tokenizer = (value: string, controller: Controller) => SimpleToken | false
+
+export const LexerPriority = {
+    IMPORTANT: 100,
+    HIGHER: 90,
+    HIGH: 80,
+    NORMAL: 50,
+    LOW: 20,
+    LOWER: 10,
+    UNIMPORTANT: 0,
+    more: (count: number = 1) => count * 5,
 }

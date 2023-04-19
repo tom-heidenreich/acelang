@@ -4,7 +4,7 @@ import path from 'path';
 import llvm from 'llvm-bindings';
 
 import LLVMModule from './llvm-module';
-import { lex } from '../lexer';
+import Lexer from '../lexer';
 import { Context, declareFunction, defineFunction, parseStatements } from './compiler';
 import { parseToTree } from '../parser';
 import { ModuleManager } from '../modules';
@@ -23,7 +23,8 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
 
     // lex the file
     LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
-    const tokens = lex(content, path.join(work_dir, file_name), LOGGER)
+    const lexer = new Lexer(path.join(work_dir, file_name))
+    const tokens = lexer.lex(content)
 
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     
