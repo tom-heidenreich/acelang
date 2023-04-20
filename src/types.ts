@@ -630,3 +630,6 @@ export const LexerPriority = {
     UNIMPORTANT: 0,
     more: (count: number = 1) => count * 5,
 }
+
+// util
+export type Exclude<T, E> = (T extends E ? never : T) & (E extends T ? never : T)
