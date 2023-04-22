@@ -8,7 +8,7 @@ import Lexer from "../lexer";
 import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { ModuleManager } from "../modules";
-import { Context, declareFunction, defineFunction, parseStatements } from "./compiler";
+import { Scope, declareFunction, defineFunction, parseStatements } from "./compiler";
 
 type CompilerOptions = {
     output?: string
@@ -42,31 +42,31 @@ export default async function compile(work_dir: string, file_name: string, modul
     const builder = module.builder;
 
     const mainFunc = module.createMain();
-    const context = new Context(mainFunc);
+    const scope = new Scope(mainFunc);
 
     if(options.noStackProbes) module.disableStackProbes();
 
     // built in functions
     const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
     const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
-    context.set('printf', printf);
+    scope.set('printf', printf);
 
     // declare imports
     for(const _import of imports) {
         if(_import.type !== 'function') throw new Error('Only function imports are supported');
-        declareFunction(module, context, _import);
+        declareFunction(module, scope, _import);
     }
 
     // declare functions
     for(const callableName in callables) {
-        defineFunction(module, context, callables[callableName], callableName)
+        defineFunction(module, scope, callables[callableName], callableName)
     }
 
     // start of main function block
     const entryBB = llvm.BasicBlock.Create(module._context, 'entry', mainFunc);
     builder.SetInsertPoint(entryBB);
 
-    parseStatements(module, context, tree);
+    parseStatements(module, scope, tree);
 
     // end of main function block
     module.exitMain();
