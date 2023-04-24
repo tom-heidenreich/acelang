@@ -1,27 +1,27 @@
-import { Binding, Build, Context, Statement, Token, Wrappers, Type } from "../types"
+import { Binding, Build, Context, Statement, Token, Wrappers, Type, ReferenceValue } from "../types"
 import line from "../util/LineStringify"
 import TypeCheck from "../util/TypeCheck"
 import Cursor from "../util/cursor"
-import Values from "./values"
 
 export function parseExportStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
     if(wrappers) throw new Error(`Unexpected export at ${line(cursor.peekLast())}`)
 
     const valueCursor = cursor.until(token => token.type === 'keyword' && token.value === 'as')
-    const valueNode = Values.parseValue(context, valueCursor)
+    const valueNode = context.values.parseValue(context, valueCursor)
 
     if(cursor.done) {
-        if(valueNode.value.type !== 'reference') {
+        const value = valueNode.value
+        if(!(value instanceof ReferenceValue)) {
             throw new Error(`Cannot export anonymous value at ${line(cursor.peek())}`)
         }
 
-        addToBuild(context.build, valueNode.value.reference, TypeCheck.dereference(valueNode.type))
+        addToBuild(context.build, value.reference, TypeCheck.dereference(valueNode.type))
 
         return {
             type: 'exportStatement',
             value: valueNode.value,
             exportType: valueNode.type,
-            name: valueNode.value.reference,
+            name: value.reference,
         }
     }
     else {

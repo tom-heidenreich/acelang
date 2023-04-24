@@ -15,6 +15,7 @@ import { parseExportStatement } from "./export"
 import { parseImportStatement } from "./import"
 import { ModuleManager } from "../modules"
 import line from "../util/LineStringify"
+import Values from "../values"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
@@ -31,12 +32,13 @@ export function parseEnvironment(build: Build, tokens: Token[][], moduleManager?
     const typeModule: { [key: string]: Type } = {}
 
     let lineIndex = 0
+    const context: Context = {
+        build,
+        moduleManager,
+        env,
+        values: new Values(),
+    }
     for (const line of tokens) {
-        const context: Context = {
-            build,
-            moduleManager,
-            env
-        }
         const cursor = new Cursor(line)
         if(cursor.done) continue
         const statement = parseLine({ context, cursor, wrappers })
@@ -50,7 +52,7 @@ export function parseEnvironment(build: Build, tokens: Token[][], moduleManager?
     }
     if(isIfElseChain) {
         isIfElseChain = false
-        tree.push(parseIfStatement({ build, moduleManager, env }, new Cursor(ifElseChain), wrappers))
+        tree.push(parseIfStatement(context, new Cursor(ifElseChain), wrappers))
         ifElseChain.length = 0
     }
 

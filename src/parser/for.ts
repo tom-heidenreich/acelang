@@ -3,7 +3,6 @@ import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
-import Values from "./values";
 
 export function parseForStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
 
@@ -15,7 +14,7 @@ export function parseForStatement(context: Context, cursor: Cursor<Token>, wrapp
     cursor.next()
 
     // get iterable
-    const iterable = Values.parseValue(context, new Cursor([cursor.next()]))
+    const iterable = context.values.parseValue(context, new Cursor([cursor.next()]))
     if(iterable.type.type !== 'array') {
         throw new Error(`Expected array, got ${TypeCheck.stringify(iterable.type)}`)
     }

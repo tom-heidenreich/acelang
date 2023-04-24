@@ -1,8 +1,7 @@
-import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable } from "../types"
+import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck";
-import Values from "./values";
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
 import WrapperResolve from "../util/WrapperResolve";
@@ -196,7 +195,7 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
 
     // value
     const valueToken = cursor.peek()
-    const valueNode = Values.parseValue(context, cursor.remaining())
+    const valueNode = context.values.parseValue(context, cursor.remaining())
     const value = valueNode.value
 
     // check if types match
@@ -313,9 +312,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
             type: 'pointer',
             pointer: functionType,
         },
-        value: {
-            type: 'arrowFunction',
-            name: anonName
-        }
+        value: new ArrowFunctionValue(anonName)
     }
 }

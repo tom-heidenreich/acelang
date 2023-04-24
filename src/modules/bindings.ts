@@ -6,6 +6,7 @@ import Logger from '../util/logger';
 import Cursor from '../util/cursor';
 import { parseType } from '../parser/types';
 import line from '../util/LineStringify';
+import Values from '../values';
 
 export function parseBindingsFile(file_path: string): Binding[] {
     
@@ -36,7 +37,8 @@ export function parseBindingsFile(file_path: string): Binding[] {
 
         const context: Context = {
             build,
-            env
+            env,
+            values: new Values()
         }
         lineIndex++;
 
