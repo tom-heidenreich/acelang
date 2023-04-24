@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, SubtractExpression, Token, Type, ValueNode } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import FieldResolve from "./FieldResolve";
@@ -6,6 +6,9 @@ import { parseType } from "../parser/types";
 import Logger from "./logger";
 import line from "./LineStringify";
 import { parseArrowFunction } from "../parser/functions";
+import LLVMModule from "../compiler/llvm-module";
+import { Scope } from "../compiler/compiler";
+import llvm from "llvm-bindings";
 
 function dereference(context: Context, target: ValueNode, token: Token): ValueNode {
     const { type, value } = target;
@@ -255,15 +258,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 // check if both types are primitive
                 if(lastValue.type.type === 'primitive' && type.type === 'primitive') {
                     if(lastValue.type.primitive === type.primitive) return lastValue;
-                    lastValue = {
-                        type: type,
-                        value: {
-                            type: 'cast',
-                            value: lastValue.value,
-                            targetType: type.primitive,
-                            currentType: lastValue.type.primitive
-                        }
-                    }
+                    lastValue = cast(lastValue, lastValue.type, type)
                     continue;
                 }
 
@@ -330,8 +325,8 @@ function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode
 
     if(leftType === 'string' || rightType === 'string') {
 
-        const leftValue = castNumberToString(left);
-        const rightValue = castNumberToString(right);
+        const leftValue = stringifyNumber(left);
+        const rightValue = stringifyNumber(right);
 
         return {
             type: {
@@ -616,49 +611,131 @@ function parseGreaterThanEqualsExpression(context: Context, left: ValueNode, rig
     }
 }
 
-
-export function castNumberToInt(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'int') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
+export function stringifyNumber(value: ValueNode): ValueNode {
+    if(value.type.type !== 'primitive') {
+        throw new Error(`Cannot stringify ${TypeCheck.stringify(value.type)}`);
     }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'int'
-    });
+    if(value.type.primitive === 'float') value = castToInteger(value, value.type);
+
+    class StringifyInteger extends Value {
+        public compile(module: LLVMModule, scope: Scope): llvm.Value {
+            const target = value.value.compile(module, scope);
+            const sitoaType = llvm.FunctionType.get(llvm.Type.getInt8PtrTy(module._context), [llvm.Type.getInt32Ty(module._context)], false);
+            const sitoa = llvm.Function.Create(sitoaType, llvm.Function.LinkageTypes.ExternalLinkage, 'sitoa', module._module);
+            return module.builder.CreateCall(sitoa, [target]);
+        }
+        public toString(): string {
+            return `${value.value}`
+        }
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'string'
+        },
+        value: new StringifyInteger()
+    }
 }
 
 export function castNumberToFloat(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'float') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
+    if(value.type.type === 'primitive' && value.type.primitive === 'float') {
+        return value;
     }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'float'
-    });
-}
-
-export function castNumberToString(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'string') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
-    }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'string'
-    });
-}
-
-export function castToPrimitive(value: ValueNode, type: PrimitiveType): ValueNode {
-    if(value.type.type !== 'primitive') throw new Error(`Expected primitive, got ${value.type.type}`);
-    return {
-        type: type,
-        value: {
-            type: 'cast',
-            value: value.value,
-            targetType: type.primitive,
-            currentType: value.type.primitive
+    else if(value.type.type === 'primitive' && value.type.primitive === 'int') {
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'float'
+            },
+            value: new IntToFloatCast(value.value)
         }
     }
+    else {
+        throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to float`);
+    }
+}
+
+export function cast(value: ValueNode, curentType: PrimitiveType, targetType: PrimitiveType): ValueNode {
+    switch(targetType.primitive) {
+        case 'int':
+            return castToInteger(value, curentType);
+        case 'float':
+            return castToFloat(value, curentType);
+        case 'boolean':
+            return castToBoolean(value, curentType);
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to ${targetType}`);
+}
+
+function castToInteger(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return value;
+        case 'float':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'int'
+                },
+                value: new FloatToIntCast(value.value)
+            }
+        case 'boolean':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'int'
+                },
+                value: new BooleanToIntCast(value.value)
+            }
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to int`);
+}
+
+function castToFloat(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'float'
+                },
+                value: new IntToFloatCast(value.value)
+            }
+        case 'float':
+            return value;
+        case 'boolean':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'float'
+                },
+                value: new BooleanToFloatCast(value.value)
+            }
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to float`);
+}
+
+function castToBoolean(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'boolean'
+                },
+                value: new IntToBooleanCast(value.value)
+            }
+        case 'float':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'boolean'
+                },
+                value: new FloatToBooleanCast(value.value)
+            }
+        case 'boolean':
+            return value;
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to boolean`);
 }
