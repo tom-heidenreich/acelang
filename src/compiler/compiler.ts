@@ -108,15 +108,6 @@ export class Scope {
 // function compileValue(module: LLVMModule, scope: Scope, value: Value): llvm.Value {
 //     switch(value.type) {
 //         case 'undefined': return module.Values.undefined();
-//         case 'dereference': {
-//             const target = compileValue(module, scope, value.target);
-//             if(!(target.getType() instanceof llvm.PointerType)) return target;
-//             return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
-//         }
-//         case 'pointerCast': {
-//             const target = compileValue(module, scope, value.target);
-//             return module.builder.CreatePointerCast(target, llvm.PointerType.get(module.Types.convertType(value.targetType), 0));
-//         }
 //     }
 //     throw new Error(`Unknown value type ${value.type}`);
 // }

@@ -653,6 +653,34 @@ export class BooleanToFloatCast extends CastExpression {
     }
 }
 
+// pointers
+export class DereferenceValue extends Value {
+    public constructor(protected target: Value) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        if(!(target.getType() instanceof llvm.PointerType)) throw new Error(`Cannot dereference non-pointer type ${target.getType()}`)
+        return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
+    }
+    public toString(): string {
+        return `$${this.target}`
+    }
+}
+
+export class PointerCastValue extends Value {
+    public constructor(protected target: Value, protected type: Type) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        return module.builder.CreatePointerCast(target, llvm.PointerType.get(module.Types.convertType(this.type), 0));
+    }
+    public toString(): string {
+        return `*${this.target}`
+    }
+}
+
 export type ValueNode = {
     type: Type,
     value: Value,

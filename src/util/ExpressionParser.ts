@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, CallExpression, ConcatStringExpression, Context, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntValue, MemberExpression, MultiplyExpression, Operator, PrimitiveType, SubtractExpression, Token, Type, ValueNode } from "../types";
+import { AddExpression, AssignExpression, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, SubtractExpression, Token, Type, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import FieldResolve from "./FieldResolve";
@@ -6,6 +6,28 @@ import { parseType } from "../parser/types";
 import Logger from "./logger";
 import line from "./LineStringify";
 import { parseArrowFunction } from "../parser/functions";
+
+function dereference(context: Context, target: ValueNode, token: Token): ValueNode {
+    const { type, value } = target;
+    if(type.type !== 'pointer') {
+        throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at ${line(token)}`);
+    }
+    return {
+        type: type.pointer,
+        value: new DereferenceValue(value)
+    }
+}
+
+function pointerCast(context: Context, target: ValueNode, token: Token): ValueNode {
+    const { type, value } = target;
+    return {
+        type: {
+            type: 'pointer',
+            pointer: type
+        },
+        value: new PointerCastValue(value, type)
+    }
+}
 
 export default class ExpressionParser {
 
@@ -51,14 +73,14 @@ export default class ExpressionParser {
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
                 const value = context.values.parseValue(context, cursor.remaining());
-                return context.values.dereference(context, value, next);
+                return dereference(context, value, next);
             }
             else if(mainOperator === '*') {
                 // pointer
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
                 const value = context.values.parseValue(context, cursor.remaining());
-                return context.values.pointerCast(context, value, next);
+                return pointerCast(context, value, next);
             }
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
@@ -284,19 +306,19 @@ function parseAssignExpression(context: Context, left: ValueNode, right: ValueNo
 }
 
 function parsePlusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parsePlusExpression(context, context.values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parsePlusExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseMinusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseMinusExpression(context, context.values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseMinusExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseMultiplyAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseMultiplyExpression(context, context.values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseMultiplyExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseDivideAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseDivideExpression(context, context.values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseDivideExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
