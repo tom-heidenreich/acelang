@@ -1,4 +1,6 @@
-import { Context, Token, Type, ValueNode } from "./types";
+import { DEFAULT_VALUES_ADDON } from "./addons/lexer_addons";
+import Lexer from "./lexer";
+import { Context, FloatValue, IntValue, Token, Type, ValueNode } from "./types";
 import ExpressionParser from "./util/ExpressionParser";
 import line from "./util/LineStringify";
 import Cursor, { WriteCursor } from "./util/cursor";
@@ -60,7 +62,7 @@ type ValueParser<E extends (...args: any[]) => ValueNode, F extends (...args: an
     parse: E,
 }
 
-type ValueParseFunction = (token: Token, predefinedType?: Type) => ValueNode
+type ValueParseFunction = (context: Context, token: Token, predefinedType?: Type) => ValueNode
 type ValueAcceptFunction = (token: Token) => boolean
 
 export default class Values {
@@ -75,6 +77,10 @@ export default class Values {
     private values: Map<string, ValueParser<ValueParseFunction, ValueAcceptFunction>[]> = new Map();
 
     private registeredOperators: Map<string, Operator> = new Map();
+
+    constructor(disableDefault: boolean = false) {
+        if(!disableDefault) this.addAddon(DEFAULT_VALUES_ADDON)
+    }
 
     public addAddon(addon: ValueAddon) {
         
@@ -151,7 +157,7 @@ export default class Values {
         const parser = parsers.find(c => c.accept(token));
         if(!parser) throw new Error(`No parser accepted token ${token.type} at ${line(token)}`);
 
-        return parser.parse(token, predefinedType);
+        return parser.parse(context, token, predefinedType);
     }
 
     private parseExpression(context: Context, cursor: Cursor<Token>): ValueNode {

@@ -1,4 +1,4 @@
-import { ArrayType, DataType, Literal, Type, Types, ValueNode } from "../types";
+import { ArrayType, DataType, Literal, LiteralValue, Type, Types, ValueNode } from "../types";
 
 export default class TypeCheck {
 
@@ -25,7 +25,7 @@ export default class TypeCheck {
     }
 
     public static matchesValue(types: Types, match: Type, against: ValueNode): boolean {
-        const againstValue = against.value.type === 'literal' ? against.value.literal : undefined;
+        const againstValue = against.value instanceof LiteralValue ? against.value.literal : undefined;
         return TypeCheck.matches(types, match, against.type, againstValue);
     }
 
@@ -94,11 +94,12 @@ export default class TypeCheck {
     public static resolveObject(types: Types, type: Type, key: ValueNode): Type | undefined {
         if(type.type === 'primitive' && type.primitive === 'any') return type;
         else if(type.type === 'struct') {
-            if(key.value.type !== 'literal') return undefined;
-            if(key.value.literalType === 'string') return type.properties[key.value.literal.toString()];
-            else if(key.value.literalType === 'int') {
+            const keyValue = key.value
+            if(!(keyValue instanceof LiteralValue)) return undefined;
+            if(keyValue.literalType === 'string') return type.properties[keyValue.literal.toString()];
+            else if(keyValue.literalType === 'int') {
                 const keys = Object.keys(type.properties);
-                return type.properties[keys[key.value.literal as number]];
+                return type.properties[keys[keyValue.literal as number]];
             }
             return undefined;
         }
@@ -107,10 +108,6 @@ export default class TypeCheck {
         }
         else if(type.type === 'array') {
             return type.items;
-        }
-        else if(type.type === 'class') {
-            if(key.value.type !== 'literal') return undefined;
-            return type.statics[key.value.literal.toString()];
         }
         else if(type.type === 'union') {
             const resolvedTypes: Type[] = [] 

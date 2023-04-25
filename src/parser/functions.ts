@@ -129,7 +129,7 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
 
     // check if body has return
     const func = context.env.fields.local[name.value].type
@@ -276,7 +276,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
         // no parent wrappers
     }
 
-    const body = parseEnvironment(context.build, bodyBlock.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyBlock.block, context.moduleManager, env, newWrappers)
 
     // check if body has return
     const func = context.env.fields.local[anonName].type

@@ -9,6 +9,7 @@ import { parseToTree } from "../parser";
 import Logger from "../util/logger";
 import { ModuleManager } from "../modules";
 import { Scope, declareFunction, defineFunction, parseStatements } from "./compiler";
+import Values from "../values";
 
 type CompilerOptions = {
     output?: string
@@ -31,7 +32,8 @@ export default async function compile(work_dir: string, file_name: string, modul
     
     // get ast
     LOGGER.log(`Parsing file ${file_name}`, { type: 'info', detail: 1 });
-    const { tree, callables, imports } = parseToTree(moduleManager, tokens);
+    const values = new Values()
+    const { tree, callables, imports } = parseToTree(moduleManager, tokens, values);
 
     LOGGER.log(`Found ${tree.length} statements`, {detail: 1 });
 

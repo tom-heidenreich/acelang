@@ -1,4 +1,9 @@
-import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority } from "../types";
+import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue } from "../types";
+import FieldResolve from "../util/FieldResolve";
+import line, { lineInfo } from "../util/LineStringify";
+import TypeCheck from "../util/TypeCheck";
+import Cursor from "../util/cursor";
+import { ValueAddon } from "../values";
 
 export const DEFAULT_LEXER_ADDON: LexerAddon = {
     name: 'default',
@@ -429,12 +434,15 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
             consumer: {
                 id: 'int-break',
                 priority: LexerPriority.HIGH,
-                accept: (c, controller) => isNaN(Number(controller.buffer)),
-                willConsume: (c) => false,
+                accept: (c) => !/[0-9]/.test(c),
+                willConsume: (c, controller) => /[a-zA-Z]/.test(c),
                 onChar: (c, controller) => {
                     controller.createToken();
                     controller.setStructure(undefined);
-                }
+                },
+                onConsume(c, controller) {
+                    throw new Error(`Unexpected character '${c}' at ${lineInfo(controller.line)}`);
+                },
             }
         },
         // identifiers
@@ -558,4 +566,229 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
         ],
         keywords: KEYWORDS
     }
+}
+
+export const DEFAULT_VALUES_ADDON: ValueAddon = {
+    name: 'default',
+    values: [
+        // datatypes
+        // int
+        {
+            tokenType: 'datatype',
+            parser: {
+                id: 'int',
+                priority: 0,
+                accept: (token) => token.specificType === 'int',
+                parse: (context, token) => {
+                    return {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'int'
+                        },
+                        value: new IntValue(parseInt(token.value))
+                    }
+                }
+            }
+        },
+        // float
+        {
+            tokenType: 'datatype',
+            parser: {
+                id: 'float',
+                priority: 0,
+                accept: (token) => token.specificType === 'float',
+                parse: (context, token) => {
+                    return {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'float'
+                        },
+                        value: new FloatValue(parseFloat(token.value))
+                    }
+                }
+            }
+        },
+        // boolean
+        {
+            tokenType: 'datatype',
+            parser: {
+                id: 'boolean',
+                priority: 0,
+                accept: (token) => token.specificType === 'boolean',
+                parse: (context, token) => {
+                    return {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'boolean'
+                        },
+                        value: new BooleanValue(token.value === 'true')
+                    }
+                }
+            }
+        },
+        // string
+        {
+            tokenType: 'datatype',
+            parser: {
+                id: 'string',
+                priority: 0,
+                accept: (token) => token.specificType === 'string',
+                parse: (context, token) => {
+                    return {
+                        type: {
+                            type: 'primitive',
+                            primitive: 'string'
+                        },
+                        value: new StringValue(token.value)
+                    }
+                }
+            }
+        },
+        // identifiers
+        {
+            tokenType: 'identifier',
+            parser: {
+                id: 'identifier',
+                priority: 0,
+                accept: (token) => true,
+                parse: (context, token) => {
+                    const field = FieldResolve.resolve(context.env.fields, token.value);
+                    if(!field) {
+                        throw new Error(`Unknown field: ${token.value} at ${line(token)}`);
+                    }
+                    return {
+                        type: field.type,
+                        value: new ReferenceValue(token.value)
+                    }
+                }
+            }
+        },
+        // blocks
+        {
+            tokenType: 'block',
+            parser: {
+                id: 'wrapped',
+                priority: 0,
+                accept: (token) => token.value === '()' && token.block !== undefined && token.block.length === 1,
+                parse: (context, token) => {
+                    return context.values.parseValue(context, new Cursor(token.block![0]));
+                }
+            }
+        },
+        // struct
+        {
+            tokenType: 'block',
+            parser: {
+                id: 'struct',
+                priority: 0,
+                accept: (token) => token.value === '{}' && token.block !== undefined,
+                parse: (context, token) => {
+                    return parseStruct(context, new Cursor(token.block!));
+                }
+            }
+        },
+        // array
+        {
+            tokenType: 'block',
+            parser: {
+                id: 'array',
+                priority: 0,
+                accept: (token) => token.value === '[]' && token.block !== undefined,
+                parse: (context, token) => {
+                    return parseArray(context, new Cursor(token.block!));
+                }
+            }
+        }
+    ]
+}
+
+function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
+
+    const items: Value[] = []
+    let type: Type | undefined;
+
+    while(!cursor.done) {
+        
+        const next = cursor.next()
+        const node = context.values.parseValue(context, new Cursor(next), predefinedType)
+        if(!type) {
+            type = node.type;
+        }
+        else if(!TypeCheck.matchesValue(context.build.types, type, node)) {
+            throw new Error(`Expected type ${TypeCheck.stringify(type)}, 
+            got ${TypeCheck.stringify(node.type)} at ${line(next[0])}`);
+        }
+        items.push(node.value);
+    }
+
+    if(!type) {
+        // throw new Error(`Expected at least one value, got 0 at ${line(token)}`);
+        type = {
+            type: 'primitive',
+            primitive: 'any'
+        }
+    }
+
+    if(predefinedType) {
+        if(predefinedType.type !== 'array') {
+            throw new Error(`Expected array, got ${predefinedType.type} at ${line(cursor.peek()[0])}`);
+        }
+        return {
+            type: predefinedType,
+            value: new ArrayValue(items, predefinedType.items)
+        }
+    }
+
+    return {
+        type: {
+            type: 'array',
+            items: type,
+            size: items.length
+        },
+        value: new ArrayValue(items, type)
+    };
+}
+
+function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
+    
+    const type: StructType = {
+        type: 'struct',
+        properties: {}
+    }
+    const properties: { [key: string]: Value } = {};
+
+    while(!cursor.done) {
+        const lineCursor = new Cursor(cursor.next());
+
+        const keyToken = lineCursor.next();
+        let key: Key;
+
+        if(keyToken.type === 'identifier') {
+            key = keyToken.value;
+        }
+        else if(keyToken.type === 'datatype') {
+            if(keyToken.specificType !== 'string' && keyToken.specificType !== 'int') {
+                throw new Error(`Expected string or number, got ${keyToken.specificType} at ${line(cursor.peek()[0])}`);
+            }
+            key = keyToken.value;
+        }
+        else {
+            throw new Error(`Expected identifier or datatype, got ${keyToken.type} at ${line(cursor.peek()[0])}`);
+        }
+
+        if(lineCursor.peek().type !== 'symbol' || lineCursor.peek().value !== ':') {
+            throw new Error(`Expected symbol ':', got ${lineCursor.peek().type} at ${line(cursor.peek()[0])}`);
+        }
+        lineCursor.next();
+
+        const { type: propertyType, value: propertyValue } = context.values.parseValue(context, lineCursor.remaining(), predefinedType);
+
+        type.properties[key] = propertyType;
+        properties[key] = propertyValue
+    }
+
+    return {
+        type,
+        value: new StructValue(properties)
+    };
 }

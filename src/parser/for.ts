@@ -46,7 +46,7 @@ export function parseForStatement(context: Context, cursor: Cursor<Token>, wrapp
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
     
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(cursor.peek())}`)
 

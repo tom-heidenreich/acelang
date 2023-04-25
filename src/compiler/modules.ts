@@ -10,6 +10,7 @@ import { parseToTree } from '../parser';
 import { ModuleManager } from '../modules';
 import Logger from '../util/logger';
 import TypeCheck from '../util/TypeCheck';
+import Values from '../values';
 
 type Options = {
     output?: string
@@ -30,7 +31,8 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     
     // get ast
     LOGGER.log(`Parsing file ${file_name}`, { type: 'info', detail: 1 });
-    const { tree, callables, imports, exports } = parseToTree(moduleManager, tokens);
+    const values = new Values()
+    const { tree, callables, imports, exports } = parseToTree(moduleManager, tokens, values);
 
     LOGGER.log(`Found ${tree.length} statements`, { detail: 1 });
 

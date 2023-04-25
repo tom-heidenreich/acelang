@@ -54,7 +54,7 @@ export function parseSync(context: Context, cursor: Cursor<Token>): Statement {
     }
     
     // parse body
-    const body = parseEnvironment(context.build, token.block, context.moduleManager, env)
+    const body = parseEnvironment(context.build, context.values, token.block, context.moduleManager, env)
 
     return {
         type: 'syncStatement',

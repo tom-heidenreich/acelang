@@ -193,7 +193,7 @@ export default class Lexer {
                 if(index >= consumers.length) throw new Error(`No consumer accepted ${c} in structure ${controller.structure} at ${lineInfo(controller.line)}`);
                 if(consumers[index].accept(c, controller)) {
                     const consumer = consumers[index];
-                    if(consumer.willConsume(c)) {
+                    if(consumer.willConsume(c, controller)) {
                         if(!consumer.onConsume) throw new Error(`consumer ${consumer.id} does not have onConsume method`);
                         consumer.onConsume(c, controller);
                         break

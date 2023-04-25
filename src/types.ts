@@ -261,7 +261,12 @@ export class ReferenceValue extends Value {
 }
 
 // literals
-export class IntValue extends Value {
+export abstract class LiteralValue extends Value {
+    public abstract get literal(): Literal;
+    public abstract get literalType(): LiteralDataType;
+}
+
+export class IntValue extends LiteralValue {
     constructor(private value: number) {
         super()
     }
@@ -271,9 +276,15 @@ export class IntValue extends Value {
     public toString(): string {
         return this.value.toString()
     }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'int'
+    }
 }
 
-export class FloatValue extends Value {
+export class FloatValue extends LiteralValue {
     constructor(private value: number) {
         super()
     }
@@ -283,9 +294,15 @@ export class FloatValue extends Value {
     public toString(): string {
         return this.value.toString()
     }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'float'
+    }
 }
 
-export class StringValue extends Value {
+export class StringValue extends LiteralValue {
     constructor(private value: string) {
         super()
     }
@@ -295,9 +312,15 @@ export class StringValue extends Value {
     public toString(): string {
         return this.value
     }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'string'
+    }
 }
 
-export class BooleanValue extends Value {
+export class BooleanValue extends LiteralValue {
     constructor(private value: boolean) {
         super()
     }
@@ -306,6 +329,12 @@ export class BooleanValue extends Value {
     }
     public toString(): string {
         return this.value.toString()
+    }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'boolean'
     }
 }
 
@@ -882,7 +911,7 @@ export type Consumer = {
     id?: string,
     priority?: number,
     accept: (c: string, controller: Controller) => boolean,
-    willConsume: (c: string) => boolean,
+    willConsume: (c: string, controller: Controller) => boolean,
     onConsume?: (c: string, controller: Controller) => void,
     onChar?: (c: string, controller: Controller) => void
 }

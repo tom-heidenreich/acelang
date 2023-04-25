@@ -45,7 +45,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
@@ -115,7 +115,7 @@ function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers?: 
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
