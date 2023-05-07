@@ -134,7 +134,7 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
         // initialize struct
         if(value) {
             if(!(value instanceof StructValue)) throw new Error(`Expected struct value for struct variable ${name}`);
-            value.compile(module, scope, _var);
+            value.compile(module, scope, _var, valueType);
         }
         return;
     }

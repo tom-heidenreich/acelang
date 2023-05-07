@@ -204,7 +204,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                         type: 'pointer',
                         pointer: propertyType
                     },
-                    value: new MemberExpression(lastValue.value, property.value, propertyType)
+                    value: new MemberExpression(lastValue.value, property.value, lastValueType)
                 }
             }
         }
@@ -232,7 +232,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                         type: 'pointer',
                         pointer: propertyType
                     },
-                    value: new MemberExpression(lastValue.value, new IntValue(propertyIndex), propertyType)
+                    value: new MemberExpression(lastValue.value, new IntValue(propertyIndex), lastValueType)
                 }
             }
             // undefined check
