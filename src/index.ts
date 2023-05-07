@@ -1,6 +1,5 @@
 import path from 'path';
 import { program } from 'commander';
-import interpret from './interpreter';
 import * as fs from 'fs';
 import Logger from './util/logger';
 import compile from './compiler';
@@ -75,43 +74,6 @@ program.command('compile <file>')
             fs.watchFile(path.join(file), { interval: 1000 }, () => {
                 LOGGER.info(`Found changes in ${fileName}`);
                 LOGGER.log(`> Re-compiling...`);
-                LOGGER.log(``);
-                action();
-            })
-        }
-
-        action();
-    })
-
-program.command('run <file>')
-    .description('run a file')
-
-    .option('--details <level>', 'set the log detail level', '0')
-    .option('-l, --log', 'log the output to a file', false)
-    .option('-s, --silent', 'do not log the output to the console', false)
-    .option('-w, --watch', 'watch the file for changes', false)
-    .action((file_input, options) => {
-        if(options.details) options.details = parseInt(options.details);
-        
-        const LOGGER = new Logger(options?.log, 'log.txt', options?.silent, options?.details);
-        // create log file if log is enabled
-        if(options?.log) fs.writeFileSync('log.txt', '');
-
-        // moduler
-        const {
-            moduleManager,
-            workDir,
-            fileName,
-            file,
-        } = initModuleManager(file_input, LOGGER)
-
-        const action = () => interpret(workDir, fileName, moduleManager, LOGGER);
-
-        if(options.watch) {
-            LOGGER.info(`Watching file ${fileName}`);
-            fs.watchFile(path.join(file), { interval: 1000 }, () => {
-                LOGGER.info(`Found changes in ${fileName}`);
-                LOGGER.log(`> Re-interpreting...`);
                 LOGGER.log(``);
                 action();
             })

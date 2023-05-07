@@ -1,4 +1,9 @@
+import llvm from "llvm-bindings";
+import { Scope } from "./compiler/compiler";
+import LLVMModule from "./compiler/llvm-module";
+import { Controller } from "./lexer";
 import { ModuleManager } from "./modules";
+import Values from "./values";
 
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
@@ -12,10 +17,17 @@ export type TokenLine = {
 
 export type Token = {
     value: string;
-    type: TokenType;
-    specificType?: DataType;
+    type: string;
+    specificType?: string;
     block?: Token[][];
     lineInfo: TokenLine;
+}
+
+export type SimpleToken = {
+    value: string;
+    type: string;
+    specificType?: string;
+    block?: Token[][];
 }
 
 export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
@@ -70,7 +82,7 @@ export const OPERATORS: Operator[] = [
     '=>',
     '$'
 ]
-export const SYMBOLS: Symbol[] = [...OPERATORS, ':', ',', '.', '|', '?']
+export const SYMBOLS: Symbol[] = [':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
 export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
@@ -226,183 +238,476 @@ export type Types = {
 }
 
 // values
-export type Value = (LiteralValue | UndefinedValue | ReferenceValue | StructValue | ArrayValue | Expression | DereferenceValue | PointerCastValue | ArrowFunctionValue)
-
-export type LiteralValue = {
-    type: 'literal',
-    literal: Literal,
-    literalType: LiteralDataType,
-};
-
-export type UndefinedValue = {
-    type: 'undefined',
+export abstract class Value {
+    public abstract compile(module: LLVMModule, scope: Scope): llvm.Value;
+    public abstract toString(): string;
 }
 
-export type ReferenceValue = {
-    type: 'reference',
-    reference: string,
+export class ReferenceValue extends Value {
+    constructor(private name: string) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const ref = scope.get(this.name)
+        if(!ref) throw new Error(`Reference ${this.name} not found`)
+        return ref
+    }
+    public toString(): string {
+        return this.name
+    }
+    public get reference(): string {
+        return this.name
+    }
+}
+
+// literals
+export abstract class LiteralValue extends Value {
+    public abstract get literal(): Literal;
+    public abstract get literalType(): LiteralDataType;
+}
+
+export class IntValue extends LiteralValue {
+    constructor(private value: number) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        return module.Values.int(this.value)
+    }
+    public toString(): string {
+        return this.value.toString()
+    }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'int'
+    }
+}
+
+export class FloatValue extends LiteralValue {
+    constructor(private value: number) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        return module.Values.float(this.value)
+    }
+    public toString(): string {
+        return this.value.toString()
+    }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'float'
+    }
+}
+
+export class StringValue extends LiteralValue {
+    constructor(private value: string) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        return module.Values.string(this.value)
+    }
+    public toString(): string {
+        return this.value
+    }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'string'
+    }
+}
+
+export class BooleanValue extends LiteralValue {
+    constructor(private value: boolean) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        return module.Values.bool(this.value)
+    }
+    public toString(): string {
+        return this.value.toString()
+    }
+    public get literal(): Literal {
+        return this.value
+    }
+    public get literalType(): LiteralDataType {
+        return 'boolean'
+    }
 }
 
 // objects
-export type StructValue = {
-    type: 'struct',
-    properties: {[name: string]: Value},
+export class StructValue extends Value {
+
+    public constructor(public properties: {[name: string]: Value}) {
+        super()
+    }
+
+    public compile(module: LLVMModule, scope: Scope, alloca?: llvm.AllocaInst, structType?: StructType): llvm.Value {
+
+        if(!alloca) throw new Error("Constant structs are not supported yet");
+
+        if(!structType) throw new Error("Struct type is required");
+        const type = module.Types.convertType(structType);
+
+        // initialize struct
+        const entries = Object.entries(this.properties);
+        for(let i = 0; i<entries.length; i++) {
+            const [_, item] = entries[i];
+            const compiledItem = item.compile(module, scope);
+            const itemPtr = module.builder.CreateGEP(type, alloca, [module.Values.int(0), module.Values.int(i)]);
+            module.builder.CreateStore(compiledItem, itemPtr);
+        }
+
+        return alloca;
+    }
+
+    public toString(): string {
+        return `{${Object.entries(this.properties).map(([name, value]) => `${name}: ${value}`).join(', ')}}`
+    }
 }
 
-export type ArrayValue = {
-    type: 'array',
-    items: Value[],
-    itemType: Type,
+export class ArrayValue extends Value {
+    constructor(public items: Value[], private itemType: Type) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope, alloca?: llvm.AllocaInst): llvm.Value {
+        const arrayType = module.Types.array(module.Types.convertType(this.itemType), this.items.length);
+
+        if(!alloca) {
+            const constants: llvm.Constant[] = this.items.map((item, index) => {
+                const value = item.compile(module, scope);
+                if(value instanceof llvm.Constant) return value;
+                throw new Error(`Array item ${index} is not a constant`)
+            });
+            return llvm.ConstantArray.get(arrayType, constants)
+        }
+
+        // initialize array
+        for(let i = 0; i<this.items.length; i++) {
+            const item = this.items[i];
+            const compiledItem = item.compile(module, scope);
+            const itemPtr = module.builder.CreateGEP(arrayType, alloca, [module.Values.int(0), module.Values.int(i)]);
+            module.builder.CreateStore(compiledItem, itemPtr);
+        }
+
+        return alloca;
+    }
+    public toString(): string {
+        return `[${this.items.map(item => item.toString()).join(', ')}]`
+    }
 }
 
-export type DereferenceValue = {
-    type: 'dereference',
-    target: Value,
-    targetType: Type,
-}
-
-export type PointerCastValue = {
-    type: 'pointerCast',
-    target: Value,
-    targetType: Type,
-}
-
-export type ArrowFunctionValue = {
-    type: 'arrowFunction',
-    name: string
+export class ArrowFunctionValue extends Value {
+    constructor(private name: string) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const ref = scope.get(this.name);
+        if(!ref) throw new Error(`Unexpected error. Callable ${this.name} not found`);
+        return ref;
+    }
+    public toString(): string {
+        throw new Error("Method not implemented.");
+    }
 }
 
 // expression
-export type Expression = (
-    PlusExpression |
-    MinusExpression |
-    MultiplyExpression |
-    DivideExpression |
-    CallExpression |
-    MemberExpression |
-    ConditionalExpression |
-    InstantiationExpression |
-    CastExpression |
-    AssignExpression
-)
-
-export type CallExpression = {
-    type: 'call',
-    callable: Value,
-    args: Value[],
+export class CallExpression extends Value {
+    constructor(private callable: Value, private args: Value[]) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const argValues = this.args.map(arg => arg.compile(module, scope));
+        const callable = this.callable.compile(module, scope);
+        if(callable instanceof llvm.Function) return module.builder.CreateCall(callable, argValues);
+        if(callable.getType() instanceof llvm.PointerType) {
+            const elementType = callable.getType().getPointerElementType()
+            if(elementType instanceof llvm.FunctionType) {
+                return module.builder.CreateCall(elementType, callable, argValues);
+            }
+            throw new Error(`Cannot call pointer type. ${callable.getType().isPointerTy() ? 'Did you forget to dereference?' : ''}`);
+        }
+        if(!(callable.getType() instanceof llvm.FunctionType)) {
+            throw new Error(`Cannot call non-function type.`);
+        }
+        return module.builder.CreateCall(callable.getType(), callable, argValues);
+    }
+    public toString(): string {
+        return `(${this.callable})(${this.args.map(arg => arg.toString()).join(', ')})`
+    }
 }
 
-export type InstantiationExpression = {
-    type: 'instantiation',
-    className: Identifier,
-    args: Value[],
+export class MemberExpression extends Value {
+    constructor(private target: Value, private property: Value, private targetType: Type) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        const property = this.property.compile(module, scope);
+
+        if(!property.getType().isIntegerTy(32)) throw new Error(`Unknown property type, expected int`);
+        return module.builder.CreateGEP(module.Types.convertType(this.targetType), target, [module.Values.int(0), property]);
+    }
+    public toString(): string {
+        return `${this.target}[${this.property}]`
+    }
 }
 
-export type MemberExpression = {
-    type: 'member',
-    targetType: Type,
-    target: Value,
-    property: Value
+export abstract class ExpressionValue extends Value {
+    constructor(protected left: Value, protected right: Value) {
+        super()
+    }
+    protected abstract compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value;
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const left = this.left.compile(module, scope);
+        const right = this.right.compile(module, scope);
+        return this.compileExpression(module, scope, left, right);
+    }
 }
 
-export type AssignExpression = {
-    type: 'assign',
-    target: Value,
-    value: Value,
+export class AssignExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateStore(right, left);
+    }
+    public toString(): string {
+        return `${this.left} = ${this.right}`
+    }
 }
 
-export type PlusExpression = AddExpression | ConcatStringExpression
 // plus Expressions
-export type AddExpression = {
-    type: 'add',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class AddExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateAdd(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} + ${this.right})`
+    }
 }
 
-export type ConcatStringExpression = {
-    type: 'stringConcat',
-    left: Value,
-    right: Value,
+export class ConcatStringExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        throw new Error(`Not implemented`)
+    }
+    public toString(): string {
+        return `(${this.left} + ${this.right})`
+    }
 }
 
 // minus Expressions
-export type MinusExpression = SubtractExpression
-export type SubtractExpression = {
-    type: 'subtract',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class SubtractExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateSub(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} - ${this.right})`
+    }
 }
 
 // multiplication Expressions
-export type MultiplyExpression = {
-    type: 'multiply',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class MultiplyExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateMul(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} * ${this.right})`
+    }
 }
 
 // division Expressions
-export type DivideExpression = {
-    type: 'divide',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
-}
-
-// conditional Expressions
-export type ConditionalExpression = EqualsExpression | ComparisonExpression
-
-export type EqualsExpression = {
-    type: 'equals',
-    left: Value,
-    right: Value,
+export class DivideExpression extends ExpressionValue {
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateSDiv(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} / ${this.right})`
+    }
 }
 
 // comparison Expressions
-export type ComparisonExpression = (
-    LessThanExpression |
-    LessThanEqualsExpression |
-    GreaterThanExpression |
-    GreaterThanEqualsExpression
-)
-
-export type LessThanExpression = {
-    type: 'lessThan',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export abstract class ComparisionExpression extends ExpressionValue {
+    protected abstract comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value;
+    protected compileExpression(module: LLVMModule, scope: Scope, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateZExt(this.comparision(module, left, right), module.Types.bool);
+    }
 }
 
-export type LessThanEqualsExpression = {
-    type: 'lessThanEquals',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class EqualsExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateICmpEQ(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} == ${this.right})`
+    }
 }
 
-export type GreaterThanExpression = {
-    type: 'greaterThan',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class IntLessThanExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateICmpSLT(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} < ${this.right})`
+    }
 }
 
+export class IntLessThanEqualsExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateICmpSLE(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} <= ${this.right})`
+    }
+}
 
-export type GreaterThanEqualsExpression = {
-    type: 'greaterThanEquals',
-    left: Value,
-    right: Value,
-    numberType: 'int' | 'float',
+export class IntGreaterThanExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateICmpSGT(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} > ${this.right})`
+    }
+}
+
+export class IntGreaterThanEqualsExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateICmpSGE(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} >= ${this.right})`
+    }
+}
+
+export class FloatLessThanExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateFCmpOLT(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} < ${this.right})`
+    }
+}
+
+export class FloatLessThanEqualsExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateFCmpOLE(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} <= ${this.right})`
+    }
+}
+
+export class FloatGreaterThanExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateFCmpOGT(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} > ${this.right})`
+    }
+}
+
+export class FloatGreaterThanEqualsExpression extends ComparisionExpression {
+    protected comparision(module: LLVMModule, left: llvm.Value, right: llvm.Value): llvm.Value {
+        return module.builder.CreateFCmpOGE(left, right);
+    }
+    public toString(): string {
+        return `(${this.left} >= ${this.right})`
+    }
 }
 
 // cast Expressions
-export type CastExpression = {
-    type: 'cast',
-    value: Value,
-    targetType: DataType,
-    currentType: DataType,
+export abstract class CastExpression extends Value {
+    public constructor(protected target: Value) {
+        super()
+    }
+}
+
+export class IntToFloatCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateSIToFP(target, module.Types.float);
+    }
+    public toString(): string {
+        return `(${this.target} as float)`
+    }
+}
+
+export class IntToBooleanCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateICmpNE(target, llvm.ConstantInt.get(module.Types.int, 0));
+    }
+    public toString(): string {
+        return `(${this.target} as boolean)`
+    }
+}
+
+export class FloatToIntCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateFPToSI(target, module.Types.int);
+    }
+    public toString(): string {
+        return `(${this.target} as int)`
+    }
+}
+
+export class FloatToBooleanCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateFCmpONE(target, llvm.ConstantFP.get(module.Types.float, 0));
+    }
+    public toString(): string {
+        return `(${this.target} as boolean)`
+    }
+}
+
+export class BooleanToIntCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateZExt(target, module.Types.int);
+    }
+    public toString(): string {
+        return `(${this.target} as int)`
+    }
+}
+
+export class BooleanToFloatCast extends CastExpression {
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope);
+        return module.builder.CreateUIToFP(target, module.Types.float)
+    }
+    public toString(): string {
+        return `(${this.target} as float)`
+    }
+}
+
+// pointers
+export class DereferenceValue extends Value {
+    public constructor(protected target: Value) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        if(!(target.getType() instanceof llvm.PointerType)) throw new Error(`Cannot dereference non-pointer type ${target.getType()}`)
+        return module.builder.CreateLoad(target.getType().getPointerElementType(), target)
+    }
+    public toString(): string {
+        return `$${this.target}`
+    }
+}
+
+export class PointerCastValue extends Value {
+    public constructor(protected target: Value, protected type: Type) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        return module.builder.CreatePointerCast(target, llvm.PointerType.get(module.Types.convertType(this.type), 0));
+    }
+    public toString(): string {
+        return `*${this.target}`
+    }
 }
 
 export type ValueNode = {
@@ -580,4 +885,49 @@ export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
     env: Environment,
+    values: Values
 }
+
+// addons
+export type LexerAddon = {
+    name: string,
+    consumers: {
+        structure?: string,
+        consumer: Consumer,
+    }[],
+    tokenizers?: {
+        [key: string]: Tokenizer
+    },
+    register?: {
+        tokenTypes?: string[],
+        symbols?: string[],
+        operators?: string[],
+        keywords?: string[],
+        dataTypes?: string[]
+    }
+}
+
+export type Consumer = {
+    id?: string,
+    priority?: number,
+    accept: (c: string, controller: Controller) => boolean,
+    willConsume: (c: string, controller: Controller) => boolean,
+    onConsume?: (c: string, controller: Controller) => void,
+    onChar?: (c: string, controller: Controller) => void
+}
+
+export type Tokenizer = (value: string, controller: Controller) => SimpleToken | false
+
+export const LexerPriority = {
+    IMPORTANT: 100,
+    HIGHER: 90,
+    HIGH: 80,
+    NORMAL: 50,
+    LOW: 20,
+    LOWER: 10,
+    UNIMPORTANT: 0,
+    more: (count: number = 1) => count * 5,
+}
+
+// util
+export type Exclude<T, E> = (T extends E ? never : T) & (E extends T ? never : T)

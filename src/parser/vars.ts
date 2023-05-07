@@ -2,7 +2,6 @@ import { Context, Statement, Token, Type } from "../types"
 import Cursor from "../util/cursor"
 import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck"
-import Values from "./values"
 import { parseType } from "./types"
 import line from "../util/LineStringify"
 
@@ -71,7 +70,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
         // value
         const valueToken = cursor.peek()
-        const valueNode = Values.parseValue(context, cursor.remaining(), type)
+        const valueNode = context.values.parseValue(context, cursor.remaining(), type)
         const value = valueNode.value
 
         // dynamic type

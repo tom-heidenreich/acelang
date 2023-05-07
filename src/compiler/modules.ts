@@ -4,12 +4,13 @@ import path from 'path';
 import llvm from 'llvm-bindings';
 
 import LLVMModule from './llvm-module';
-import { lex } from '../lexer';
-import { Context, declareFunction, defineFunction, parseStatements } from './compiler';
+import Lexer from '../lexer';
+import { Scope, declareFunction, defineFunction, parseStatements } from './compiler';
 import { parseToTree } from '../parser';
 import { ModuleManager } from '../modules';
 import Logger from '../util/logger';
 import TypeCheck from '../util/TypeCheck';
+import Values from '../values';
 
 type Options = {
     output?: string
@@ -23,13 +24,15 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
 
     // lex the file
     LOGGER.log(`Lexing file ${file_name}`, { type: 'info', detail: 1 });
-    const tokens = lex(content, path.join(work_dir, file_name), LOGGER)
+    const lexer = new Lexer(path.join(work_dir, file_name))
+    const tokens = lexer.lex(content)
 
     LOGGER.log(`Found ${tokens.length} tokens`, { detail: 1 })
     
     // get ast
     LOGGER.log(`Parsing file ${file_name}`, { type: 'info', detail: 1 });
-    const { tree, callables, imports, exports } = parseToTree(moduleManager, tokens);
+    const values = new Values()
+    const { tree, callables, imports, exports } = parseToTree(moduleManager, tokens, values);
 
     LOGGER.log(`Found ${tree.length} statements`, { detail: 1 });
 
@@ -43,17 +46,17 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     const functionType = llvm.FunctionType.get(module.Types.int, [], false);
     const _init_func = llvm.Function.Create(functionType, llvm.Function.LinkageTypes.InternalLinkage, '_init', module._module);
 
-    const context = new Context(_init_func);
+    const scope = new Scope(_init_func);
 
     // declare imports
     for(const _import of imports) {
         if(_import.type !== 'function') throw new Error('Only function imports are supported');
-        declareFunction(module, context, _import);
+        declareFunction(module, scope, _import);
     }
 
     // declare functions
     for(const callableName in callables) {
-        defineFunction(module, context, callables[callableName], callableName)
+        defineFunction(module, scope, callables[callableName], callableName)
     }
 
     // start of main function block
@@ -63,10 +66,10 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     // built in functions
     const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
     const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
-    context.set('printf', printf);
+    scope.set('printf', printf);
 
     // currently disabled
-    // parseStatements(module, context, tree);
+    // parseStatements(module, scope, tree);
 
     // end of main function block
     builder.CreateRet(module.Values.int(0));

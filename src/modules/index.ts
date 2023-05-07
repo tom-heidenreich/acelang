@@ -4,7 +4,6 @@ import { pathEqual } from 'path-equal'
 import validate, { Schema } from '../util/JsonValidator';
 import { Binding } from "../types"
 import { parseBindingsFile } from './bindings';
-import { lex } from '../lexer';
 import Logger from '../util/logger';
 
 const ROOT = path.parse(process.cwd()).root

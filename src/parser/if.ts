@@ -3,7 +3,6 @@ import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
-import Values from "./values";
 
 export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
 
@@ -19,7 +18,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     else if(condition.block.length > 1) {
         throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at ${line(condition)}`)
     }
-    const conditionValue = Values.parseValue(context, new Cursor(condition.block[0]))
+    const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
     if(!TypeCheck.matchesPrimitive(context.build.types, conditionValue.type, 'boolean')) {
         throw new Error(`Expected boolean value at ${line(condition)}`)
     }
@@ -46,7 +45,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
@@ -116,7 +115,7 @@ function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers?: 
     }
 
     // parse body
-    const body = parseEnvironment(context.build, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 

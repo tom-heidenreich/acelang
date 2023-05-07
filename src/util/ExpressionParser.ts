@@ -1,19 +1,43 @@
-import { Context, Operator, PrimitiveType, Token, Type, ValueNode } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
-import Values from "../parser/values";
 import FieldResolve from "./FieldResolve";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
 import line from "./LineStringify";
 import { parseArrowFunction } from "../parser/functions";
+import LLVMModule from "../compiler/llvm-module";
+import { Scope } from "../compiler/compiler";
+import llvm from "llvm-bindings";
+
+function dereference(context: Context, target: ValueNode, token: Token): ValueNode {
+    const { type, value } = target;
+    if(type.type !== 'pointer') {
+        throw new Error(`Expected pointer, got ${TypeCheck.stringify(type)} at ${line(token)}`);
+    }
+    return {
+        type: type.pointer,
+        value: new DereferenceValue(value)
+    }
+}
+
+function pointerCast(context: Context, target: ValueNode, token: Token): ValueNode {
+    const { type, value } = target;
+    return {
+        type: {
+            type: 'pointer',
+            pointer: type
+        },
+        value: new PointerCastValue(value, type)
+    }
+}
 
 export default class ExpressionParser {
 
     public static parse(context: Context, cursor: Cursor<Token>): ValueNode {
 
         if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
-        else if (cursor.hasOnlyOne()) return Values.parseValue(context, cursor);
+        else if (cursor.hasOnlyOne()) return context.values.parseValue(context, cursor);
 
         let mainOperatorIndex = -1;
         let mainOperator: Operator | undefined;
@@ -51,15 +75,15 @@ export default class ExpressionParser {
                 // dereference
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
-                const value = Values.parseValue(context, cursor.remaining());
-                return Values.dereference(context, value, next);
+                const value = context.values.parseValue(context, cursor.remaining());
+                return dereference(context, value, next);
             }
             else if(mainOperator === '*') {
                 // pointer
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
-                const value = Values.parseValue(context, cursor.remaining());
-                return Values.pointerCast(context, value, next);
+                const value = context.values.parseValue(context, cursor.remaining());
+                return pointerCast(context, value, next);
             }
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
@@ -86,8 +110,8 @@ export default class ExpressionParser {
         switch(op) {
             case '$': return 0;
             case '+': return 2;
-            case '*': return 3;
-            case '/': return 3;
+            case '*': return 1;
+            case '/': return 1;
             case '=': return 10;
             case '+=': return 10;
             case '-=': return 10;
@@ -131,7 +155,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
             if(!token.block) throw new Error(`Unexpected end of block at ${line(token)}`);
             if(!lastValue) {
                 if (token.block.length !== 1) throw new Error(`Expected end of block at ${line(token)}`)
-                lastValue = Values.parseValue(context, new Cursor(token.block[0]));
+                lastValue = context.values.parseValue(context, new Cursor(token.block[0]));
                 continue;
             }
 
@@ -141,7 +165,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 const lastValueType = TypeCheck.dereference(lastValue.type)
                 if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at ${line(token)}`)
 
-                const args = token.block.map(block => Values.parseValue(context, new Cursor(block)));
+                const args = token.block.map(block => context.values.parseValue(context, new Cursor(block)));
                 const params = lastValueType.params;
 
                 if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
@@ -153,11 +177,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
 
                 lastValue = {
                     type: lastValueType.returnType,
-                    value: {
-                        type: 'call',
-                        callable: lastValue.value,
-                        args: args.map(arg => arg.value)
-                    }
+                    value: new CallExpression(lastValue.value, args.map(arg => arg.value))
                 }
             }
             // member access
@@ -170,7 +190,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                     throw new Error(`Cannot access non-object at ${line(token)}`);
                 }
 
-                const property = Values.parseValue(context, new Cursor(token.block[0]));
+                const property = context.values.parseValue(context, new Cursor(token.block[0]));
 
                 if(!TypeCheck.matchesPrimitive(context.build.types, property.type, 'int')) {
                     throw new Error(`Expected int, got ${TypeCheck.stringify(property.type)} at ${line(token)}`);
@@ -184,12 +204,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                         type: 'pointer',
                         pointer: propertyType
                     },
-                    value: {
-                        type: 'member',
-                        targetType: lastValueType,
-                        target: lastValue.value,
-                        property: property.value
-                    }
+                    value: new MemberExpression(lastValue.value, property.value, propertyType)
                 }
             }
         }
@@ -217,76 +232,25 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                         type: 'pointer',
                         pointer: propertyType
                     },
-                    value: {
-                        type: 'member',
-                        targetType: lastValueType,
-                        target: lastValue.value,
-                        property: {
-                            type: 'literal',
-                            literal: propertyIndex,
-                            literalType: 'int'
-                        }
-                    }
+                    value: new MemberExpression(lastValue.value, new IntValue(propertyIndex), propertyType)
                 }
             }
             // undefined check
-            else if(token.value === '?') {
-                if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
+            // TODO: implement this
+            // else if(token.value === '?') {
+            //     if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
 
-                lastValue = {
-                    type: {
-                        type: 'primitive',
-                        primitive: 'boolean'
-                    },
-                    value: {
-                        type: 'equals',
-                        left: lastValue.value,
-                        right: {
-                            type: 'undefined',
-                        }
-                    }
-                }
-            }
+            //     lastValue = {
+            //         type: {
+            //             type: 'primitive',
+            //             primitive: 'boolean'
+            //         },
+            //         value: new EqualsExpression(lastValue.value, )
+            //     }
+            // }
         }
         else if(token.type === 'keyword') {
-            if(token.value === 'new') {
-                if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at ${line(token)}`);
-
-                const className = cursor.next();
-                if(className.type !== 'identifier') throw new Error(`Expected identifier at line ${line(token)}`);
-
-                const argsToken = cursor.next();
-                if(argsToken.type !== 'block' || argsToken.value !== '()') throw new Error(`Expected end of block at ${line(token)}`);
-                else if(!argsToken.block) throw new Error(`Unexpected end of block at ${line(token)}`);
-
-                const args = argsToken.block.map(block => Values.parseValue(context, new Cursor(block)));
-
-                // get class
-                const classField = FieldResolve.resolve(context.env.fields, className.value);
-                if(!classField) throw new Error(`Unknown class ${className.value} at ${line(token)}`);
-                const resolvedType = classField.type
-
-                if(resolvedType.type !== 'class') throw new Error(`Cannot instantiate non-class ${className.value} at ${line(token)}`);
-
-                // check args
-                const params = resolvedType.params;
-                if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
-                for(let i = 0; i < params.length; i++) {
-                    if(!TypeCheck.matchesValue(context.build.types, params[i], args[i])) {
-                        throw new Error(`Expected ${TypeCheck.stringify(params[i])}, got arg ${TypeCheck.stringify(args[i].type)} at ${line(token)}`);
-                    }
-                }
-
-                lastValue = {
-                    type: resolvedType.publicType,
-                    value: {
-                        type: 'instantiation',
-                        className: className.value,
-                        args: args.map(arg => arg.value)
-                    }
-                }
-            }
-            else if(token.value === 'as') {
+            if(token.value === 'as') {
                 if(!lastValue) throw new Error(`Invalid expression at ${line(token)}`);
 
                 const type = parseType(context, cursor.remaining());
@@ -294,20 +258,12 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 // check if both types are primitive
                 if(lastValue.type.type === 'primitive' && type.type === 'primitive') {
                     if(lastValue.type.primitive === type.primitive) return lastValue;
-                    lastValue = {
-                        type: type,
-                        value: {
-                            type: 'cast',
-                            value: lastValue.value,
-                            targetType: type.primitive,
-                            currentType: lastValue.type.primitive
-                        }
-                    }
+                    lastValue = cast(lastValue, lastValue.type, type)
                     continue;
                 }
 
                 if(!TypeCheck.matches(context.build.types, lastValue.type, type)) {
-                    throw new Error(`Cannot cast ${Values.stringify(lastValue.value)} to ${TypeCheck.stringify(type)} at ${line(token)}`);
+                    throw new Error(`Cannot cast ${lastValue.value} to ${TypeCheck.stringify(type)} at ${line(token)}`);
                 }
 
                 lastValue = {
@@ -318,8 +274,8 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
         }
         // value
         else {
-            if(lastValue) throw new Error(`Unexpected value ${Values.stringify(lastValue.value)} at ${line(token)}`);
-            const value = Values.parseValue(context, new Cursor([token]));
+            if(lastValue) throw new Error(`Unexpected value ${lastValue.value} at ${line(token)}`);
+            const value = context.values.parseValue(context, new Cursor([token]));
             lastValue = value;
         }
     }
@@ -340,28 +296,24 @@ function parseAssignExpression(context: Context, left: ValueNode, right: ValueNo
             type: 'primitive',
             primitive: 'void'
         },
-        value: {
-            type: 'assign',
-            target: left.value,
-            value: right.value
-        }
+        value: new AssignExpression(left.value, right.value)
     }
 }
 
 function parsePlusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parsePlusExpression(context, Values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parsePlusExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseMinusAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseMinusExpression(context, Values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseMinusExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseMultiplyAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseMultiplyExpression(context, Values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseMultiplyExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parseDivideAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
-    return parseAssignExpression(context, left, parseDivideExpression(context, Values.dereference(context, left, token), right, token), token);
+    return parseAssignExpression(context, left, parseDivideExpression(context, dereference(context, left, token), right, token), token);
 }
 
 function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
@@ -373,19 +325,15 @@ function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode
 
     if(leftType === 'string' || rightType === 'string') {
 
-        const leftValue = castNumberToString(left);
-        const rightValue = castNumberToString(right);
+        const leftValue = stringifyNumber(left);
+        const rightValue = stringifyNumber(right);
 
         return {
             type: {
                 type: 'primitive',
                 primitive: 'string'
             },
-            value: {
-                type: 'stringConcat',
-                left: leftValue.value,
-                right: rightValue.value
-            }
+            value: new ConcatStringExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'float' || rightType === 'float') {
@@ -398,12 +346,7 @@ function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode
                 type: 'primitive',
                 primitive: 'float'
             },
-            value: {
-                type: 'add',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new AddExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -412,12 +355,7 @@ function parsePlusExpression(context: Context, left: ValueNode, right: ValueNode
                 type: 'primitive',
                 primitive: 'int'
             },
-            value: {
-                type: 'add',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new AddExpression(left.value, right.value)
         }
     }
     else {
@@ -442,12 +380,7 @@ function parseMinusExpression(context: Context, left: ValueNode, right: ValueNod
                 type: 'primitive',
                 primitive: 'float'
             },
-            value: {
-                type: 'subtract',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new SubtractExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -456,12 +389,7 @@ function parseMinusExpression(context: Context, left: ValueNode, right: ValueNod
                 type: 'primitive',
                 primitive: 'int'
             },
-            value: {
-                type: 'subtract',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new SubtractExpression(left.value, right.value)
         }
     }
     else {
@@ -486,12 +414,7 @@ function parseMultiplyExpression(context: Context, left: ValueNode, right: Value
                 type: 'primitive',
                 primitive: 'float'
             },
-            value: {
-                type: 'multiply',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new MultiplyExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -500,12 +423,7 @@ function parseMultiplyExpression(context: Context, left: ValueNode, right: Value
                 type: 'primitive',
                 primitive: 'int'
             },
-            value: {
-                type: 'multiply',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new MultiplyExpression(left.value, right.value)
         }
     }
     else {
@@ -530,12 +448,7 @@ function parseDivideExpression(context: Context, left: ValueNode, right: ValueNo
                 type: 'primitive',
                 primitive: 'float'
             },
-            value: {
-                type: 'divide',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new DivideExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -544,12 +457,7 @@ function parseDivideExpression(context: Context, left: ValueNode, right: ValueNo
                 type: 'primitive',
                 primitive: 'int'
             },
-            value: {
-                type: 'divide',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new DivideExpression(left.value, right.value)
         }
     }
     else {
@@ -563,11 +471,7 @@ function parseEqualsExpression(context: Context, left: ValueNode, right: ValueNo
             type: 'primitive',
             primitive: 'boolean'
         },
-        value: {
-            type: 'equals',
-            left: left.value,
-            right: right.value
-        }
+        value: new EqualsExpression(left.value, right.value)
     }
 }
 
@@ -588,12 +492,7 @@ function parseLessThanExpression(context: Context, left: ValueNode, right: Value
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'lessThan',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new FloatLessThanExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -602,12 +501,7 @@ function parseLessThanExpression(context: Context, left: ValueNode, right: Value
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'lessThan',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new IntLessThanExpression(left.value, right.value)
         }
     }
     else {
@@ -632,12 +526,7 @@ function parseGreaterThanExpression(context: Context, left: ValueNode, right: Va
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'greaterThan',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new FloatGreaterThanExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -646,12 +535,7 @@ function parseGreaterThanExpression(context: Context, left: ValueNode, right: Va
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'greaterThan',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new IntGreaterThanExpression(left.value, right.value)
         }
     }
     else {
@@ -676,12 +560,7 @@ function parseLessThanEqualsExpression(context: Context, left: ValueNode, right:
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'lessThanEquals',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new FloatLessThanEqualsExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -690,12 +569,7 @@ function parseLessThanEqualsExpression(context: Context, left: ValueNode, right:
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'lessThanEquals',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new IntLessThanEqualsExpression(left.value, right.value)
         }
     }
     else {
@@ -720,12 +594,7 @@ function parseGreaterThanEqualsExpression(context: Context, left: ValueNode, rig
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'greaterThanEquals',
-                left: leftValue.value,
-                right: rightValue.value,
-                numberType: 'float'
-            }
+            value: new FloatGreaterThanEqualsExpression(leftValue.value, rightValue.value)
         }
     }
     else if(leftType === 'int' && rightType === 'int') {
@@ -734,12 +603,7 @@ function parseGreaterThanEqualsExpression(context: Context, left: ValueNode, rig
                 type: 'primitive',
                 primitive: 'boolean'
             },
-            value: {
-                type: 'greaterThanEquals',
-                left: left.value,
-                right: right.value,
-                numberType: 'int'
-            }
+            value: new IntGreaterThanEqualsExpression(left.value, right.value)
         }
     }
     else {
@@ -747,49 +611,131 @@ function parseGreaterThanEqualsExpression(context: Context, left: ValueNode, rig
     }
 }
 
-
-export function castNumberToInt(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'int') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
+export function stringifyNumber(value: ValueNode): ValueNode {
+    if(value.type.type !== 'primitive') {
+        throw new Error(`Cannot stringify ${TypeCheck.stringify(value.type)}`);
     }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'int'
-    });
+    if(value.type.primitive === 'float') value = castToInteger(value, value.type);
+
+    class StringifyInteger extends Value {
+        public compile(module: LLVMModule, scope: Scope): llvm.Value {
+            const target = value.value.compile(module, scope);
+            const sitoaType = llvm.FunctionType.get(llvm.Type.getInt8PtrTy(module._context), [llvm.Type.getInt32Ty(module._context)], false);
+            const sitoa = llvm.Function.Create(sitoaType, llvm.Function.LinkageTypes.ExternalLinkage, 'sitoa', module._module);
+            return module.builder.CreateCall(sitoa, [target]);
+        }
+        public toString(): string {
+            return `${value.value}`
+        }
+    }
+
+    return {
+        type: {
+            type: 'primitive',
+            primitive: 'string'
+        },
+        value: new StringifyInteger()
+    }
 }
 
 export function castNumberToFloat(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'float') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
+    if(value.type.type === 'primitive' && value.type.primitive === 'float') {
+        return value;
     }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'float'
-    });
-}
-
-export function castNumberToString(value: ValueNode): ValueNode {
-    if(value.type.type === 'primitive' && value.type.primitive === 'string') return value;
-    if(!TypeCheck.isNumber(value.type)) {
-        throw new Error(`Expected number, got ${TypeCheck.stringify(value.type)}`);
-    }
-    return castToPrimitive(value, {
-        type: 'primitive',
-        primitive: 'string'
-    });
-}
-
-export function castToPrimitive(value: ValueNode, type: PrimitiveType): ValueNode {
-    if(value.type.type !== 'primitive') throw new Error(`Expected primitive, got ${value.type.type}`);
-    return {
-        type: type,
-        value: {
-            type: 'cast',
-            value: value.value,
-            targetType: type.primitive,
-            currentType: value.type.primitive
+    else if(value.type.type === 'primitive' && value.type.primitive === 'int') {
+        return {
+            type: {
+                type: 'primitive',
+                primitive: 'float'
+            },
+            value: new IntToFloatCast(value.value)
         }
     }
+    else {
+        throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to float`);
+    }
+}
+
+export function cast(value: ValueNode, curentType: PrimitiveType, targetType: PrimitiveType): ValueNode {
+    switch(targetType.primitive) {
+        case 'int':
+            return castToInteger(value, curentType);
+        case 'float':
+            return castToFloat(value, curentType);
+        case 'boolean':
+            return castToBoolean(value, curentType);
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to ${targetType}`);
+}
+
+function castToInteger(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return value;
+        case 'float':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'int'
+                },
+                value: new FloatToIntCast(value.value)
+            }
+        case 'boolean':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'int'
+                },
+                value: new BooleanToIntCast(value.value)
+            }
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to int`);
+}
+
+function castToFloat(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'float'
+                },
+                value: new IntToFloatCast(value.value)
+            }
+        case 'float':
+            return value;
+        case 'boolean':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'float'
+                },
+                value: new BooleanToFloatCast(value.value)
+            }
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to float`);
+}
+
+function castToBoolean(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'boolean'
+                },
+                value: new IntToBooleanCast(value.value)
+            }
+        case 'float':
+            return {
+                type: {
+                    type: 'primitive',
+                    primitive: 'boolean'
+                },
+                value: new FloatToBooleanCast(value.value)
+            }
+        case 'boolean':
+            return value;
+    }
+    throw new Error(`Cannot cast ${TypeCheck.stringify(value.type)} to boolean`);
 }
