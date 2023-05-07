@@ -93,7 +93,8 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                     type: {
                         type: 'pointer',
                         pointer: items
-                    }
+                    },
+                    isConst
                 }
             })
         }
@@ -109,6 +110,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                             type: 'pointer',
                             pointer: properties[name]
                         },
+                        isConst
                     }
                 })
             }
@@ -120,6 +122,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                             type: 'pointer',
                             pointer: values
                         },
+                        isConst
                     }
                 })
             }
@@ -132,7 +135,8 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                 type: {
                     type: 'pointer',
                     pointer: type
-                }
+                },
+                isConst
             }
         }
 

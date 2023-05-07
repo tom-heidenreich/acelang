@@ -152,6 +152,7 @@ export type Modifiers = {
 // fields
 export type Field = {
     type: Type,
+    isConst?: boolean,
 }
 
 export type Fields = {

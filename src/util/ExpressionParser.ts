@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, ReferenceValue, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import FieldResolve from "./FieldResolve";
@@ -289,6 +289,15 @@ function parseAssignExpression(context: Context, left: ValueNode, right: ValueNo
     const leftType = TypeCheck.dereference(left.type);
     if(!TypeCheck.matches(context.build.types, leftType, right.type)) {
         throw new Error(`Cannot assign ${TypeCheck.stringify(right.type)} to ${TypeCheck.stringify(leftType)} at ${line(token)}`);
+    }
+
+    if(!(left.value instanceof ReferenceValue)) {
+        console.log('not reference value', left.value);
+    }
+    else {
+        const field = FieldResolve.resolve(context.env.fields, left.value.reference);
+        if(!field) throw new Error(`Cannot assign to unknown field ${left.value.reference} at ${line(token)}`);
+        if(field.isConst) throw new Error(`Cannot assign to const field ${left.value.reference} at ${line(token)}`);
     }
 
     return {
