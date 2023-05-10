@@ -163,7 +163,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
             if(token.value === '()') {
 
                 const lastValueType = TypeCheck.dereference(lastValue.type)
-                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable at ${line(token)}`)
+                if (lastValueType.type !== 'callable') throw new Error(`Cannot call non-callable '${lastValueType.type}' at ${line(token)}`)
 
                 const args = token.block.map(block => context.values.parseValue(context, new Cursor(block)));
                 const params = lastValueType.params;
