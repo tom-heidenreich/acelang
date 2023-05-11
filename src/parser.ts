@@ -36,7 +36,6 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
             primitive: 'void',
         },
         body: [],
-        isSync: true,
         isBuiltIn: true,
     }
     

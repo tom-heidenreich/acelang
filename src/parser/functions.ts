@@ -38,7 +38,7 @@ export function parseParams(context: Context, cursor: Cursor<Token[]>) {
     return params;
 }
 
-export function parseFunc({ context, cursor, isSync = false, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
+export function parseFunc({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
 
     // name
     const name = cursor.next()
@@ -151,7 +151,6 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         body: body.tree,
         params,
         returnType: func.returnType,
-        isSync,
     }
 
     return {
@@ -292,7 +291,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
         body: body.tree,
         params,
         returnType: func.returnType,
-        isSync: false,
     }
 
     context.build.callables[anonName] = callable

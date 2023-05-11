@@ -6,7 +6,6 @@ import { parseContinueStatement } from "./continue"
 import { parseForStatement } from "./for"
 import { parseFunc, parseReturn } from "./functions"
 import { parseIfStatement } from "./if"
-import { parseSync } from "./sync"
 import { parseTypeStatement } from "./types"
 import { parseConst, parseVar } from "./vars"
 import { parseWhileStatement } from "./while"
@@ -88,7 +87,6 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
             case 'var': return parseVar(context, cursor)
             case 'func': return parseFunc({ context, cursor, wrappers }).statement
             case 'return': return parseReturn(context, cursor, wrappers)
-            case 'sync': return parseSync(context, cursor)
             case 'type': return parseTypeStatement(context, cursor)
             case 'if': {
                 isIfElseChain = true

@@ -36,7 +36,6 @@ export const KEYWORDS: Keyword[] = [
     'const',
     'var',
     'func',
-    'sync',
     'return',
     'type',
     'if',
@@ -91,7 +90,6 @@ export type Keyword = (
     'const' |
     'var' |
     'func' |
-    'sync' |
     'return' |
     'type' |
     'if' |
@@ -207,7 +205,6 @@ export type Callable = {
     body: Statement[],
     params: Param[],
     returnType: Type,
-    isSync: boolean,
     // TODO: rename this. imports uses this too
     isBuiltIn?: boolean,
 }
@@ -755,7 +752,6 @@ export type Statement = (
     VariableDeclaration |
     FunctionDeclaration |
     ReturnStatement |
-    SyncStatement |
     ExpressionStatement |
     IfStatement |
     WhileStatement |
@@ -790,12 +786,6 @@ export type FunctionDeclaration = {
 export type ReturnStatement = {
     type: 'returnStatement',
     value: Value,
-}
-
-export type SyncStatement = {
-    type: 'syncStatement',
-    lockedFields: Identifier[],
-    body: Statement[],
 }
 
 export type IfStatement = {
