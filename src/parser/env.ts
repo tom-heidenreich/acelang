@@ -1,4 +1,4 @@
-import { Build, ClassStatement, Environment, Context, Modifiers, Statement, Token, Type, Wrappers } from "../types"
+import { Build, ClassStatement, Context, Modifiers, ParserScope, Statement, Token, Type, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import ExpressionParser from "../util/ExpressionParser"
 import { parseBreakStatement } from "./break"
@@ -20,13 +20,9 @@ import Values from "../values"
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
 
-export function parseEnvironment(build: Build, values: Values, tokens: Token[][], moduleManager?: ModuleManager, preEnv?: Environment, wrappers?: Wrappers) {
+export function parseEnvironment(build: Build, values: Values, tokens: Token[][], moduleManager?: ModuleManager, preScope?: ParserScope, wrappers?: Wrappers) {
 
-    const env: Environment = preEnv || {
-        fields: {
-            local: {},
-        },
-    }
+    const scope = preScope || new ParserScope({ isRoot: true })
 
     const tree: Statement[] = []
     const typeModule: { [key: string]: Type } = {}
@@ -34,7 +30,7 @@ export function parseEnvironment(build: Build, values: Values, tokens: Token[][]
     const context: Context = {
         build,
         moduleManager,
-        env,
+        scope,
         values,
     }
     for (const line of tokens) {

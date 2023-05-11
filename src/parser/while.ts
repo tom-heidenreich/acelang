@@ -1,4 +1,4 @@
-import { Context, Statement, Token, Wrappers } from "../types"
+import { Context, ParserScope, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
@@ -27,13 +27,11 @@ export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wra
     }
     else if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
 
-    // create new env
-    const env = {
-        fields: {
-            local: {},
-            parent: context.env.fields,
-        }
-    }
+    // create new scope
+    const scope = new ParserScope({
+        parent: context.scope,
+    })
+
     // create new wrappers
     const newWrappers = {
         current: {
@@ -44,7 +42,7 @@ export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wra
     }
 
     // parse body
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(cursor.peek())}`)
 

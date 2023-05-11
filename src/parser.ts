@@ -1,6 +1,6 @@
 import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
-import { Token, DATATYPES, Types, Build, Value, Callable } from "./types";
+import { Token, DATATYPES, Types, Build, Value, Callable, ParserScope } from "./types";
 import Values from "./values";
 
 export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], values: Values) {
@@ -49,22 +49,16 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
         exports: [],
     }
 
-    const { tree, typeModule } = parseEnvironment(build, values, tokens, moduleManager, {
-        fields: {
-            local: {},
-            parent: {
-                local: {
-                    printf: {
-                        type: {
-                            type: 'callable',
-                            params: printfFunction.params.map(param => param.type),
-                            returnType: printfFunction.returnType,
-                        }
-                    }
-                },
-            }
-        },
+    const rootScope = new ParserScope({ isRoot: true })
+    rootScope.set('printf', {
+        type: {
+            type: 'callable',
+            params: printfFunction.params.map(param => param.type),
+            returnType: printfFunction.returnType,
+        }
     })
+
+    const { tree, typeModule } = parseEnvironment(build, values, tokens, moduleManager, new ParserScope({ parent: rootScope }))
 
     return { tree, typeModule, callables: build.callables, imports: build.imports, exports: build.exports }
 }

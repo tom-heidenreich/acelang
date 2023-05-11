@@ -155,13 +155,46 @@ export type Field = {
     isConst?: boolean,
 }
 
-export type Fields = {
-    [name: string]: Field
-}
+// scope
+export class ParserScope {
 
-export type FieldEnv = {
-    parent?: FieldEnv,
-    local: Fields,
+    public readonly global: ParserScope
+    private readonly parent?: ParserScope
+
+    private local: Map<string, Field> = new Map();
+
+    constructor({ global, parent, isRoot }: { global?: ParserScope, parent?: ParserScope, isRoot?: boolean }) {
+        this.parent = parent;
+        if(!global) {
+            if(!parent) {
+                if(!isRoot) throw new Error("Global scope is required");
+                this.global = this;
+            }
+            else this.global = parent.global;
+        }
+        else this.global = global;
+    }
+
+    public get(name: string): Field | undefined {
+        const local = this.local.get(name);
+        if(local) return local;
+        if(this.parent) return this.parent.get(name);
+        return this.global.get(name);
+    }
+
+    public getLocal(name: string): Field | undefined {
+        return this.local.get(name);
+    }
+
+    public set(name: string, field: Field) {
+        this.local.set(name, field);
+    }
+
+    public has(name: string): boolean {
+        if(this.local.has(name)) return true;
+        if(this.parent) return this.parent.has(name);
+        return this.global.has(name);
+    }
 }
 
 // functions
@@ -878,14 +911,10 @@ export type Build = {
     exports: Binding[],
 }
 
-export type Environment = {
-    fields: FieldEnv,
-}
-
 export type Context = {
     build: Build,
     moduleManager?: ModuleManager,
-    env: Environment,
+    scope: ParserScope,
     values: Values
 }
 

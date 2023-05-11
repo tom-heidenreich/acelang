@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 
-import { Binding, DATATYPES, Context, Token, Type, Types } from "../types"
+import { Binding, DATATYPES, Context, Token, Type, Types, ParserScope } from "../types"
 import Lexer from '../lexer';
 import Logger from '../util/logger';
 import Cursor from '../util/cursor';
@@ -30,14 +30,14 @@ export function parseBindingsFile(file_path: string): Binding[] {
         imports: [],
         exports: [],
     }
-    const env = { fields: { local: {} } }
+    const scope = new ParserScope({ isRoot: true })
     
     let lineIndex = 0;
     for(const tokens of lines) {
 
         const context: Context = {
             build,
-            env,
+            scope,
             values: new Values()
         }
         lineIndex++;

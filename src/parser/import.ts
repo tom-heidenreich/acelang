@@ -62,7 +62,7 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
     // check if any name is already defined
     for(const name of names) {
         const fieldName = name.alias || name.module
-        if(context.env.fields.local[fieldName]) throw new Error(`Name ${fieldName} is already defined at ${line(nameToken)}`)
+        if(context.scope.has(fieldName)) throw new Error(`Name ${fieldName} is already defined at ${line(nameToken)}`)
     }
 
     // from
@@ -104,13 +104,13 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
             isBuiltIn: true,
         }
         context.build.callables[fieldName] = callable
-        context.env.fields.local[fieldName] = {
+        context.scope.set(fieldName, {
             type: {
                 type: 'callable',
                 params: binding.params,
                 returnType: binding.returnType,
             }
-        }
+        })
     }
     context.moduleManager.useModule(moduleToken.value)
     

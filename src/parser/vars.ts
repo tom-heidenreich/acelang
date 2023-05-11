@@ -1,6 +1,5 @@
 import { Context, Statement, Token, Type } from "../types"
 import Cursor from "../util/cursor"
-import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck"
 import { parseType } from "./types"
 import line from "../util/LineStringify"
@@ -45,7 +44,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
     // check if any field exists
     names.forEach(name => {
-        const searchedField = FieldResolve.resolve(context.env.fields, name)
+        const searchedField = context.scope.get(name)
         if(searchedField) {
             throw new Error(`Field ${name} already exists at ${line(nameToken)}`)
         }
@@ -89,13 +88,13 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
             const items = type.items
             names.forEach(name => {
-                context.env.fields.local[name] = {
+                context.scope.set(name, {
                     type: {
                         type: 'pointer',
                         pointer: items
                     },
                     isConst
-                }
+                })
             })
         }
         else if(destructuringType === 'object') {
@@ -105,25 +104,25 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                     if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at ${line(valueToken)}`)
                     }
-                    context.env.fields.local[name] = {
+                    context.scope.set(name, {
                         type: {
                             type: 'pointer',
                             pointer: properties[name]
                         },
                         isConst
-                    }
+                    })
                 })
             }
             else if(type.type === 'object') {
                 const values = type.values
                 names.forEach(name => {
-                    context.env.fields.local[name] = {
+                    context.scope.set(name, {
                         type: {
                             type: 'pointer',
                             pointer: values
                         },
                         isConst
-                    }
+                    })
                 })
             }
             else {
@@ -131,13 +130,13 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else {
-            context.env.fields.local[names[0]] = {
+            context.scope.set(names[0], {
                 type: {
                     type: 'pointer',
                     pointer: type
                 },
                 isConst
-            }
+            })
         }
 
         if(names.length === 1) return {
@@ -188,12 +187,12 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
             const items = type.items
             names.forEach(name => {
-                context.env.fields.local[name] = {
+                context.scope.set(name, {
                     type: {
                         type: 'pointer',
                         pointer: items
                     }
-                }
+                })
             })
         }
         else if(destructuringType === 'object') {
@@ -203,23 +202,23 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
                     if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at ${line(cursor.peek())}`)
                     }
-                    context.env.fields.local[name] = {
+                    context.scope.set(name, {
                         type: {
                             type: 'pointer',
                             pointer: properties[name]
                         }
-                    }
+                    })
                 })
             }
             else if(type.type === 'object') {
                 const values = type.values
                 names.forEach(name => {
-                    context.env.fields.local[name] = {
+                    context.scope.set(name, {
                         type: {
                             type: 'pointer',
                             pointer: values
                         }
-                    }
+                    })
                 })
             }
             else {
@@ -227,12 +226,12 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else {
-            context.env.fields.local[names[0]] = {
+            context.scope.set(names[0], {
                 type: {
                     type: 'pointer',
                     pointer: type
                 }
-            }
+            })
         }
 
         if(names.length === 1) return {

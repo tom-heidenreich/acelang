@@ -1,6 +1,5 @@
-import { Fields, Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope } from "../types"
 import Cursor from "../util/cursor"
-import FieldResolve from "../util/FieldResolve"
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
@@ -47,7 +46,7 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         throw new Error(`Unexpected token ${name.type} ${name.value} at ${line(name)}`)
     }
     // check if field exists
-    const searchedField = FieldResolve.resolve(context.env.fields, name.value)
+    const searchedField = context.scope.get(name.value)
     if(searchedField) {
         throw new Error(`Field ${name.value} already exists at ${line(name)}`)
     }
@@ -65,13 +64,16 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         throw new Error(`Unexpected end of line at ${line(paramsToken)}`)
     }
     const params = parseParams(context, new Cursor(paramsToken.block))
-    // convert to fields
-    const paramFields = params.reduce((fields, param) => {
-        fields[param.name] = {
+    
+    // create scope
+    const scope = new ParserScope({
+        global: context.scope.global,
+    })
+    params.forEach(param => {
+        scope.set(param.name, {
             type: param.type,
-        }
-        return fields
-    }, {} as Fields)
+        })
+    })
 
     // return type
     let returnType: Type | undefined
@@ -93,14 +95,6 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
         throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
     }
 
-    // create new env
-    const env = {
-        fields: {
-            local: paramFields,
-            parent: context.env.fields,
-        }
-    }
-
     // add field
     const functionType: Type = {
         type: 'callable',
@@ -110,29 +104,29 @@ export function parseFunc({ context, cursor, isSync = false, wrappers }: { conte
             primitive: 'unknown',
         },
     }
-    context.env.fields.local[name.value] = {
+    context.scope.set(name.value, {
         type: functionType,
-    }
+    })
 
-    // add self to body env
-    env.fields.local[name.value] = {
+    // add self to body scope
+    scope.set(name.value, {
         type: functionType
-    }
+    })
 
     // create new wrappers
     const newWrappers: Wrappers = {
         current: {
             returnable: true,
-            returnableField: context.env.fields.local[name.value]
+            returnableField: context.scope.getLocal(name.value)
         },
         parent: wrappers,
     }
 
     // parse body
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
 
     // check if body has return
-    const func = context.env.fields.local[name.value].type
+    const func = context.scope.getLocal(name.value)!.type
     if(func.type !== 'callable') {
         throw new Error(`Unexpected type ${func.type} at ${line(bodyToken)}`)
     }
@@ -221,13 +215,16 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     }
     if(!paramBlock.block) throw new Error(`Unexpected end of line at ${line(paramBlock)}`)
     const params = parseParams(context, new Cursor(paramBlock.block))
-    // convert to fields
-    const paramFields = params.reduce((fields, param) => {
-        fields[param.name] = {
+        
+    // create scope
+    const scope = new ParserScope({
+        global: context.scope.global,
+    })
+    params.forEach(param => {
+        scope.set(param.name, {
             type: param.type,
-        }
-        return fields
-    }, {} as Fields)
+        })
+    })
 
     let returnType: Type | undefined
 
@@ -245,14 +242,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     }
     if(!bodyBlock.block) throw new Error(`Unexpected end of line at ${line(bodyBlock)}`)
 
-    // create new env
-    const env = {
-        fields: {
-            local: paramFields,
-            parent: context.env.fields,
-        }
-    }
-
     // add field
     const functionType: Type = {
         type: 'callable',
@@ -263,23 +252,23 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
         },
     }
     const anonName = `_anonymous${randomUUID()}`
-    context.env.fields.local[anonName] = {
+    context.scope.set(anonName, {
         type: functionType,
-    }
+    })
 
     // create new wrappers
     const newWrappers: Wrappers = {
         current: {
             returnable: true,
-            returnableField: context.env.fields.local[anonName]
+            returnableField: context.scope.getLocal(anonName)
         }
         // no parent wrappers
     }
 
-    const body = parseEnvironment(context.build, context.values, bodyBlock.block, context.moduleManager, env, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyBlock.block, context.moduleManager, scope, newWrappers)
 
     // check if body has return
-    const func = context.env.fields.local[anonName].type
+    const func = context.scope.getLocal(anonName)!.type
     if(func.type !== 'callable') {
         throw new Error(`Unexpected type ${func.type} at ${line(bodyBlock)}`)
     }

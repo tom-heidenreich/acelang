@@ -1,5 +1,4 @@
 import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue } from "../types";
-import FieldResolve from "../util/FieldResolve";
 import line, { lineInfo } from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import Cursor from "../util/cursor";
@@ -679,7 +678,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 priority: 0,
                 accept: (token) => true,
                 parse: (context, token) => {
-                    const field = FieldResolve.resolve(context.env.fields, token.value);
+                    const field = context.scope.get(token.value);
                     if(!field) {
                         throw new Error(`Unknown field: ${token.value} at ${line(token)}`);
                     }
