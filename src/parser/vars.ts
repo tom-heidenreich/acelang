@@ -44,7 +44,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
     // check if any field exists
     names.forEach(name => {
-        const searchedField = context.scope.get(name)
+        const searchedField = context.scope.getLocal(name)
         if(searchedField) {
             throw new Error(`Field ${name} already exists at ${line(nameToken)}`)
         }

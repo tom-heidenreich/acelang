@@ -46,7 +46,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
         throw new Error(`Unexpected token ${name.type} ${name.value} at ${line(name)}`)
     }
     // check if field exists
-    const searchedField = context.scope.get(name.value)
+    const searchedField = context.scope.getLocal(name.value)
     if(searchedField) {
         throw new Error(`Field ${name.value} already exists at ${line(name)}`)
     }
