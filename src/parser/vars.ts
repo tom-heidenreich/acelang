@@ -170,6 +170,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
     }
     else if(!isConst){
+        cursor.rollback()
 
         // check if type exists
         if(!type) {
