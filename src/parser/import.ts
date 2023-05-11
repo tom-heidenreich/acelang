@@ -104,7 +104,7 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
             isBuiltIn: true,
         }
         context.build.callables[fieldName] = callable
-        context.scope.set(fieldName, {
+        context.scope.setGlobal(fieldName, {
             type: {
                 type: 'callable',
                 params: binding.params,

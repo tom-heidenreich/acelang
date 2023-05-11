@@ -156,17 +156,17 @@ export type Field = {
 // scope
 export class ParserScope {
 
-    public readonly global: ParserScope
+    public readonly global: Map<string, Field>
     private readonly parent?: ParserScope
 
     private local: Map<string, Field> = new Map();
 
-    constructor({ global, parent, isRoot }: { global?: ParserScope, parent?: ParserScope, isRoot?: boolean }) {
+    constructor({ global, parent, isRoot }: { global?: Map<string, Field>, parent?: ParserScope, isRoot?: boolean }) {
         this.parent = parent;
         if(!global) {
             if(!parent) {
                 if(!isRoot) throw new Error("Global scope is required");
-                this.global = this;
+                this.global = new Map();
             }
             else this.global = parent.global;
         }
@@ -186,6 +186,11 @@ export class ParserScope {
 
     public set(name: string, field: Field) {
         this.local.set(name, field);
+    }
+
+    public setGlobal(name: string, field: Field) {
+        if(this.parent) this.parent.setGlobal(name, field);
+        else this.global.set(name, field);
     }
 
     public has(name: string): boolean {
