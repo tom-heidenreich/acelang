@@ -684,7 +684,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                     }
                     return {
                         type: field.type,
-                        value: new ReferenceValue(token.value)
+                        value: new ReferenceValue(field.preferredName || token.value)
                     }
                 }
             }
