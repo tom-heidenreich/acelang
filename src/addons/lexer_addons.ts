@@ -455,12 +455,39 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
                 willConsume: () => true,
                 onConsume: (c, controller) => {
                     controller.append(c);
+                    controller.setStructure('identifier');
+                }
+            }
+        },
+        {
+            structure: 'identifier',
+            consumer: {
+                id: 'identifier-continue',
+                priority: LexerPriority.IMPORTANT,
+                accept: (c) => /[a-zA-Z0-9_]/.test(c),
+                willConsume: (c) => true,
+                onConsume: (c, controller) => {
+                    controller.append(c);
+                }
+            }
+        },
+        {
+            structure: 'identifier',
+            consumer: {
+                id: 'identifier-break',
+                priority: LexerPriority.HIGH,
+                accept: (c) => !/[a-zA-Z0-9_]/.test(c),
+                willConsume: (c) => false,
+                onChar: (c, controller) => {
+                    controller.createToken();
+                    controller.setStructure(undefined);
                 }
             }
         }
     ],
     tokenizers: {
-        none: (value, controller) => {
+        none: () => false,
+        identifier: (value, controller) => {
             if(value === '') return false;
             
             // boolean
