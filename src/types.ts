@@ -519,10 +519,22 @@ export class ArrayValue extends Value {
 }
 
 export class ArrowFunctionValue extends Value {
-    constructor(private name: string) {
+    constructor(private name: string, private collected: { name: string, globalRef: string, type: Type }[]) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        
+        for(const { name, globalRef } of this.collected) {
+
+            const ref = scope.get(name);
+            if(!ref) throw new Error(`Unexpected error. Reference ${name} not found`);
+
+            const globalRefValue = scope.get(globalRef);
+            if(!globalRefValue) throw new Error(`Unexpected error. Global reference ${globalRef} not found`);
+
+            module.builder.CreateStore(ref, globalRefValue);
+        }
+        
         const ref = scope.get(this.name);
         if(!ref) throw new Error(`Unexpected error. Callable ${this.name} not found`);
         return ref;

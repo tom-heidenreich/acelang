@@ -1,4 +1,4 @@
-import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, AccessProxyScope } from "../types"
 import Cursor from "../util/cursor"
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
@@ -215,9 +215,13 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     if(!paramBlock.block) throw new Error(`Unexpected end of line at ${line(paramBlock)}`)
     const params = parseParams(context, new Cursor(paramBlock.block))
         
+    // create proxy scope
+    const proxyScope = new AccessProxyScope(context.scope)
+    
     // create scope
     const scope = new ParserScope({
         global: context.scope.global,
+        parent: proxyScope,
     })
     params.forEach(param => {
         scope.set(param.name, {
@@ -265,6 +269,13 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     }
 
     const body = parseEnvironment(context.build, context.values, bodyBlock.block, context.moduleManager, scope, newWrappers)
+    
+    // create global vars for collected
+    for(const { globalRef, type }  of proxyScope.collected) {
+        context.build.globals[globalRef] = {
+            type,
+        }
+    }
 
     // check if body has return
     const func = context.scope.getLocal(anonName)!.type
@@ -299,6 +310,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
             type: 'pointer',
             pointer: functionType,
         },
-        value: new ArrowFunctionValue(anonName)
+        value: new ArrowFunctionValue(anonName, proxyScope.collected)
     }
 }
