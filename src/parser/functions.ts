@@ -45,14 +45,15 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     if(name.type !== 'identifier') {
         throw new Error(`Unexpected token ${name.type} ${name.value} at ${line(name)}`)
     }
+    const scopeUniqueName = `${name.value}_${context.scope.id}`
     // check if field exists
     const searchedField = context.scope.getLocal(name.value)
     if(searchedField) {
         throw new Error(`Field ${name.value} already exists at ${line(name)}`)
     }
     // check if callable exists
-    if(context.build.callables[name.value]) {
-        throw new Error(`Callable ${name.value} already exists at ${line(name)}`)
+    if(context.build.callables[scopeUniqueName]) {
+        throw new Error(`Callable ${scopeUniqueName} already exists at ${line(name)}`)
     }
 
     // params
@@ -106,6 +107,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     }
     context.scope.set(name.value, {
         type: functionType,
+        preferredName: scopeUniqueName,
     })
 
     // add self to body scope
@@ -158,7 +160,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
         type: functionType,
         statement: {
             type: 'functionDeclaration',
-            name: name.value,
+            name: scopeUniqueName,
             params,
             returnType: func.returnType,
             body: body.tree,
