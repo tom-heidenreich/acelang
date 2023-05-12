@@ -59,13 +59,13 @@ export default class LLVMModule {
         return true;
     }
 
-    public print() {
+    public toString() {
         return this._module.print();
     }
 
     public async executeJIT(output: string = this._name, stdio?: StdioOptions) {
         if(!fs.existsSync(TEMP_PATH)) fs.mkdirSync(TEMP_PATH, { recursive: true });
-        fs.writeFileSync(path.join(TEMP_PATH, `${path.basename(output)}.ll`), this.print());
+        fs.writeFileSync(path.join(TEMP_PATH, `${path.basename(output)}.ll`), this.toString());
         await promisedSpawn('lli', [path.join(TEMP_PATH, `${path.basename(output)}.ll`)], { stdio })
     }
 
