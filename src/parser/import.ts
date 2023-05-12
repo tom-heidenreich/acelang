@@ -94,6 +94,7 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
 
         context.build.imports.push(binding)
         const callable = {
+            name: fieldName,
             params: binding.params.map((param, index) => ({
                 name: `param${index}`,
                 type: param,

@@ -66,7 +66,8 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     // declare functions
     for(const callableName in callables) {
-        defineFunction(module, scope, callables[callableName], callableName)
+        const callable = callables[callableName]
+        defineFunction(module, scope, callable, callable.name)
     }
 
     // start of main function block

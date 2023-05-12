@@ -15,6 +15,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
 
     // built in functions
     const printfFunction: Callable = {
+        name: 'printf',
         params: [
             {
                 name: 'format',

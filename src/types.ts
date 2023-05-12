@@ -286,6 +286,7 @@ export type Param = {
 }
 
 export type Callable = {
+    name: string,
     body: Statement[],
     params: Param[],
     returnType: Type,

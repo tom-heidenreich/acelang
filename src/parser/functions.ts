@@ -147,7 +147,8 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     }
 
     // add function to build
-    context.build.callables[name.value] = {
+    context.build.callables[scopeUniqueName] = {
+        name: scopeUniqueName,
         body: body.tree,
         params,
         returnType: func.returnType,
@@ -317,6 +318,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
 
     // add function to build
     const callable: Callable = {
+        name: anonName,
         body: body.tree,
         params,
         returnType: func.returnType,
