@@ -67,8 +67,11 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     const params = parseParams(context, new Cursor(paramsToken.block))
     
     // create scope
-    const scope = new ParserScope({
+    const funcParentScope = new ParserScope({
         global: context.scope.global,
+    })
+    const scope = new ParserScope({
+        parent: funcParentScope,
     })
     params.forEach(param => {
         scope.set(param.name, {
@@ -110,9 +113,10 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
         preferredName: scopeUniqueName,
     })
 
-    // add self to body scope
-    scope.set(name.value, {
-        type: functionType
+    // add self to parent of body scope
+    funcParentScope.set(name.value, {
+        type: functionType,
+        preferredName: scopeUniqueName,
     })
 
     // create new wrappers
