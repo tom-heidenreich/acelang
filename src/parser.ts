@@ -46,6 +46,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
         },
         imports: [],
         exports: [],
+        globals: {}
     }
 
     const rootScope = new ParserScope({ isRoot: true })
@@ -59,5 +60,5 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
 
     const { tree, typeModule } = parseEnvironment(build, values, tokens, moduleManager, new ParserScope({ parent: rootScope }))
 
-    return { tree, typeModule, callables: build.callables, imports: build.imports, exports: build.exports }
+    return { tree, typeModule, callables: build.callables, imports: build.imports, exports: build.exports, globals: build.globals }
 }

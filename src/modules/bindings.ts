@@ -29,6 +29,7 @@ export function parseBindingsFile(file_path: string): Binding[] {
         callables: {},
         imports: [],
         exports: [],
+        globals: {}
     }
     const scope = new ParserScope({ isRoot: true })
     

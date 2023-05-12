@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement } from "../types";
+import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, scope: Scope, statements: Statement[]): void {
@@ -212,6 +212,25 @@ function parseIfStatement(statement: IfStatement, module: LLVMModule, scope: Sco
     
     if(!elseExited) module.builder.CreateBr(exitBB);
     module.builder.SetInsertPoint(exitBB);
+}
+
+export function defineGlobal(module: LLVMModule, scope: Scope, global: Global, globalName: string) {
+    const type = module.Types.convertType(global.type);
+    var _global: llvm.GlobalVariable;
+    if(global.isConst) {
+        if(!global.value) throw new Error(`Global ${globalName} is const but has no value`);
+        const _value = global.value.compile(module, scope);
+        if(!(_value instanceof llvm.Constant)) throw new Error(`Global ${globalName} is const but has non-constant value`);
+        _global = new llvm.GlobalVariable(module._module, type, true, llvm.GlobalValue.LinkageTypes.InternalLinkage, _value, globalName);
+    }
+    else {
+        _global = new llvm.GlobalVariable(module._module, type, false, llvm.GlobalValue.LinkageTypes.InternalLinkage, module.Values.null(type), globalName);
+        if(global.value) {
+            const _value = global.value.compile(module, scope);
+            module.builder.CreateStore(_value, _global);
+        }
+    }
+    scope.set(globalName, _global);
 }
 
 export function defineFunction(module: LLVMModule, scope: Scope, callable: Callable, callableName: string) {

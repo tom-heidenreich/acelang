@@ -215,6 +215,13 @@ export type Callable = {
     isBuiltIn?: boolean,
 }
 
+// globals
+export type Global = {
+    type: Type,
+    isConst?: boolean,
+    value?: Value,
+}
+
 // types
 
 export type LiteralType = {
@@ -905,6 +912,7 @@ export type Build = {
     callables: {[name: string]: Callable},
     imports: Binding[],
     exports: Binding[],
+    globals: {[name: string]: Global},
 }
 
 export type Context = {
