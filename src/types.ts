@@ -152,7 +152,8 @@ export type Modifiers = {
 export type Field = {
     type: Type,
     isConst?: boolean,
-    preferredName?: string,
+    globalPointerName?: string,
+    useGlobalRef?: boolean,
 }
 
 // scope
@@ -226,34 +227,24 @@ export class AccessProxyScope extends ParserScope {
     }
 
     public get(name: string): Field | undefined {
-        const field = this.scope.getNotGlobal(name);
-        if(field) {
-            const preferredName = `${name}_${randomUUID().replace(/-/g, '')}`
-            this.collectedAccesses.add({
-                name,
-                globalRef: preferredName,
-                type: field.type,
-            });
-            return {
-                ...field,
-                preferredName,
-            }
-        }
+        const field = this.getNotGlobal(name);
+        if(field) return field;
         return this.scope.global.get(name);
     }
 
     public getNotGlobal(name: string): Field | undefined {
         const field = this.scope.getNotGlobal(name);
-        if(!field) return undefined
-        const preferredName = `${name}_${randomUUID().replace(/-/g, '')}`
+        if(!field) return undefined;
+        const globalPointerName = field.globalPointerName || `${name}_${randomUUID().replace(/-/g, '')}`
         this.collectedAccesses.add({
             name,
-            globalRef: preferredName,
+            globalRef: globalPointerName,
             type: field.type,
         });
+        field.globalPointerName = globalPointerName;
         return {
             ...field,
-            preferredName,
+            useGlobalRef: true,
         }
     }
 
