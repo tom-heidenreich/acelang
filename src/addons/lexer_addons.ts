@@ -48,7 +48,7 @@ export const DEFAULT_LEXER_ADDON: LexerAddon = {
             consumer: {
                 id: 'new-line',
                 priority: LexerPriority.HIGHER,
-                accept: (c, controller) => c === '\n' || c === '\r' || (controller.shared.get('commaAsNewLine') && c === ','),
+                accept: (c, controller) => c === '\n' || c === '\r' || c === ';' || (controller.shared.get('commaAsNewLine') && c === ','),
                 willConsume: () => true,
                 onConsume: (c, controller) => {
                     controller.createToken();
