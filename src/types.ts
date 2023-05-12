@@ -4,6 +4,7 @@ import LLVMModule from "./compiler/llvm-module";
 import { Controller } from "./lexer";
 import { ModuleManager } from "./modules";
 import Values from "./values";
+import { randomUUID } from "crypto";
 
 export type TokenType = 'datatype' | 'identifier' | 'symbol' | 'operator' | 'keyword' | 'modifier' | 'block'
 
@@ -181,6 +182,13 @@ export class ParserScope {
         return this.global.get(name);
     }
 
+    public getNotGlobal(name: string): Field | undefined {
+        const local = this.local.get(name);
+        if(local) return local;
+        if(this.parent) return this.parent.getNotGlobal(name);
+        return undefined;
+    }
+
     public getLocal(name: string): Field | undefined {
         return this.local.get(name);
     }
@@ -198,6 +206,72 @@ export class ParserScope {
         if(this.local.has(name)) return true;
         if(this.parent) return this.parent.has(name);
         return this.global.has(name);
+    }
+}
+
+export class AccessProxyScope extends ParserScope {
+
+    private readonly collectedAccesses: Set<{
+        name: string,
+        globalRef: string
+        type: Type
+    }> = new Set();
+
+    constructor(private readonly scope: ParserScope) {
+        super({ global: scope.global })
+    }
+
+    public get collected() {
+        return Array.from(this.collectedAccesses);
+    }
+
+    public get(name: string): Field | undefined {
+        const field = this.scope.getNotGlobal(name);
+        if(field) {
+            const preferredName = `${name}_${randomUUID().replace(/-/g, '')}`
+            this.collectedAccesses.add({
+                name,
+                globalRef: preferredName,
+                type: field.type,
+            });
+            return {
+                ...field,
+                preferredName,
+            }
+        }
+        return this.scope.global.get(name);
+    }
+
+    public getNotGlobal(name: string): Field | undefined {
+        const field = this.scope.getNotGlobal(name);
+        if(!field) return undefined
+        const preferredName = `${name}_${randomUUID().replace(/-/g, '')}`
+        this.collectedAccesses.add({
+            name,
+            globalRef: preferredName,
+            type: field.type,
+        });
+        return {
+            ...field,
+            preferredName,
+        }
+    }
+
+    public getLocal(name: string): Field | undefined {
+        throw new Error("Cannot get local field in access proxy scope");
+    }
+
+    public set() {
+        throw new Error("Cannot set field in access proxy scope");
+    }
+
+    public setGlobal() {
+        throw new Error("Cannot set field in access proxy scope");
+    }
+
+    public has(name: string) {
+        console.log('has', name);
+        return this.scope.has(name);
     }
 }
 
