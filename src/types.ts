@@ -159,12 +159,16 @@ export type Field = {
 // scope
 export class ParserScope {
 
+    public readonly id: string
+
     public readonly global: Map<string, Field>
     private readonly parent?: ParserScope
 
     private local: Map<string, Field> = new Map();
 
     constructor({ global, parent, isRoot }: { global?: Map<string, Field>, parent?: ParserScope, isRoot?: boolean }) {
+        this.id = randomUUID();
+
         this.parent = parent;
         if(!global) {
             if(!parent) {
