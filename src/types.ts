@@ -923,7 +923,6 @@ export type ExportStatement = {
     exportType?: Type
 }
 
-// TODO: add support for imports in interpreter
 export type ImportStatement = {
     type: 'importStatement',
 }
