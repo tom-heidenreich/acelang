@@ -875,7 +875,7 @@ export type FunctionDeclaration = {
 
 export type ReturnStatement = {
     type: 'returnStatement',
-    value: Value,
+    value?: Value,
 }
 
 export type IfStatement = {

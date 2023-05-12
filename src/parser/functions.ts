@@ -186,6 +186,24 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
         throw new Error(`Unexpected type ${field.type.type} at ${line(cursor.peekLast())}`)
     }
 
+    if(cursor.done) {
+        // return void
+        // check if types match
+        if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+            // dynamic type
+            func.returnType = {
+                type: 'primitive',
+                primitive: 'void',
+            }
+        }
+        else if(!TypeCheck.matchesPrimitive(context.build.types, func.returnType, 'void')) {
+            throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and void do not match at ${line(cursor.peekLast())}`)
+        }
+        return {
+            type: 'returnStatement',
+        }
+    }
+
     // value
     const valueToken = cursor.peek()
     const valueNode = context.values.parseValue(context, cursor.remaining())

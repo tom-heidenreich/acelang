@@ -17,9 +17,12 @@ export function parseStatements(module: LLVMModule, scope: Scope, statements: St
             case 'variableDeclaration': return parseVariableDeclaration(statement, module, scope);
             case 'functionDeclaration': return
             case 'returnStatement': {
-                const value = statement.value.compile(module, scope);
-                if(value.getType().isVoidTy()) module.builder.CreateRetVoid();
-                else module.builder.CreateRet(value);
+                if(!statement.value) module.builder.CreateRetVoid();
+                else {
+                    const value = statement.value.compile(module, scope);
+                    if(value.getType().isVoidTy()) module.builder.CreateRetVoid();
+                    else module.builder.CreateRet(value);
+                }
                 scope.exit();
                 return;
             }
