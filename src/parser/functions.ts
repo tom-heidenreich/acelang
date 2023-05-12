@@ -272,6 +272,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     
     // create global vars for collected
     for(const { globalRef, type }  of proxyScope.collected) {
+        // TODO: don't create a new global if a global that is pointing to the same already exists
         context.build.globals[globalRef] = {
             type,
         }
