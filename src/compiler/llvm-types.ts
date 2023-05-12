@@ -56,7 +56,8 @@ export type Values = {
     float: (value: number) => llvm.Value;
     string: (value: string) => llvm.Value;
     bool: (value: boolean) => llvm.Value;
-    undefined: () => llvm.Value;
+    undefined: (type: llvm.Type) => llvm.Value;
+    null: (type: llvm.Type) => llvm.Constant;
     void: () => llvm.Value;
 }
 
@@ -70,7 +71,8 @@ export function getValues(builder: llvm.IRBuilder, context: llvm.LLVMContext): V
         },
         string: (value: string) => builder.CreateGlobalStringPtr(value),
         bool: (value: boolean) => builder.getInt1(value),
-        undefined: () => llvm.UndefValue.get(builder.getInt32Ty()),
+        undefined: (type: llvm.Type) => llvm.UndefValue.get(type),
+        null: (type: llvm.Type) => llvm.Constant.getNullValue(type),
         void: () => llvm.UndefValue.get(builder.getVoidTy()),
     };
 }
