@@ -1,4 +1,4 @@
-import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, AccessProxyScope } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope } from "../types"
 import Cursor from "../util/cursor"
 import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
@@ -234,7 +234,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     const params = parseParams(context, new Cursor(paramBlock.block))
         
     // create proxy scope
-    const proxyScope = new AccessProxyScope(context.scope)
+    const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
     
     // create scope
     const scope = new ParserScope({

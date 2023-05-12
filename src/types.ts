@@ -214,20 +214,10 @@ export class ParserScope {
     }
 }
 
-export class AccessProxyScope extends ParserScope {
+export abstract class AccessProxyScope extends ParserScope {
 
-    private readonly collectedAccesses: Set<{
-        name: string,
-        globalRef: string
-        type: Type
-    }> = new Set();
-
-    constructor(private readonly scope: ParserScope) {
+    constructor(protected readonly scope: ParserScope) {
         super({ global: scope.global })
-    }
-
-    public get collected() {
-        return Array.from(this.collectedAccesses);
     }
 
     public get(name: string): Field | undefined {
@@ -237,19 +227,7 @@ export class AccessProxyScope extends ParserScope {
     }
 
     public getNotGlobal(name: string): Field | undefined {
-        const field = this.scope.getNotGlobal(name);
-        if(!field) return undefined;
-        const globalPointerName = field.globalPointerName || `${name}_${randomUUID().replace(/-/g, '')}`
-        this.collectedAccesses.add({
-            name,
-            globalRef: globalPointerName,
-            type: field.type,
-        });
-        field.globalPointerName = globalPointerName;
-        return {
-            ...field,
-            useGlobalRef: true,
-        }
+        return this.handleAccess(name);
     }
 
     public getLocal(name: string): Field | undefined {
@@ -267,6 +245,37 @@ export class AccessProxyScope extends ParserScope {
     public has(name: string) {
         console.log('has', name);
         return this.scope.has(name);
+    }
+
+    protected abstract handleAccess(name: string): Field | undefined
+}
+
+export class ReplaceRefWithGlobalScope extends AccessProxyScope {
+
+    private readonly collectedAccesses: Set<{
+        name: string,
+        globalRef: string
+        type: Type
+    }> = new Set();
+
+    public get collected() {
+        return Array.from(this.collectedAccesses);
+    }
+
+    protected handleAccess(name: string): Field | undefined {
+        const field = this.scope.getNotGlobal(name);
+        if(!field) return undefined;
+        const globalPointerName = field.globalPointerName || `${name}_${randomUUID().replace(/-/g, '')}`
+        this.collectedAccesses.add({
+            name,
+            globalRef: globalPointerName,
+            type: field.type,
+        });
+        field.globalPointerName = globalPointerName;
+        return {
+            ...field,
+            useGlobalRef: true,
+        }
     }
 }
 
