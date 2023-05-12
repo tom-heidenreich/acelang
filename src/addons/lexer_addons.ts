@@ -1,4 +1,4 @@
-import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue } from "../types";
+import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue } from "../types";
 import line, { lineInfo } from "../util/LineStringify";
 import TypeCheck from "../util/TypeCheck";
 import Cursor from "../util/cursor";
@@ -682,9 +682,13 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                     if(!field) {
                         throw new Error(`Unknown field: ${token.value} at ${line(token)}`);
                     }
+                    var value: Value
+                    if(field.preferredName) value = new DereferenceValue(new ReferenceValue(field.preferredName))
+                    else value = new ReferenceValue(token.value)
+
                     return {
                         type: field.type,
-                        value: new ReferenceValue(field.preferredName || token.value)
+                        value
                     }
                 }
             }
