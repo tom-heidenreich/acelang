@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, Operator, PointerCastValue, PrimitiveType, ReferenceValue, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PrimitiveType, ReferenceValue, SubtractExpression, Token, Type, Value, ValueNode } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import TypeCheck from "./TypeCheck";
 import { parseType } from "../parser/types";
@@ -83,6 +83,15 @@ export default class ExpressionParser {
                 const next = resetCursor.next();
                 const value = context.values.parseValue(context, cursor.remaining());
                 return pointerCast(context, value, next);
+            }
+            else if(mainOperator === '-') {
+                // negative
+                cursor.reset().next()
+                const value = context.values.parseValue(context, cursor.remaining());
+                return {
+                    type: value.type,
+                    value: new NegValue(value.value)
+                }
             }
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {

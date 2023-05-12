@@ -846,6 +846,19 @@ export class PointerCastValue extends Value {
     }
 }
 
+export class NegValue extends Value {
+    public constructor(protected target: Value) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        return module.builder.CreateNeg(target);
+    }
+    public toString(): string {
+        return `-${this.target}`
+    }
+}
+
 export type ValueNode = {
     type: Type,
     value: Value,
