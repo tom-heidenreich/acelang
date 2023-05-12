@@ -50,7 +50,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
     }
 
     const rootScope = new ParserScope({ isRoot: true })
-    rootScope.set('printf', {
+    rootScope.setGlobal('printf', {
         type: {
             type: 'callable',
             params: printfFunction.params.map(param => param.type),
