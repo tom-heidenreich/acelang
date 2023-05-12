@@ -687,7 +687,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                         if(!field.globalPointerName) throw new Error(`Reference uses global reference, but globalPointerName is not set at ${line(token)}`);
                         value = new DereferenceValue(new ReferenceValue(field.globalPointerName))
                     }
-                    else value = new ReferenceValue(token.value)
+                    else value = new ReferenceValue(field.preferredName || token.value)
 
                     return {
                         type: field.type,

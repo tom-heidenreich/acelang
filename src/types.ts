@@ -152,6 +152,7 @@ export type Modifiers = {
 export type Field = {
     type: Type,
     isConst?: boolean,
+    preferredName?: string,
     globalPointerName?: string,
     useGlobalRef?: boolean,
 }
