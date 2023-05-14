@@ -50,6 +50,13 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         }
     })
 
+    // null safety
+    var nullSafety = true
+    if(cursor.peek().type === 'operator' && cursor.peek().value === '?') {
+        cursor.next()
+        nullSafety = false
+    }
+
     // type
     let type: Type | undefined
     if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
