@@ -1,16 +1,17 @@
 import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
-import { Token, DATATYPES, Types, Build, Value, Callable, ParserScope } from "./types";
+import { Token, Types, Build, Value, Callable, ParserScope, StringType, AnyType, VoidType, CallableType, IntType, FloatType, BooleanType } from "./types";
 import Values from "./values";
 
 export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], values: Values) {
 
-    const defaultTypes: Types = {}
-    for (const type of DATATYPES) {
-        defaultTypes[type] = {
-            type: 'primitive',
-            primitive: type,
-        }
+    const defaultTypes: Types = {
+        string: new StringType(),
+        int: new IntType(),
+        float: new FloatType(),
+        boolean: new BooleanType(),
+        void: new VoidType(),
+        any: new AnyType(),
     }
 
     // built in functions
@@ -19,23 +20,14 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
         params: [
             {
                 name: 'format',
-                type: {
-                    type: 'primitive',
-                    primitive: 'string',
-                }
+                type: new StringType(),
             },
             {
                 name: 'value',
-                type: {
-                    type: 'primitive',
-                    primitive: 'any',
-                }
+                type: new AnyType(),
             }
         ],
-        returnType: {
-            type: 'primitive',
-            primitive: 'void',
-        },
+        returnType: new VoidType(),
         body: [],
         isBuiltIn: true,
     }
@@ -52,11 +44,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
 
     const rootScope = new ParserScope({ isRoot: true })
     rootScope.setGlobal('printf', {
-        type: {
-            type: 'callable',
-            params: printfFunction.params.map(param => param.type),
-            returnType: printfFunction.returnType,
-        }
+        type: new CallableType(printfFunction.params.map(param => param.type), printfFunction.returnType)
     })
 
     const { tree, typeModule } = parseEnvironment(build, values, tokens, moduleManager, new ParserScope({ parent: rootScope }))

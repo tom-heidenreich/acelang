@@ -1,7 +1,6 @@
-import { Context, ParserScope, Statement, Token, Wrappers } from "../types";
+import { ArrayType, Context, ParserScope, Statement, Token, Wrappers } from "../types";
 import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
-import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 
 export function parseForStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
@@ -15,8 +14,8 @@ export function parseForStatement(context: Context, cursor: Cursor<Token>, wrapp
 
     // get iterable
     const iterable = context.values.parseValue(context, new Cursor([cursor.next()]))
-    if(iterable.type.type !== 'array') {
-        throw new Error(`Expected array, got ${TypeCheck.stringify(iterable.type)}`)
+    if(!(iterable.type instanceof ArrayType)) {
+        throw new Error(`Expected array, got ${iterable.type}`)
     }
 
     const bodyToken = cursor.next()

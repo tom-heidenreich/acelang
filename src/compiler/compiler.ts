@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global } from "../types";
+import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, scope: Scope, statements: Statement[]): void {
@@ -119,9 +119,8 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
     const { name, value, valueType } = statement;
 
     // special cases
-    if(valueType.type === 'array') {
-        const arrayType = module.Types.convertType(valueType);
-        const _var = module.builder.CreateAlloca(arrayType);
+    if(valueType instanceof ArrayType) {
+        const _var = module.builder.CreateAlloca(valueType.toLLVM(module));
         scope.set(name, _var);
         // initialize array
         if(value) {
@@ -130,9 +129,8 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
         }
         return;
     }
-    else if(valueType.type === 'struct') {
-        const structType = module.Types.convertType(valueType);
-        const _var = module.builder.CreateAlloca(structType);
+    else if(valueType instanceof StructType) {
+        const _var = module.builder.CreateAlloca(valueType.toLLVM(module));
         scope.set(name, _var);
         // initialize struct
         if(value) {
@@ -141,13 +139,12 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
         }
         return;
     }
-    else if(valueType.type === 'callable') throw new Error(`Cannot store callable in variable ${name}`);
+    else if(valueType instanceof CallableType) throw new Error(`Cannot store callable in variable ${name}`);
 
     let compiledValue: llvm.Value | undefined;
     if(value) compiledValue = value.compile(module, scope);
 
-    const type = module.Types.convertType(valueType)
-    const _var = module.builder.CreateAlloca(type);
+    const _var = module.builder.CreateAlloca(valueType.toLLVM(module));
     scope.set(name, _var);
 
     if(compiledValue) {
@@ -218,7 +215,7 @@ function parseIfStatement(statement: IfStatement, module: LLVMModule, scope: Sco
 }
 
 export function defineGlobal(module: LLVMModule, scope: Scope, global: Global, globalName: string) {
-    const type = module.Types.convertType(global.type);
+    const type = global.type.toLLVM(module);
     var _global: llvm.GlobalVariable;
     if(global.isConst) {
         if(!global.value) throw new Error(`Global ${globalName} is const but has no value`);
@@ -239,8 +236,8 @@ export function defineGlobal(module: LLVMModule, scope: Scope, global: Global, g
 export function defineFunction(module: LLVMModule, scope: Scope, callable: Callable, callableName: string) {
     if(callable.isBuiltIn) return;
 
-    const returnType = module.Types.convertType(callable.returnType)
-    const paramTypes = callable.params.map(param => module.Types.convertType(param.type));
+    const returnType = callable.returnType.toLLVM(module);
+    const paramTypes = callable.params.map(param => param.type.toLLVM(module));
 
     const functionType = llvm.FunctionType.get(returnType, paramTypes, false);
     const _function = llvm.Function.Create(functionType, llvm.Function.LinkageTypes.ExternalLinkage, callableName, module._module);
@@ -265,7 +262,7 @@ export function defineFunction(module: LLVMModule, scope: Scope, callable: Calla
 
     // return if no return statement
     if(!newScope.hasExited()) {
-        if(callable.returnType.type !== 'primitive' || callable.returnType.primitive !== 'void') {
+        if(callable.returnType instanceof VoidType) {
             throw new Error(`Function ${callableName} must return a value`);
         }
         module.builder.CreateRetVoid();
@@ -277,8 +274,8 @@ export function defineFunction(module: LLVMModule, scope: Scope, callable: Calla
 }
 
 export function declareFunction(module: LLVMModule, scope: Scope, binding: FunctionBinding) {
-    const returnType = module.Types.convertType(binding.returnType)
-    const paramTypes = binding.params.map(param => module.Types.convertType(param));
+    const returnType = binding.returnType.toLLVM(module);
+    const paramTypes = binding.params.map(param => param.toLLVM(module));
 
     const _funcType = llvm.FunctionType.get(returnType, paramTypes, false);
     const _func = llvm.Function.Create(_funcType, llvm.Function.LinkageTypes.ExternalLinkage, binding.name, module._module);

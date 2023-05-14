@@ -1,6 +1,5 @@
-import { Binding, Build, Context, Statement, Token, Wrappers, Type, ReferenceValue } from "../types"
+import { Binding, Build, Context, Statement, Token, Wrappers, Type, ReferenceValue, CallableType } from "../types"
 import line from "../util/LineStringify"
-import TypeCheck from "../util/TypeCheck"
 import Cursor from "../util/cursor"
 
 export function parseExportStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
@@ -15,7 +14,7 @@ export function parseExportStatement(context: Context, cursor: Cursor<Token>, wr
             throw new Error(`Cannot export anonymous value at ${line(cursor.peek())}`)
         }
 
-        addToBuild(context.build, value.reference, TypeCheck.dereference(valueNode.type))
+        addToBuild(context.build, value.reference, valueNode.type.dereference)
 
         return {
             type: 'exportStatement',
@@ -37,7 +36,7 @@ export function parseExportStatement(context: Context, cursor: Cursor<Token>, wr
             throw new Error(`Expected identifier got ${nameToken.type} ${nameToken.value} at ${line(nameToken)}`)
         }
 
-        addToBuild(context.build, nameToken.value, TypeCheck.dereference(valueNode.type))
+        addToBuild(context.build, nameToken.value, valueNode.type.dereference)
 
         return {
             type: 'exportStatement',
@@ -49,7 +48,7 @@ export function parseExportStatement(context: Context, cursor: Cursor<Token>, wr
 }
 
 function addToBuild(build: Build, name: string, type: Type) {
-    if(type.type !== 'callable') throw new Error('Currently only callable types can be exported')
+    if(!(type instanceof CallableType)) throw new Error('Currently only callable types can be exported')
 
     // check if export already exists
     const exists = build.exports.find(binding => binding.name === name)

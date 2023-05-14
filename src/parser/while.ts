@@ -1,7 +1,6 @@
-import { Context, ParserScope, Statement, Token, Wrappers } from "../types"
+import { BooleanType, Context, ParserScope, Statement, Token, Wrappers } from "../types"
 import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
-import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 
 export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
@@ -17,7 +16,7 @@ export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wra
     }
 
     const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
-    if(!TypeCheck.matchesPrimitive(context.build.types, conditionValue.type, 'boolean')) {
+    if(!conditionValue.type.matches(new BooleanType())) {
         throw new Error(`Expected boolean value at ${line(condition)}`)
     }
 

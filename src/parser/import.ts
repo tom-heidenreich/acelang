@@ -1,4 +1,4 @@
-import { Context, Statement, Token, Wrappers } from "../types"
+import { CallableType, Context, Statement, Token, Wrappers } from "../types"
 import line from "../util/LineStringify"
 import Cursor from "../util/cursor"
 
@@ -106,11 +106,7 @@ export function parseImportStatement(context: Context, cursor: Cursor<Token>, wr
         }
         context.build.callables[fieldName] = callable
         context.scope.setGlobal(fieldName, {
-            type: {
-                type: 'callable',
-                params: binding.params,
-                returnType: binding.returnType,
-            }
+            type: new CallableType(callable.params.map(param => param.type), callable.returnType),
         })
     }
     context.moduleManager.useModule(moduleToken.value)

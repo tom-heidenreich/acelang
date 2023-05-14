@@ -1,4 +1,4 @@
-import { Context, StructType, Token, Type, Types } from "../types";
+import { ArrayType, CallableType, Context, PointerType, StructType, Token, Type, Types } from "../types";
 import line from "../util/LineStringify";
 import Cursor, { WriteCursor } from "../util/cursor";
 
@@ -24,10 +24,7 @@ function parseStructType(context: Context, cursor: Cursor<Token[]>): StructType 
         struct[key.value] = value;
     }
 
-    return {
-        type: 'struct',
-        properties: struct,
-    };
+    return new StructType(struct);
 }
 
 export function parseType(context: Context, cursor: Cursor<Token>): Type {
@@ -64,21 +61,13 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
                 if(!type) {
                     throw new Error(`Unknown datatype: ${name.value} at ${line(name)}`);
                 }
-                types.push({
-                    type: 'array',
-                    items: type,
-                    size
-                });
+                types.push(new ArrayType(type, size));
             }
             else if(name.type === 'block') {
                 if(!name.block) {
                     throw new Error(`Expected block, got ${name.type} at ${line(name)}`);
                 }
-                types.push({
-                    type: 'array',
-                    items: parseType(context, new Cursor(name.block[0])),
-                    size
-                });
+                types.push(new ArrayType(parseType(context, new Cursor(name.block[0])), size));
             }
             else {
                 throw new Error(`Unknown type: ${name.type} at ${line(name)}`);
@@ -108,10 +97,11 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
                 types.push(type);
             }
             else if(name.type === 'datatype') {
-                types.push({
-                    type: 'literal',
-                    literal: name.value
-                });
+                throw new Error(`Unexpected datatype: ${name.value} at ${line(name)}`);
+                // types.push({
+                //     type: 'literal',
+                //     literal: name.value
+                // });
             }
         }
 
@@ -130,10 +120,7 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
             if(!last) {
                 throw new Error(`Expected type, got nothing at ${line(next)}`);
             }
-            types.push({
-                type: 'pointer',
-                pointer: last
-            });
+            types.push(new PointerType(last));
         }
         else if(next.type === 'operator' && next.value === '=>') {
             // only param block must be in writeCursor
@@ -156,11 +143,7 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
 
             const returnType = parseType(context, cursor.remaining());
 
-            types.push({
-                type: 'callable',
-                params: paramTypes,
-                returnType: returnType
-            });
+            types.push(new CallableType(paramTypes, returnType));
         }
         else {
             writeCursor.push(next);
@@ -175,10 +158,11 @@ export function parseType(context: Context, cursor: Cursor<Token>): Type {
         return types[0];
     }
     else {
-        return {
-            type: 'union',
-            oneOf: types
-        }
+        throw new Error(`Union types not supported yet at ${line(cursor.peek())}`);
+        // return {
+        //     type: 'union',
+        //     oneOf: types
+        // }
     }
 }
 

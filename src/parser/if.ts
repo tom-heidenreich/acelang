@@ -1,7 +1,6 @@
-import { IfStatement, Context, Statement, Token, Wrappers, ParserScope } from "../types";
+import { IfStatement, Context, Statement, Token, Wrappers, ParserScope, BooleanType } from "../types";
 import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
-import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 
 export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
@@ -19,7 +18,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
         throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at ${line(condition)}`)
     }
     const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
-    if(!TypeCheck.matchesPrimitive(context.build.types, conditionValue.type, 'boolean')) {
+    if(!conditionValue.type.matches(new BooleanType())) {
         throw new Error(`Expected boolean value at ${line(condition)}`)
     }
 

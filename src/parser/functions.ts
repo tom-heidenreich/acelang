@@ -1,6 +1,5 @@
-import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope, CallableType, UnknownType, VoidType, PointerType } from "../types"
 import Cursor from "../util/cursor"
-import TypeCheck from "../util/TypeCheck";
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
 import WrapperResolve from "../util/WrapperResolve";
@@ -100,14 +99,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     }
 
     // add field
-    const functionType: Type = {
-        type: 'callable',
-        params: params.map(param => param.type),
-        returnType: {
-            type: 'primitive',
-            primitive: 'unknown',
-        },
-    }
+    const functionType = new CallableType(params.map(param => param.type), new UnknownType())
     context.scope.set(name.value, {
         type: functionType,
         preferredName: scopeUniqueName,
@@ -133,20 +125,17 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
 
     // check if body has return
     const func = context.scope.getLocal(name.value)!.type
-    if(func.type !== 'callable') {
-        throw new Error(`Unexpected type ${func.type} at ${line(bodyToken)}`)
+    if(!(func instanceof CallableType)) {
+        throw new Error(`Unexpected type ${func} at ${line(bodyToken)}`)
     }
 
-    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
-        if(returnType) throw new Error(`Return Types ${TypeCheck.stringify(returnType)} and void do not match at ${line(bodyToken)}`)
+    if(func.returnType instanceof UnknownType) {
+        if(returnType) throw new Error(`Return Types ${returnType} and void do not match at ${line(bodyToken)}`)
         // will return void
-        func.returnType = {
-            type: 'primitive',
-            primitive: 'void',
-        }
+        func.returnType = new VoidType()
     }
-    else if(returnType && !TypeCheck.matches(context.build.types, func.returnType, returnType)) {
-        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(returnType)} do not match at ${line(bodyToken)}`)
+    else if(returnType && !func.returnType.matches(returnType)) {
+        throw new Error(`Types ${func.returnType} and ${returnType} do not match at ${line(bodyToken)}`)
     }
     else if(!returnType && !func.returnType) {
         throw new Error(`No return type found at ${line(bodyToken)}`)
@@ -189,22 +178,19 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
         throw new Error(`No function found at ${line(cursor.peekLast())}`)
     }
     const func = field.type
-    if(func.type !== 'callable') {
-        throw new Error(`Unexpected type ${field.type.type} at ${line(cursor.peekLast())}`)
+    if(!(func instanceof CallableType)) {
+        throw new Error(`Unexpected type ${field.type} at ${line(cursor.peekLast())}`)
     }
 
     if(cursor.done) {
         // return void
         // check if types match
-        if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+        if(func instanceof UnknownType) {
             // dynamic type
-            func.returnType = {
-                type: 'primitive',
-                primitive: 'void',
-            }
+            func.returnType = new VoidType()
         }
-        else if(!TypeCheck.matchesPrimitive(context.build.types, func.returnType, 'void')) {
-            throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and void do not match at ${line(cursor.peekLast())}`)
+        else if(!func.returnType.matches(new VoidType())) {
+            throw new Error(`Types ${func.returnType} and void do not match at ${line(cursor.peekLast())}`)
         }
         return {
             type: 'returnStatement',
@@ -217,12 +203,12 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
     const value = valueNode.value
 
     // check if types match
-    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+    if(func instanceof UnknownType) {
         // dynamic type
         func.returnType = valueNode.type
     }
-    else if(!TypeCheck.matches(context.build.types, func.returnType, valueNode.type)) {
-        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(valueNode.type)} do not match at ${line(valueToken)}`)
+    else if(!func.returnType.matches(valueNode.type)) {
+        throw new Error(`Types ${func.returnType} and ${valueNode.type} do not match at ${line(valueToken)}`)
     }
     
     return {
@@ -271,14 +257,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     if(!bodyBlock.block) throw new Error(`Unexpected end of line at ${line(bodyBlock)}`)
 
     // add field
-    const functionType: Type = {
-        type: 'callable',
-        params: params.map(param => param.type),
-        returnType: {
-            type: 'primitive',
-            primitive: 'unknown',
-        },
-    }
+    const functionType = new CallableType(params.map(param => param.type), new UnknownType())
     const anonName = `_anonymous${randomUUID()}`
     context.scope.set(anonName, {
         type: functionType,
@@ -304,19 +283,16 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
 
     // check if body has return
     const func = context.scope.getLocal(anonName)!.type
-    if(func.type !== 'callable') {
-        throw new Error(`Unexpected type ${func.type} at ${line(bodyBlock)}`)
+    if(!(func instanceof CallableType)) {
+        throw new Error(`Unexpected type ${func} at ${line(bodyBlock)}`)
     }
 
-    if(func.returnType.type === 'primitive' && func.returnType.primitive === 'unknown') {
+    if(func.returnType instanceof UnknownType) {
         // will return void
-        func.returnType = {
-            type: 'primitive',
-            primitive: 'void',
-        }
+        func.returnType = new VoidType()
     }
-    else if(returnType && !TypeCheck.matches(context.build.types, func.returnType, returnType)) {
-        throw new Error(`Types ${TypeCheck.stringify(func.returnType)} and ${TypeCheck.stringify(returnType)} do not match at ${line(bodyBlock)}`)
+    else if(returnType && !func.returnType.matches(returnType)) {
+        throw new Error(`Types ${func.returnType} and ${returnType} do not match at ${line(bodyBlock)}`)
     }
     else if(!returnType && !func.returnType) {
         throw new Error(`No return type found at ${line(bodyBlock)}`)
@@ -332,10 +308,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
 
     context.build.callables[anonName] = callable
     return {
-        type: {
-            type: 'pointer',
-            pointer: functionType,
-        },
+        type: new PointerType(functionType),
         value: new ArrowFunctionValue(anonName, proxyScope.collected)
     }
 }

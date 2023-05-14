@@ -1,6 +1,5 @@
-import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue } from "../types";
+import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue, IntType, FloatType, BooleanType, StringType, AnyType, ArrayType } from "../types";
 import line, { lineInfo } from "../util/LineStringify";
-import TypeCheck from "../util/TypeCheck";
 import Cursor from "../util/cursor";
 import { ValueAddon } from "../values";
 
@@ -607,10 +606,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 accept: (token) => token.specificType === 'int',
                 parse: (context, token) => {
                     return {
-                        type: {
-                            type: 'primitive',
-                            primitive: 'int'
-                        },
+                        type: new IntType(),
                         value: new IntValue(parseInt(token.value))
                     }
                 }
@@ -625,10 +621,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 accept: (token) => token.specificType === 'float',
                 parse: (context, token) => {
                     return {
-                        type: {
-                            type: 'primitive',
-                            primitive: 'float'
-                        },
+                        type: new FloatType(),
                         value: new FloatValue(parseFloat(token.value))
                     }
                 }
@@ -643,10 +636,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 accept: (token) => token.specificType === 'boolean',
                 parse: (context, token) => {
                     return {
-                        type: {
-                            type: 'primitive',
-                            primitive: 'boolean'
-                        },
+                        type: new BooleanType(),
                         value: new BooleanValue(token.value === 'true')
                     }
                 }
@@ -661,10 +651,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 accept: (token) => token.specificType === 'string',
                 parse: (context, token) => {
                     return {
-                        type: {
-                            type: 'primitive',
-                            primitive: 'string'
-                        },
+                        type: new StringType(),
                         value: new StringValue(token.value)
                     }
                 }
@@ -747,24 +734,21 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: 
         if(!type) {
             type = node.type;
         }
-        else if(!TypeCheck.matchesValue(context.build.types, type, node)) {
-            throw new Error(`Expected type ${TypeCheck.stringify(type)}, 
-            got ${TypeCheck.stringify(node.type)} at ${line(next[0])}`);
+        else if(!type.matches(node.type)) {
+            throw new Error(`Expected type ${type}, 
+            got ${node.type} at ${line(next[0])}`);
         }
         items.push(node.value);
     }
 
     if(!type) {
         // throw new Error(`Expected at least one value, got 0 at ${line(token)}`);
-        type = {
-            type: 'primitive',
-            primitive: 'any'
-        }
+        type = new AnyType()
     }
 
     if(predefinedType) {
-        if(predefinedType.type !== 'array') {
-            throw new Error(`Expected array, got ${predefinedType.type} at ${line(cursor.peek()[0])}`);
+        if(!(predefinedType instanceof ArrayType)) {
+            throw new Error(`Expected array, got ${predefinedType} at ${line(cursor.peek()[0])}`);
         }
         return {
             type: predefinedType,
@@ -773,22 +757,15 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: 
     }
 
     return {
-        type: {
-            type: 'array',
-            items: type,
-            size: items.length
-        },
+        type: new ArrayType(type, items.length),
         value: new ArrayValue(items, type)
     };
 }
 
 function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
     
-    const type: StructType = {
-        type: 'struct',
-        properties: {}
-    }
-    const properties: { [key: string]: Value } = {};
+    const values: { [key: string]: Value } = {};
+    const types: { [key: string]: Type } = {};
 
     while(!cursor.done) {
         const lineCursor = new Cursor(cursor.next());
@@ -816,12 +793,12 @@ function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?:
 
         const { type: propertyType, value: propertyValue } = context.values.parseValue(context, lineCursor.remaining(), predefinedType);
 
-        type.properties[key] = propertyType;
-        properties[key] = propertyValue
+        values[key] = propertyValue
+        types[key] = propertyType
     }
 
     return {
-        type,
-        value: new StructValue(properties)
+        type: new StructType(types),
+        value: new StructValue(values)
     };
 }

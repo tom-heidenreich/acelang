@@ -9,7 +9,6 @@ import { Scope, declareFunction, defineFunction, parseStatements } from './compi
 import { parseToTree } from '../parser';
 import { ModuleManager } from '../modules';
 import Logger from '../util/logger';
-import TypeCheck from '../util/TypeCheck';
 import Values from '../values';
 
 type Options = {
@@ -86,7 +85,7 @@ export function generateModule(work_dir: string, file_name: string, moduleManage
     // generate ace.bindings file
     const lines: string[] = []
     for(const _export of exports) {
-        lines.push(`declare ${TypeCheck.stringify(_export.returnType)} ${_export.name}(${_export.params.map(param => `${TypeCheck.stringify(param)}`).join(', ')})`);
+        lines.push(`declare ${_export.returnType} ${_export.name}(${_export.params.map(param => `${param}`).join(', ')})`);
     }
     fs.writeFileSync(path.join(output, 'ace.bindings'), lines.join('\n'));
 }

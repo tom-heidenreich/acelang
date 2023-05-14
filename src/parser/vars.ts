@@ -1,6 +1,5 @@
-import { Context, Statement, Token, Type } from "../types"
+import { ArrayType, Context, PointerType, Statement, StructType, Token, Type } from "../types"
 import Cursor from "../util/cursor"
-import TypeCheck from "../util/TypeCheck"
 import { parseType } from "./types"
 import line from "../util/LineStringify"
 
@@ -52,7 +51,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
     // null safety
     var nullSafety = true
-    if(cursor.peek().type === 'operator' && cursor.peek().value === '?') {
+    if(cursor.peek().type === 'symbol' && cursor.peek().value === '?') {
         cursor.next()
         nullSafety = false
     }
@@ -84,73 +83,61 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             type = valueNode.type
         }
         // check if types match
-        else if(!TypeCheck.matches(context.build.types, type, valueNode.type)) {
-            throw new Error(`Types ${TypeCheck.stringify(type)} and ${TypeCheck.stringify(valueNode.type)} do not match at ${line(valueToken)}`)
+        else if(!type.matches(valueNode.type)) {
+            throw new Error(`Types ${type} and ${valueNode.type} do not match at ${line(valueToken)}`)
         }
 
         // add fields
         if(destructuringType === 'array') {
-            if(type.type !== 'array') {
-                throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at ${line(valueToken)}`)
+            if(!(type instanceof ArrayType)) {
+                throw new Error(`Cannot destructure type ${type} at ${line(valueToken)}`)
             }
             const items = type.items
             names.forEach(name => {
                 context.scope.set(name, {
-                    type: {
-                        type: 'pointer',
-                        pointer: items
-                    },
+                    type: new PointerType(items),
                     isConst
                 })
             })
         }
         else if(destructuringType === 'object') {
-            if(type.type === 'struct') {
+            if(type instanceof StructType) {
                 const properties = type.properties
                 names.forEach(name => {
                     if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at ${line(valueToken)}`)
                     }
                     context.scope.set(name, {
-                        type: {
-                            type: 'pointer',
-                            pointer: properties[name]
-                        },
+                        type: new PointerType(properties[name]),
                         isConst
                     })
                 })
             }
-            else if(type.type === 'object') {
-                const values = type.values
-                names.forEach(name => {
-                    context.scope.set(name, {
-                        type: {
-                            type: 'pointer',
-                            pointer: values
-                        },
-                        isConst
-                    })
-                })
-            }
+            // else if(type.type === 'object') {
+            //     const values = type.values
+            //     names.forEach(name => {
+            //         context.scope.set(name, {
+            //             type: {
+            //                 type: 'pointer',
+            //                 pointer: values
+            //             },
+            //             isConst
+            //         })
+            //     })
+            // }
             else {
-                throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at ${line(valueToken)}`)
+                throw new Error(`Cannot destructure type ${type} at ${line(valueToken)}`)
             }
         }
         else {
             context.scope.set(names[0], {
-                type: {
-                    type: 'pointer',
-                    pointer: type
-                },
+                type: new PointerType(type),
                 isConst
             })
         }
 
         if(names.length === 1) return {
-            type: {
-                type: 'pointer',
-                pointer: type
-            },
+            type: new PointerType(type),
             statement: {
                 type: 'variableDeclaration',
                 name: names[0],
@@ -159,10 +146,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else return {
-            type: {
-                type: 'pointer',
-                pointer: type
-            },
+            type: new PointerType(type),
             statement: {
                 type: 'multiStatement',
                 statements: names.map(name => ({
@@ -182,70 +166,58 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         if(!type) {
             throw new Error(`No type found at ${line(cursor.peek())}`)
         }
-        // type has to include undefined
-        if(!TypeCheck.matchesPrimitive(context.build.types, type, 'undefined')) {
-            throw new Error(`Type ${TypeCheck.stringify(type)} does not include undefined at ${line(cursor.peek())}`)
+        // type has have null safety disabled
+        if(nullSafety) {
+            throw new Error(`Type ${type} cannot be null at ${line(cursor.peek())}`)
         }
 
         // add fields
         if(destructuringType === 'array') {
-            if(type.type !== 'array') {
-                throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at ${line(cursor.peek())}`)
+            if(!(type instanceof ArrayType)) {
+                throw new Error(`Cannot destructure type ${type} at ${line(cursor.peek())}`)
             }
             const items = type.items
             names.forEach(name => {
                 context.scope.set(name, {
-                    type: {
-                        type: 'pointer',
-                        pointer: items
-                    }
+                    type: new PointerType(items)
                 })
             })
         }
         else if(destructuringType === 'object') {
-            if(type.type === 'struct') {
+            if(type instanceof StructType) {
                 const properties = type.properties
                 names.forEach(name => {
                     if(!properties[name]) {
                         throw new Error(`Field ${name} does not exist at ${line(cursor.peek())}`)
                     }
                     context.scope.set(name, {
-                        type: {
-                            type: 'pointer',
-                            pointer: properties[name]
-                        }
+                        type: new PointerType(properties[name])
                     })
                 })
             }
-            else if(type.type === 'object') {
-                const values = type.values
-                names.forEach(name => {
-                    context.scope.set(name, {
-                        type: {
-                            type: 'pointer',
-                            pointer: values
-                        }
-                    })
-                })
-            }
+            // else if(type.type === 'object') {
+            //     const values = type.values
+            //     names.forEach(name => {
+            //         context.scope.set(name, {
+            //             type: {
+            //                 type: 'pointer',
+            //                 pointer: values
+            //             }
+            //         })
+            //     })
+            // }
             else {
-                throw new Error(`Cannot destructure type ${TypeCheck.stringify(type)} at ${line(cursor.peek())}`)
+                throw new Error(`Cannot destructure type ${type} at ${line(cursor.peek())}`)
             }
         }
         else {
             context.scope.set(names[0], {
-                type: {
-                    type: 'pointer',
-                    pointer: type
-                }
+                type: new PointerType(type)
             })
         }
 
         if(names.length === 1) return {
-            type: {
-                type: 'pointer',
-                pointer: type
-            },
+            type: new PointerType(type),
             statement: {
                 type: 'variableDeclaration',
                 name: names[0],
@@ -253,10 +225,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
             }
         }
         else return {
-            type: {
-                type: 'pointer',
-                pointer: type
-            },
+            type: new PointerType(type),
             statement: {
                 type: 'multiStatement',
                 statements: names.map(name => ({

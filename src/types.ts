@@ -303,59 +303,269 @@ export type Global = {
 }
 
 // types
+export abstract class Type {
 
-export type LiteralType = {
-    type: 'literal',
-    literal: Literal
+    public abstract matches(type: Type): boolean;
+
+    public abstract toLLVM(module: LLVMModule): llvm.Type;
+    public abstract toString(): string;
+
+    public get dereference(): Type {
+        if(this instanceof PointerType) return this.pointer;
+        return this;
+    }
 }
 
-export type UnionType = {
-    type: 'union',
-    oneOf: Type[]
+export abstract class ObjectType extends Type {
+    public abstract getPropertyAt(key: LiteralValue): Type | undefined;
 }
 
-export type StructType = {
-    type: 'struct',
-    properties: Types
+export class StructType extends ObjectType {
+
+    constructor(public properties: Types) {
+        super()
+    }
+
+    public matches(type: Type): boolean {
+        if(!(type instanceof StructType)) return false;
+        const entries = Object.entries(this.properties);
+        const otherEntries = Object.entries(type.properties);
+        if(entries.length !== otherEntries.length) return false;
+        for(let i = 0; i < entries.length; i++) {
+            const [name, type] = entries[i];
+            const [otherName, otherType] = otherEntries[i];
+            if(name !== otherName) return false;
+            if(!type.matches(otherType)) return false;
+        }
+        return true;
+    }
+
+    public getPropertyAt(key: LiteralValue): Type | undefined {
+        if(key.literalType === 'string') return this.properties[key.literal.toString()];
+        else if(key.literalType === 'int') {
+            const keys = Object.keys(this.properties);
+            return this.properties[keys[key.literal as number]];
+        }
+        return undefined;
+    }
+
+    public toLLVM(module: LLVMModule): llvm.StructType {
+        const types = Object.entries(this.properties).map(([_, type]) => type.toLLVM(module));
+        return llvm.StructType.get(module._context, types);
+    }
+
+    public toString(): string {
+        return `{${Object.entries(this.properties).map(([name, type]) => `${name}: ${type}`).join(', ')}}`
+    }
 }
 
-// TODO: check if this should be named map
-export type ObjectType = {
-    type: 'object',
-    values: Type
+export class ArrayType extends ObjectType {
+
+    constructor(public items: Type, public size: number) {
+        super()
+    }
+
+    public matches(type: Type): boolean {
+        if(!(type instanceof ArrayType)) return false;
+        return this.items.matches(type.items) && this.size === type.size;
+    }
+
+    public getPropertyAt(key: LiteralValue): Type | undefined {
+        if(key.literalType !== 'int') return undefined;
+        return this.items;
+    }
+
+    public toLLVM(module: LLVMModule): llvm.ArrayType {
+        return llvm.ArrayType.get(this.items.toLLVM(module), this.size);
+    }
+
+    public toString(): string {
+        return `[${this.items} x ${this.size}]`
+    }
 }
 
-export type ArrayType = {
-    type: 'array',
-    items: Type,
-    size: number,
+export class CallableType extends Type {
+
+    constructor(public params: Type[], public returnType: Type) {
+        super()
+    }
+
+    public matches(type: Type): boolean {
+        if(!(type instanceof CallableType)) return false;
+        if(!this.returnType.matches(type.returnType)) return false;
+        if(this.params.length !== type.params.length) return false;
+        for(let i = 0; i < this.params.length; i++) {
+            if(!this.params[i].matches(type.params[i])) return false;
+        }
+        return true;
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return llvm.FunctionType.get(
+            this.returnType.toLLVM(module), this.params.map(param => param.toLLVM(module)), false);
+    }
+
+    public toString(): string {
+        return `(${this.params.join(', ')}) => ${this.returnType}`
+    }
 }
 
-export type CallableType = {
-    type: 'callable',
-    params: Type[],
-    returnType: Type,
+export abstract class PrimitiveType extends Type {
+    public abstract get primitive(): DataType
 }
 
-export type ClassType = {
-    type: 'class',
-    params: Type[],
-    statics: Types,
-    publicType: StructType,
-    privateType: StructType,
+export class IntType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt32Ty();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof IntType;
+    }
+
+    public toString(): string {
+        return `int`
+    }
+
+    public get primitive(): DataType {
+        return 'int'
+    }
 }
 
-export type PrimitiveType = {
-    type: 'primitive',
-    primitive: DataType
+export class FloatType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getDoubleTy();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof FloatType;
+    }
+
+    public toString(): string {
+        return `float`
+    }
+
+    public get primitive(): DataType {
+        return 'float'
+    }
 }
 
-export type PointerType = {
-    type: 'pointer',
-    pointer: Type
+export class StringType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt8PtrTy();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof StringType;
+    }
+    
+    public toString(): string {
+        return `string`
+    }
+
+    public get primitive(): DataType {
+        return 'string'
+    }
 }
 
-export type Type = PrimitiveType | UnionType | StructType | ArrayType | ObjectType | LiteralType | CallableType | ClassType | PointerType
+export class BooleanType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt1Ty();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof BooleanType;
+    }
+
+    public toString(): string {
+        return `boolean`
+    }
+
+    public get primitive(): DataType {
+        return 'boolean'
+    }
+}
+
+export class VoidType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getVoidTy();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof VoidType;
+    }
+
+    public toString(): string {
+        return `void`
+    }
+
+    public get primitive(): DataType {
+        return 'void'
+    }
+}
+
+export class AnyType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt8PtrTy();
+    }
+
+    public matches(type: Type): boolean {
+        return true;
+    }
+
+    public toString(): string {
+        return `any`
+    }
+
+    public get primitive(): DataType {
+        return 'any'
+    }
+}
+
+export class UnknownType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        throw new Error("Unknown type cannot be compiled");
+    }
+
+    public matches(type: Type): boolean {
+        return true;
+    }
+
+    public toString(): string {
+        return `unknown`
+    }
+
+    public get primitive(): DataType {
+        return 'unknown'
+    }
+}
+
+export class PointerType extends Type {
+
+    constructor(public pointer: Type) {
+        super()
+    }
+
+    public matches(type: Type): boolean {
+        if(!(type instanceof PointerType)) return false;
+        return this.pointer.matches(type.pointer);
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return llvm.PointerType.get(this.pointer.toLLVM(module), 0);
+    }
+
+    public toString(): string {
+        return `${this.pointer}*`
+    }
+}
 
 export type Types = {
     [name: string]: Type,
@@ -474,7 +684,7 @@ export class StructValue extends Value {
         if(!alloca) throw new Error("Constant structs are not supported yet");
 
         if(!structType) throw new Error("Struct type is required");
-        const type = module.Types.convertType(structType);
+        const type = structType.toLLVM(module);
 
         // initialize struct
         const entries = Object.entries(this.properties);
@@ -498,7 +708,7 @@ export class ArrayValue extends Value {
         super()
     }
     public compile(module: LLVMModule, scope: Scope, alloca?: llvm.AllocaInst): llvm.Value {
-        const arrayType = module.Types.array(module.Types.convertType(this.itemType), this.items.length);
+        const arrayType = new ArrayType(this.itemType, this.items.length).toLLVM(module);
 
         if(!alloca) {
             const constants: llvm.Constant[] = this.items.map((item, index) => {
@@ -585,7 +795,7 @@ export class MemberExpression extends Value {
         const property = this.property.compile(module, scope);
 
         if(!property.getType().isIntegerTy(32)) throw new Error(`Unknown property type, expected int`);
-        return module.builder.CreateGEP(module.Types.convertType(this.targetType), target, [module.Values.int(0), property]);
+        return module.builder.CreateGEP(this.targetType.toLLVM(module), target, [module.Values.int(0), property]);
     }
     public toString(): string {
         return `${this.target}[${this.property}]`
@@ -839,7 +1049,7 @@ export class PointerCastValue extends Value {
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
         const target = this.target.compile(module, scope)
-        return module.builder.CreatePointerCast(target, llvm.PointerType.get(module.Types.convertType(this.type), 0));
+        return module.builder.CreatePointerCast(target, llvm.PointerType.get(this.type.toLLVM(module), 0));
     }
     public toString(): string {
         return `*${this.target}`

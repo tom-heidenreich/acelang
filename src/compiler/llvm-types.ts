@@ -1,5 +1,6 @@
 import llvm from 'llvm-bindings';
-import { Type } from '../types';
+import { BooleanType, FloatType, IntType, StringType, Type, Types as TypeMap, VoidType, ArrayType, StructType } from '../types';
+import LLVMModule from './llvm-module';
 
 export type Types = {
     int: llvm.Type;
@@ -7,48 +8,20 @@ export type Types = {
     string: llvm.Type;
     bool: llvm.Type;
     void: llvm.Type;
-    array: (type: llvm.Type, size: number) => llvm.ArrayType;
-    struct: (types: llvm.Type[]) => llvm.StructType;
-
-    convertType: (type: Type) => llvm.Type;
+    array: (type: Type, size: number) => llvm.ArrayType;
+    struct: (types: TypeMap) => llvm.StructType;
 }
 
-export function getTypes(builder: llvm.IRBuilder, context: llvm.LLVMContext): Types {
-
-    const primitives = {
-        int: builder.getInt32Ty(),
-        float: builder.getDoubleTy(),
-        string: builder.getInt8PtrTy(),
-        bool: builder.getInt1Ty(),
-        void: builder.getVoidTy(),
-        array: (type: llvm.Type, size: number) => llvm.ArrayType.get(type, size),
-        struct: (types: llvm.Type[]) => llvm.StructType.get(context, types)
-    }
-
-    const convertType = (type: Type): llvm.Type => {
-        switch(type.type) {
-            case 'primitive': {
-                switch(type.primitive) {
-                    case 'int': return primitives.int;
-                    case 'float': return primitives.float;
-                    case 'string': return primitives.string;
-                    case 'boolean': return primitives.bool;
-                    case 'void': return primitives.void;
-                }
-                throw new Error(`Unknown primitive ${type.primitive}`);
-            }
-            case 'array': return primitives.array(convertType(type.items), type.size);
-            case 'struct': return primitives.struct(Object.entries(type.properties).map(([_, type]) => convertType(type)));
-            case 'pointer': return llvm.PointerType.get(convertType(type.pointer), 0);
-            case 'callable': return llvm.FunctionType.get(convertType(type.returnType), type.params.map(convertType), false);
-        }
-        throw new Error(`Unknown type ${type.type}`);
-    }
-
+export function getTypes(module: LLVMModule): Types {
     return {
-        ...primitives,
-        convertType
-    };
+        int: new IntType().toLLVM(module),
+        float: new FloatType().toLLVM(module),
+        string: new StringType().toLLVM(module),
+        bool: new BooleanType().toLLVM(module),
+        void: new VoidType().toLLVM(module),
+        array: (type: Type, size: number) => new ArrayType(type, size).toLLVM(module),
+        struct: (types: TypeMap) => new StructType(types).toLLVM(module),
+    }
 }
 
 export type Values = {

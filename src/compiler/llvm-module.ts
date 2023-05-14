@@ -33,7 +33,7 @@ export default class LLVMModule {
         this._module = new llvm.Module(name, this._context);
         this._builder = new llvm.IRBuilder(this._context);
 
-        this.Types = getTypes(this._builder, this._context);
+        this.Types = getTypes(this);
         this.Values = getValues(this._builder, this._context);
     }
 
