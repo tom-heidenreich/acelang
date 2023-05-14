@@ -19,7 +19,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     }
     const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
     if(!conditionValue.type.matches(new BooleanType())) {
-        throw new Error(`Expected boolean value at ${line(condition)}`)
+        throw new Error(`Expected boolean value, got ${conditionValue.type} at ${line(condition)}`)
     }
 
     const bodyToken = cursor.next()
