@@ -262,7 +262,7 @@ export function defineFunction(module: LLVMModule, scope: Scope, callable: Calla
 
     // return if no return statement
     if(!newScope.hasExited()) {
-        if(callable.returnType instanceof VoidType) {
+        if(!(callable.returnType instanceof VoidType)) {
             throw new Error(`Function ${callableName} must return a value`);
         }
         module.builder.CreateRetVoid();
