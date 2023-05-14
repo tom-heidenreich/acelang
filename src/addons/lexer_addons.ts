@@ -1,4 +1,4 @@
-import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue, IntType, FloatType, BooleanType, StringType, AnyType, ArrayType } from "../types";
+import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue, IntType, FloatType, BooleanType, StringType, ArrayType, NullValue, UnknownType } from "../types";
 import line, { lineInfo } from "../util/LineStringify";
 import Cursor from "../util/cursor";
 import { ValueAddon } from "../values";
@@ -718,6 +718,22 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                     return parseArray(context, new Cursor(token.block!));
                 }
             }
+        },
+        // null
+        {
+            tokenType: 'keyword',
+            parser: {
+                id: 'null (parser)',
+                priority: 0,
+                accept: (token) => token.value === 'null',
+                parse: (context, token, predefinedType) => {
+                    const type = predefinedType || new UnknownType();
+                    return {
+                        type,
+                        value: new NullValue(type)
+                    }
+                }
+            }
         }
     ]
 }
@@ -743,7 +759,7 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: 
 
     if(!type) {
         // throw new Error(`Expected at least one value, got 0 at ${line(token)}`);
-        type = new AnyType()
+        type = new UnknownType()
     }
 
     if(predefinedType) {

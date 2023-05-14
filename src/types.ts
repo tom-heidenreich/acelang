@@ -55,7 +55,8 @@ export const KEYWORDS: Keyword[] = [
     'from',
     'extends',
     'as',
-    'declare'
+    'declare',
+    'null'
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = [
@@ -109,7 +110,8 @@ export type Keyword = (
     'from' |
     'extends' |
     'as' |
-    'declare'
+    'declare' |
+    'null'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '?'
@@ -1047,6 +1049,38 @@ export class NegValue extends Value {
     }
     public toString(): string {
         return `-${this.target}`
+    }
+}
+
+export interface TypeRequired {
+    setType(type: Type): void
+}
+
+export function instanceOf(instance: any, type: 'TypeRequired') {
+    switch(type) {
+        case 'TypeRequired': {
+            if(!('setType' in instance)) return false;
+            return typeof instance.setType === 'function';
+        }
+    }
+}
+
+export class NullValue extends Value implements TypeRequired {
+
+    constructor(private type: Type) {
+        super()
+    }
+
+    public setType(type: Type): void {
+        this.type = type;
+    }
+
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        return llvm.Constant.getNullValue(this.type.toLLVM(module))
+    }
+
+    public toString(): string {
+        return `null`
     }
 }
 
