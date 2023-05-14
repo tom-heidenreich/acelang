@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue, instanceOf, TypeRequired } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
@@ -169,8 +169,8 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 const lastValueType = lastValue.type.dereference
                 if (!(lastValueType instanceof CallableType)) throw new Error(`Cannot call non-callable '${lastValueType}' at ${line(token)}`)
 
-                const args = token.block.map(block => context.values.parseValue(context, new Cursor(block)));
                 const params = lastValueType.params;
+                const args = token.block.map((block, index) => context.values.parseValue(context, new Cursor(block), params[index]));
 
                 if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
                 for(let i = 0; i < params.length; i++) {
@@ -194,7 +194,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                     throw new Error(`Cannot access non-object at ${line(token)}`);
                 }
 
-                const property = context.values.parseValue(context, new Cursor(token.block[0]));
+                const property = context.values.parseValue(context, new Cursor(token.block[0]), new IntType());
 
                 if(!property.type.matches(new IntType())) {
                     throw new Error(`Expected int, got ${property.type} at ${line(token)}`);
@@ -289,6 +289,10 @@ function parseAssignExpression(context: Context, left: ValueNode, right: ValueNo
     const leftType = left.type.dereference;
     if(!right.type.matches(leftType)) {
         throw new Error(`Cannot assign ${right.type} to ${leftType} at ${line(token)}`);
+    }
+
+    if(instanceOf(right.value, 'TypeRequired')) {
+        (right.value as unknown as TypeRequired).setType(leftType);
     }
 
     if(!(left.value instanceof ReferenceValue)) {
