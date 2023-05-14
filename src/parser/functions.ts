@@ -217,6 +217,46 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
     }
 }
 
+export function parseThrowStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+
+    if(!wrappers) {
+        throw new Error(`Unexpected return at ${line(cursor.peekLast())}`)
+    }
+    
+    // check if returnable
+    if(!WrapperResolve.is(wrappers, 'returnable')) {
+        throw new Error(`Unexpected throw at ${line(cursor.peekLast())}`)
+    }
+
+    // check if function exists
+    const field = WrapperResolve.resolveReturnableField(wrappers)
+    if(!field) {
+        throw new Error(`No function found at ${line(cursor.peekLast())}`)
+    }
+    const func = field.type
+    if(!(func instanceof CallableType)) {
+        throw new Error(`Unexpected type ${field.type} at ${line(cursor.peekLast())}`)
+    }
+
+    if(cursor.done) throw new Error(`Unexpected end of line at ${line(cursor.peekLast())}`)
+
+    // error message
+    const value = context.values.parseValue(context, cursor.remaining())
+
+    // value has to be string
+    if(!(value.type instanceof StringType)) {
+        throw new Error(`Expected string, got ${value.type} at ${line(cursor.peek())}`)
+    }
+
+    // set canThrowException to true
+    func.canThrowException = true
+
+    return {
+        type: 'throwStatement',
+        value: value.value,
+    }
+}
+
 export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, rightCursor: Cursor<Token>): ValueNode {
     
     const paramBlock = leftCursor.next()

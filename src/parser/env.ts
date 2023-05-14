@@ -4,7 +4,7 @@ import ExpressionParser from "../util/ExpressionParser"
 import { parseBreakStatement } from "./break"
 import { parseContinueStatement } from "./continue"
 import { parseForStatement } from "./for"
-import { parseFunc, parseReturn } from "./functions"
+import { parseFunc, parseReturn, parseThrowStatement } from "./functions"
 import { parseIfStatement } from "./if"
 import { parseTypeStatement } from "./types"
 import { parseConst, parseVar } from "./vars"
@@ -87,6 +87,7 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
             case 'var': return parseVar(context, cursor)
             case 'func': return parseFunc({ context, cursor, wrappers }).statement
             case 'return': return parseReturn(context, cursor, wrappers)
+            case 'throw': return parseThrowStatement(context, cursor, wrappers)
             case 'type': return parseTypeStatement(context, cursor)
             case 'if': {
                 isIfElseChain = true

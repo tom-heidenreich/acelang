@@ -38,6 +38,7 @@ export const KEYWORDS: Keyword[] = [
     'var',
     'func',
     'return',
+    'throw',
     'type',
     'if',
     'else',
@@ -93,6 +94,7 @@ export type Keyword = (
     'var' |
     'func' |
     'return' |
+    'throw' |
     'type' |
     'if' |
     'else' |
@@ -1114,6 +1116,7 @@ export type Statement = (
     VariableDeclaration |
     FunctionDeclaration |
     ReturnStatement |
+    ThrowStatement |
     ExpressionStatement |
     IfStatement |
     WhileStatement |
@@ -1148,6 +1151,11 @@ export type FunctionDeclaration = {
 export type ReturnStatement = {
     type: 'returnStatement',
     value?: Value,
+}
+
+export type ThrowStatement = {
+    type: 'throwStatement',
+    value: Value,
 }
 
 export type IfStatement = {
