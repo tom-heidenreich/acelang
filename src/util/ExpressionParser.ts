@@ -302,6 +302,10 @@ function parseAssignExpression(context: Context, left: ValueNode, right: ValueNo
         const field = context.scope.get(left.value.reference);
         if(!field) throw new Error(`Cannot assign to unknown field ${left.value.reference} at ${line(token)}`);
         if(field.isConst) throw new Error(`Cannot assign to const field ${left.value.reference} at ${line(token)}`);
+        // check null safety
+        if(!field.type.nullable && right.type.nullable) {
+            throw new Error(`Cannot assign nullable value to non-nullable field ${left.value.reference} at ${line(token)}`);
+        }
     }
 
     return {

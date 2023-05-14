@@ -50,10 +50,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
     })
 
     // null safety
-    var nullSafety = true
+    var nullable = false
     if(cursor.peek().type === 'symbol' && cursor.peek().value === '?') {
         cursor.next()
-        nullSafety = false
+        nullable = true
     }
 
     // type
@@ -86,6 +86,12 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         else if(!type.matches(valueNode.type)) {
             throw new Error(`Types ${type} and ${valueNode.type} do not match at ${line(valueToken)}`)
         }
+
+        // null safety
+        if(!nullable) {
+            if(type.nullable) throw new Error(`Type ${type} must not be nullable at ${line(valueToken)}`)
+        }
+        else type.setIsNullable(true)
 
         // add fields
         if(destructuringType === 'array') {
@@ -166,10 +172,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
         if(!type) {
             throw new Error(`No type found at ${line(cursor.peek())}`)
         }
-        // type has have null safety disabled
-        if(nullSafety) {
-            throw new Error(`Type ${type} cannot be null at ${line(cursor.peek())}`)
-        }
+
+        // has to be nullable, because it's not initialized
+        if(!nullable) throw new Error(`${names.join(', ')} has to be nullable without initialization at ${line(cursor.peek())}`)
+        type.setIsNullable(true)
 
         // add fields
         if(destructuringType === 'array') {

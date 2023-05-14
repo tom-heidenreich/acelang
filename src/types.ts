@@ -307,6 +307,16 @@ export type Global = {
 // types
 export abstract class Type {
 
+    constructor(private isNullable: boolean) {}
+
+    public get nullable(): boolean {
+        return this.isNullable;
+    }
+
+    public setIsNullable(value: boolean) {
+        this.isNullable = value;
+    }
+
     public abstract matches(type: Type): boolean;
 
     public abstract toLLVM(module: LLVMModule): llvm.Type;
@@ -324,8 +334,8 @@ export abstract class ObjectType extends Type {
 
 export class StructType extends ObjectType {
 
-    constructor(public properties: Types) {
-        super()
+    constructor(public properties: Types, nullable: boolean = false) {
+        super(nullable)
     }
 
     public matches(type: Type): boolean {
@@ -363,8 +373,8 @@ export class StructType extends ObjectType {
 
 export class ArrayType extends ObjectType {
 
-    constructor(public items: Type, public size: number) {
-        super()
+    constructor(public items: Type, public size: number, nullable: boolean = false) {
+        super(nullable)
     }
 
     public matches(type: Type): boolean {
@@ -388,8 +398,8 @@ export class ArrayType extends ObjectType {
 
 export class CallableType extends Type {
 
-    constructor(public params: Type[], public returnType: Type) {
-        super()
+    constructor(public params: Type[], public returnType: Type, nullable: boolean = false) {
+        super(nullable)
     }
 
     public matches(type: Type): boolean {
@@ -413,6 +423,11 @@ export class CallableType extends Type {
 }
 
 export abstract class PrimitiveType extends Type {
+
+    constructor(nullable: boolean = false) {
+        super(nullable)
+    }
+
     public abstract get primitive(): DataType
 }
 
@@ -532,8 +547,8 @@ export class UnknownType extends PrimitiveType {
 
 export class PointerType extends Type {
 
-    constructor(public pointer: Type) {
-        super()
+    constructor(public pointer: Type, nullable: boolean = false) {
+        super(nullable)
     }
 
     public matches(type: Type): boolean {
@@ -547,6 +562,10 @@ export class PointerType extends Type {
 
     public toString(): string {
         return `${this.pointer}*`
+    }
+
+    public get nullable(): boolean {
+        return this.pointer.nullable;
     }
 }
 

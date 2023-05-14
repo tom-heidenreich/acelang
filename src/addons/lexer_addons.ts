@@ -728,6 +728,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 accept: (token) => token.value === 'null',
                 parse: (context, token, predefinedType) => {
                     const type = predefinedType || new UnknownType();
+                    type.setIsNullable(true);
                     return {
                         type,
                         value: new NullValue(type)
