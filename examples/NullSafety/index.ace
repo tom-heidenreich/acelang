@@ -1,0 +1,11 @@
+var isNotAllowedToBeNull = 1
+var isAllowedToBeNull? = 1
+
+isNotAllowedToBeNull = null     # error
+isAllowedToBeNull = null        # ok
+
+printf('%d\n', $isNotAllowedToBeNull)       # 1
+printf('%d\n', $isAllowedToBeNull)          # 0
+
+printf('%d\n', 1 + $isNotAllowedToBeNull)   # 2
+printf('%d\n', 1 + $isAllowedToBeNull)      # 1
