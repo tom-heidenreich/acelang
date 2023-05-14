@@ -203,7 +203,7 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
     const value = valueNode.value
 
     // check if types match
-    if(func instanceof UnknownType) {
+    if(func.returnType instanceof UnknownType) {
         // dynamic type
         func.returnType = valueNode.type
     }
