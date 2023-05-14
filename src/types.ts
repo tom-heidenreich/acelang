@@ -418,7 +418,7 @@ export class CallableType extends Type {
     }
 
     public toString(): string {
-        return `(${this.params.join(', ')}) => ${this.returnType}`
+        return `((${this.params.join(', ')}) => ${this.returnType})`
     }
 }
 
