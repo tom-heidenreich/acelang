@@ -509,25 +509,6 @@ export class VoidType extends PrimitiveType {
     }
 }
 
-export class AnyType extends PrimitiveType {
-
-    public toLLVM(module: LLVMModule): llvm.Type {
-        return module.builder.getInt8PtrTy();
-    }
-
-    public matches(type: Type): boolean {
-        return true;
-    }
-
-    public toString(): string {
-        return `any`
-    }
-
-    public get primitive(): DataType {
-        return 'any'
-    }
-}
-
 export class UnknownType extends PrimitiveType {
 
     public toLLVM(module: LLVMModule): llvm.Type {

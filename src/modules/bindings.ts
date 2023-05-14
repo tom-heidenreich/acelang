@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 
-import { Binding, Context, Token, Type, Types, ParserScope, StringType, IntType, FloatType, BooleanType, VoidType, AnyType } from "../types"
+import { Binding, Context, Token, Type, Types, ParserScope, StringType, IntType, FloatType, BooleanType, VoidType } from "../types"
 import Lexer from '../lexer';
 import Logger from '../util/logger';
 import Cursor from '../util/cursor';
@@ -23,7 +23,6 @@ export function parseBindingsFile(file_path: string): Binding[] {
         float: new FloatType(),
         boolean: new BooleanType(),
         void: new VoidType(),
-        any: new AnyType(),
     }
 
     const build = {

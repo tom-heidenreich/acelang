@@ -1,6 +1,6 @@
 import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
-import { Token, Types, Build, Value, Callable, ParserScope, StringType, AnyType, VoidType, CallableType, IntType, FloatType, BooleanType } from "./types";
+import { Token, Types, Build, Value, Callable, ParserScope, StringType, VoidType, CallableType, IntType, FloatType, BooleanType, UnknownType } from "./types";
 import Values from "./values";
 
 export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], values: Values) {
@@ -11,7 +11,6 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
         float: new FloatType(),
         boolean: new BooleanType(),
         void: new VoidType(),
-        any: new AnyType(),
     }
 
     // built in functions
@@ -24,7 +23,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
             },
             {
                 name: 'value',
-                type: new AnyType(),
+                type: new UnknownType(),
             }
         ],
         returnType: new VoidType(),
