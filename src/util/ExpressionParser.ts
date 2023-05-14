@@ -219,7 +219,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 const property = cursor.next();
                 if(property.type !== 'identifier') throw new Error(`Expected identifier at ${line(token)}`)
 
-                if(!(lastValue.type instanceof PointerType)) throw new Error(`Cannot access non-pointer at ${line(token)}`);
+                if(!(lastValue.type instanceof PointerType)) throw new Error(`Cannot access non-pointer ${lastValue.type} at ${line(token)}`);
                 const lastValueType = lastValue.type.dereference
 
                 if(!(lastValueType instanceof StructType)) throw new Error(`Cannot access non-struct at ${line(token)}`);
