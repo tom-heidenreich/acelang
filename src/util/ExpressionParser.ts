@@ -287,7 +287,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
 function parseAssignExpression(context: Context, left: ValueNode, right: ValueNode, token: Token): ValueNode {
 
     const leftType = left.type.dereference;
-    if(!leftType.matches(right.type)) {
+    if(!right.type.matches(leftType)) {
         throw new Error(`Cannot assign ${right.type} to ${leftType} at ${line(token)}`);
     }
 
