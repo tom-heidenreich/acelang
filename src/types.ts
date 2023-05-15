@@ -1180,10 +1180,6 @@ export type VariableDeclaration = {
 
 export type FunctionDeclaration = {
     type: 'functionDeclaration',
-    name: Identifier,
-    params: Param[],
-    returnType: Type,
-    body: Statement[],
 }
 
 export type ReturnStatement = {
