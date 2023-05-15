@@ -130,7 +130,7 @@ export function createCallable(context: Context, wrappers: Wrappers | undefined,
     } 
 }
 
-export function parseFunc({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
+export function parseFunc({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers: Wrappers; }): { statement: Statement, type: Type } {
 
     // name
     const name = cursor.next()
@@ -184,7 +184,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     }
 }
 
-export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
     
     // check if returnable
     if(!WrapperResolve.is(wrappers, 'returnable')) {

@@ -54,7 +54,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
         const peek = next.peek(1)
         if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(context, next, wrappers))
         else {
-            elseStatement = parseElseStatement(context, next)
+            elseStatement = parseElseStatement(context, next, wrappers)
             break
         }
     }
@@ -83,7 +83,7 @@ function parseElseIfStatement(context: Context, cursor: Cursor<Token>, wrappers:
     return parseIfStatement(context, new Cursor([cursor]), wrappers)
 }
 
-function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement[] {
+function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement[] {
 
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
