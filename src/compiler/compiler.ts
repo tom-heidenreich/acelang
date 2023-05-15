@@ -15,7 +15,20 @@ export function parseStatements(module: LLVMModule, scope: Scope, statements: St
                 return;
             }
             case 'variableDeclaration': return parseVariableDeclaration(statement, module, scope);
-            case 'functionDeclaration': return
+            case 'functionDeclaration': {
+                const { outsideOfScopeAccesses } = statement;
+                for(const { name, globalRef } of outsideOfScopeAccesses) {
+
+                    const ref = scope.get(name);
+                    if(!ref) throw new Error(`Unexpected error. Reference ${name} not found`);
+        
+                    const globalRefValue = scope.get(globalRef);
+                    if(!globalRefValue) throw new Error(`Unexpected error. Global reference ${globalRef} not found`);
+        
+                    module.builder.CreateStore(ref, globalRefValue);
+                }
+                return
+            }
             case 'returnStatement': {
                 if(!statement.value) module.builder.CreateRetVoid();
                 else {
