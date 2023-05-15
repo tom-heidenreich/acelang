@@ -1,4 +1,4 @@
-import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope, CallableType, UnknownType, VoidType, PointerType } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope, CallableType, UnknownType, VoidType, PointerType, StringType } from "../types"
 import Cursor from "../util/cursor"
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
@@ -141,12 +141,18 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
         throw new Error(`No return type found at ${line(bodyToken)}`)
     }
 
+    // update function type if function can throw exception
+    if(func.canThrowException) {
+        functionType.canThrowException = true
+    }
+
     // add function to build
     context.build.callables[scopeUniqueName] = {
         name: scopeUniqueName,
         body: body.tree,
         params,
         returnType: func.returnType,
+        canThrowException: func.canThrowException,
     }
 
     return {

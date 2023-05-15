@@ -297,6 +297,7 @@ export type Callable = {
     returnType: Type,
     // TODO: rename this. imports uses this too
     isBuiltIn?: boolean,
+    canThrowException?: boolean,
 }
 
 // globals
@@ -400,7 +401,7 @@ export class ArrayType extends ObjectType {
 
 export class CallableType extends Type {
 
-    constructor(public params: Type[], public returnType: Type, nullable: boolean = false) {
+    constructor(public params: Type[], public returnType: Type, public canThrowException: boolean = false, nullable: boolean = false) {
         super(nullable)
     }
 
@@ -766,24 +767,56 @@ export class ArrowFunctionValue extends Value {
 
 // expression
 export class CallExpression extends Value {
-    constructor(private callable: Value, private args: Value[]) {
+    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
         const argValues = this.args.map(arg => arg.compile(module, scope));
         const callable = this.callable.compile(module, scope);
-        if(callable instanceof llvm.Function) return module.builder.CreateCall(callable, argValues);
-        if(callable.getType() instanceof llvm.PointerType) {
+
+        var exceptionFlag: llvm.AllocaInst | undefined;
+        if(this.withExceptionFlag) {
+            exceptionFlag = module.builder.CreateAlloca(module.Types.bool);
+            module.builder.CreateStore(module.Values.bool(false), exceptionFlag);
+            // add to front of args
+            argValues.unshift(exceptionFlag);
+        }
+
+        var returnValue: llvm.CallInst
+        if(callable instanceof llvm.Function) returnValue =  module.builder.CreateCall(callable, argValues);
+        else if(callable.getType() instanceof llvm.PointerType) {
             const elementType = callable.getType().getPointerElementType()
             if(elementType instanceof llvm.FunctionType) {
-                return module.builder.CreateCall(elementType, callable, argValues);
+                returnValue = module.builder.CreateCall(elementType, callable, argValues);
             }
-            throw new Error(`Cannot call pointer type. ${callable.getType().isPointerTy() ? 'Did you forget to dereference?' : ''}`);
+            else throw new Error(`Cannot call pointer type. ${callable.getType().isPointerTy() ? 'Did you forget to dereference?' : ''}`);
         }
-        if(!(callable.getType() instanceof llvm.FunctionType)) {
+        else if(!(callable.getType() instanceof llvm.FunctionType)) {
             throw new Error(`Cannot call non-function type.`);
         }
-        return module.builder.CreateCall(callable.getType(), callable, argValues);
+        else returnValue = module.builder.CreateCall(callable.getType(), callable, argValues);
+
+        // check if exception was thrown
+        if(this.withExceptionFlag) {
+            const loadedExceptionFlag = module.builder.CreateLoad(exceptionFlag!.getAllocatedType(), exceptionFlag!);
+
+            const handleBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionHandle'), scope.parentFunc);
+            const continueBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionContinue'), scope.parentFunc);
+
+            module.builder.CreateCondBr(loadedExceptionFlag, handleBlock, continueBlock);
+
+            module.builder.SetInsertPoint(handleBlock);
+
+            // TODO: this type of exception handling is only temporary
+            const printfFunc = scope.get('printf')!;
+            const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
+            module.builder.CreateCall(printfType, printfFunc, [module.Values.string('Exception thrown\n')]);
+            module.builder.CreateRet(module.Values.int(1));
+
+            module.builder.SetInsertPoint(continueBlock);
+        }
+
+        return returnValue;
     }
     public toString(): string {
         return `(${this.callable})(${this.args.map(arg => arg.toString()).join(', ')})`

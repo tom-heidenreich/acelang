@@ -181,7 +181,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
 
                 lastValue = {
                     type: lastValueType.returnType,
-                    value: new CallExpression(lastValue.value, args.map(arg => arg.value))
+                    value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException)
                 }
             }
             // member access

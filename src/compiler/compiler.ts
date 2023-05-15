@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType } from "../types";
+import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType, PointerType, BooleanType } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, scope: Scope, statements: Statement[]): void {
@@ -25,6 +25,25 @@ export function parseStatements(module: LLVMModule, scope: Scope, statements: St
                 }
                 scope.exit();
                 return;
+            }
+            case 'throwStatement': {
+                if(!statement.value) throw new Error('Illegal throw statement');
+                // const value = statement.value.compile(module, scope);
+
+                // get exception flag
+                const exceptionFlag = scope.get('%exception');
+                if(!exceptionFlag) throw new Error('Illegal throw statement');
+
+                // set exception flag
+                module.builder.CreateStore(module.Values.bool(true), exceptionFlag);
+
+                // exit function
+                const returnType = scope.parentFunc.getReturnType();
+                if(returnType.isVoidTy()) module.builder.CreateRetVoid();
+                else module.builder.CreateRet(module.Values.null(scope.parentFunc.getReturnType()))
+
+                scope.exit();
+                return
             }
             case 'whileStatement': return parseWhileStatement(statement, module, scope);
             case 'ifStatement': return parseIfStatement(statement, module, scope);
@@ -239,6 +258,8 @@ export function defineFunction(module: LLVMModule, scope: Scope, callable: Calla
     const returnType = callable.returnType.toLLVM(module);
     const paramTypes = callable.params.map(param => param.type.toLLVM(module));
 
+    if(callable.canThrowException) paramTypes.unshift(new PointerType(new BooleanType()).toLLVM(module));
+
     const functionType = llvm.FunctionType.get(returnType, paramTypes, false);
     const _function = llvm.Function.Create(functionType, llvm.Function.LinkageTypes.ExternalLinkage, callableName, module._module);
 
@@ -251,9 +272,16 @@ export function defineFunction(module: LLVMModule, scope: Scope, callable: Calla
     // add self to scope
     newScope.set(callableName, _function);
 
-    for(let i = 0; i < _function.arg_size(); i++) {
+    let argOffset = 0;
+    if(callable.canThrowException) {
+        argOffset = 1;
+        const flag = _function.getArg(0);
+        newScope.set('%exception', flag);
+    }
+
+    for(let i = argOffset; i < _function.arg_size(); i++) {
         const arg = _function.getArg(i);
-        const param = callable.params[i];
+        const param = callable.params[i - argOffset];
         newScope.set(param.name, arg);
     }
 
