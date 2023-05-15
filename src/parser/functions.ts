@@ -40,20 +40,8 @@ export function parseParams(context: Context, cursor: Cursor<Token[]>) {
 export function createCallable(context: Context, wrappers: Wrappers | undefined, name: string, uniqueName: string, params: Param[], returnType: Type | undefined, bodyToken: Token) {
 
     // // create proxy scope
-    // const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
-        
-    // // create scope
-    // const scope = new ParserScope({
-    //     global: context.scope.global,
-    //     parent: proxyScope,
-    // })
-    // params.forEach(param => {
-    //     scope.set(param.name, {
-    //         type: param.type,
-    //     })
-    // })
-    // create scope
     const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
+    // create scope
     const funcParentScope = new ParserScope({
         parent: proxyScope,
     })
@@ -93,7 +81,7 @@ export function createCallable(context: Context, wrappers: Wrappers | undefined,
     }
     if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
 
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, newWrappers, context.moduleManager, scope)
 
     // // create global vars for collected
     for(const { globalRef, type }  of proxyScope.collected) {
@@ -121,7 +109,7 @@ export function createCallable(context: Context, wrappers: Wrappers | undefined,
     }
 
     // update function type if function can throw exception
-    if(func.canThrowException || scope.get('%exception')) {
+    if(func.canThrowException) {
         functionType.canThrowException = true
     }
 
@@ -252,7 +240,7 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
     }
 }
 
-export function parseThrowStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+export function parseThrowStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
 
     if(!wrappers) {
         throw new Error(`Unexpected return at ${line(cursor.peekLast())}`)
@@ -276,7 +264,7 @@ export function parseThrowStatement(context: Context, cursor: Cursor<Token>, wra
     if(cursor.done) throw new Error(`Unexpected end of line at ${line(cursor.peekLast())}`)
 
     // error message
-    const value = context.values.parseValue(context, cursor.remaining())
+    const value = context.values.parseValue(context, cursor.remaining(), wrappers)
 
     // value has to be string
     if(!(value.type instanceof StringType)) {

@@ -3,7 +3,7 @@ import Cursor from "../util/cursor"
 import { parseType } from "./types"
 import line from "../util/LineStringify"
 
-export function parseDeclaration(context: Context, cursor: Cursor<Token>, isConst: boolean = false, wrappers?: Wrappers): { statement: Statement, type: Type } {
+export function parseDeclaration(context: Context, cursor: Cursor<Token>, isConst: boolean = false, wrappers: Wrappers): { statement: Statement, type: Type } {
 
     // name
     const nameToken = cursor.next()
@@ -247,10 +247,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
     }
 }
 
-export function parseConst(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers) {
+export function parseConst(context: Context, cursor: Cursor<Token>, wrappers: Wrappers) {
     return parseDeclaration(context, cursor, true, wrappers).statement
 }
 
-export function parseVar(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers) {
+export function parseVar(context: Context, cursor: Cursor<Token>, wrappers: Wrappers) {
     return parseDeclaration(context, cursor, false, wrappers).statement
 }

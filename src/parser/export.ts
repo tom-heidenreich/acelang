@@ -2,7 +2,7 @@ import { Binding, Build, Context, Statement, Token, Wrappers, Type, ReferenceVal
 import line from "../util/LineStringify"
 import Cursor from "../util/cursor"
 
-export function parseExportStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+export function parseExportStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
     if(wrappers) throw new Error(`Unexpected export at ${line(cursor.peekLast())}`)
 
     const valueCursor = cursor.until(token => token.type === 'keyword' && token.value === 'as')

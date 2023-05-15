@@ -3,7 +3,7 @@ import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
 import { parseEnvironment } from "./env";
 
-export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>>, wrappers?: Wrappers): IfStatement {
+export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>>, wrappers: Wrappers): IfStatement {
 
     // if statement
     const cursor = cursors.next()
@@ -42,7 +42,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     }
 
     // parse body
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, newWrappers, context.moduleManager, scope)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 
@@ -52,7 +52,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     while(!cursors.done) {
         const next = cursors.next()
         const peek = next.peek(1)
-        if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(context, next))
+        if(peek.type === 'keyword' && peek.value === 'if') elseIf.push(parseElseIfStatement(context, next, wrappers))
         else {
             elseStatement = parseElseStatement(context, next)
             break
@@ -68,7 +68,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     }
 }
 
-function parseElseIfStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): IfStatement {
+function parseElseIfStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): IfStatement {
     
     const keyword = cursor.next()
     if(keyword.type !== 'keyword' || keyword.value !== 'else') {
@@ -110,7 +110,7 @@ function parseElseStatement(context: Context, cursor: Cursor<Token>, wrappers?: 
     }
 
     // parse body
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, newWrappers, context.moduleManager, scope)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(bodyToken)}`)
 

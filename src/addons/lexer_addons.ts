@@ -739,7 +739,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
     ]
 }
 
-function parseArray(context: Context, cursor: Cursor<Token[]>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
+function parseArray(context: Context, cursor: Cursor<Token[]>, wrappers: Wrappers, predefinedType?: Type): ValueNode {
 
     const items: Value[] = []
     let type: Type | undefined;
@@ -779,7 +779,7 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, wrappers?: Wrappe
     };
 }
 
-function parseStruct(context: Context, cursor: Cursor<Token[]>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
+function parseStruct(context: Context, cursor: Cursor<Token[]>, wrappers: Wrappers, predefinedType?: Type): ValueNode {
     
     const values: { [key: string]: Value } = {};
     const types: { [key: string]: Type } = {};

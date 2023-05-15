@@ -3,7 +3,7 @@ import Cursor from "../util/cursor";
 import line from "../util/LineStringify";
 import { parseEnvironment } from "./env";
 
-export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
+export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
     
     const condition = cursor.next()
     if(condition.type !== 'block' || condition.value !== '()') {
@@ -41,7 +41,7 @@ export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wra
     }
 
     // parse body
-    const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
+    const body = parseEnvironment(context.build, context.values, bodyToken.block, newWrappers, context.moduleManager, scope)
 
     if(!cursor.done) throw new Error(`Unexpected token ${cursor.peek().type} ${cursor.peek().value} at ${line(cursor.peek())}`)
 

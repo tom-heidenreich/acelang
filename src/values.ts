@@ -62,7 +62,7 @@ type ValueParser<E extends (...args: any[]) => ValueNode, F extends (...args: an
     parse: E,
 }
 
-type ValueParseFunction = (context: Context, token: Token, wrappers?: Wrappers, predefinedType?: Type) => ValueNode
+type ValueParseFunction = (context: Context, token: Token, wrappers: Wrappers, predefinedType?: Type) => ValueNode
 type ValueAcceptFunction = (token: Token) => boolean
 
 export default class Values {
@@ -144,7 +144,7 @@ export default class Values {
         }
     }
 
-    public parseValue(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
+    public parseValue(context: Context, cursor: Cursor<Token>, wrappers: Wrappers, predefinedType?: Type): ValueNode {
         // TODO: temporary fix
         if(!cursor.hasOnlyOne()) return ExpressionParser.parse(context, cursor, wrappers);
         // if(!cursor.hasOnlyOne()) return this.parseExpression(context, cursor)

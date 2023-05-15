@@ -29,7 +29,7 @@ function pointerCast(context: Context, target: ValueNode, token: Token): ValueNo
 
 export default class ExpressionParser {
 
-    public static parse(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): ValueNode {
+    public static parse(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): ValueNode {
 
         if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
         else if (cursor.hasOnlyOne()) return context.values.parseValue(context, cursor, wrappers);
@@ -147,7 +147,7 @@ export default class ExpressionParser {
     }
 }
 
-function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): ValueNode {
+function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): ValueNode {
 
     let lastValue: ValueNode | undefined;
 
@@ -185,9 +185,12 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wr
                 }
 
                 if(lastValueType.canThrowException) {
-                    context.scope.set('%exception', {
-                        type: new VoidType(),
-                    })
+                    if(!wrappers) throw new Error(`Unhandled exception at ${line(token)}`);
+                    if(!wrappers.current.returnable) throw new Error(`Cannot throw exception in non-returnable wrapper at ${line(token)}`);
+                    const returnableField = wrappers.current.returnableField;
+                    if(!returnableField) throw new Error(`Unexpected error. Returnable field is undefined at ${line(token)}`);
+                    if(!(returnableField.type instanceof CallableType)) throw new Error(`Unexpected error. Returnable field is not callable at ${line(token)}`);
+                    returnableField.type.canThrowException = true;
                 }
             }
             // member access

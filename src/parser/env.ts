@@ -19,7 +19,7 @@ import Values from "../values"
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
 
-export function parseEnvironment(build: Build, values: Values, tokens: Token[][], moduleManager?: ModuleManager, preScope?: ParserScope, wrappers?: Wrappers) {
+export function parseEnvironment(build: Build, values: Values, tokens: Token[][], wrappers: Wrappers, moduleManager?: ModuleManager, preScope?: ParserScope) {
 
     const scope = preScope || new ParserScope({ isRoot: true })
 
@@ -53,7 +53,7 @@ export function parseEnvironment(build: Build, values: Values, tokens: Token[][]
     return { tree, typeModule }
 }
 
-function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; wrappers?: Wrappers; }): Statement | void {
+function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; wrappers: Wrappers; }): Statement | void {
 
     const token = cursor.peek()
 
@@ -83,8 +83,8 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
     if(token.type === 'keyword') {
         cursor.next()
         switch(token.value) {
-            case 'const': return parseConst(context, cursor)
-            case 'var': return parseVar(context, cursor)
+            case 'const': return parseConst(context, cursor, wrappers)
+            case 'var': return parseVar(context, cursor, wrappers)
             case 'func': return parseFunc({ context, cursor, wrappers }).statement
             case 'return': return parseReturn(context, cursor, wrappers)
             case 'throw': return parseThrowStatement(context, cursor, wrappers)
