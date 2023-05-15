@@ -1,4 +1,4 @@
-import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope, CallableType, UnknownType, VoidType, PointerType, StringType } from "../types"
+import { Context, Param, Statement, Token, Type, Wrappers, ValueNode, Callable, ArrowFunctionValue, ParserScope, ReplaceRefWithGlobalScope, CallableType, UnknownType, VoidType, PointerType, StringType, BooleanType } from "../types"
 import Cursor from "../util/cursor"
 import { parseEnvironment } from "./env";
 import { parseType } from "./types";
@@ -37,37 +37,25 @@ export function parseParams(context: Context, cursor: Cursor<Token[]>) {
     return params;
 }
 
-export function parseFunc({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
+export function createCallable(context: Context, wrappers: Wrappers | undefined, name: string, uniqueName: string, params: Param[], returnType: Type | undefined, bodyToken: Token) {
 
-    // name
-    const name = cursor.next()
-    if(name.type !== 'identifier') {
-        throw new Error(`Unexpected token ${name.type} ${name.value} at ${line(name)}`)
-    }
-    const scopeUniqueName = `${name.value}_${context.scope.id}`
-    // check if field exists
-    const searchedField = context.scope.getLocal(name.value)
-    if(searchedField) {
-        throw new Error(`Field ${name.value} already exists at ${line(name)}`)
-    }
-    // check if callable exists
-    if(context.build.callables[scopeUniqueName]) {
-        throw new Error(`Callable ${scopeUniqueName} already exists at ${line(name)}`)
-    }
-
-    // params
-    const paramsToken = cursor.next()
-    if(paramsToken.type !== 'block' || paramsToken.value !== '()') {
-        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at ${line(paramsToken)}`)
-    }
-    if(!paramsToken.block) {
-        throw new Error(`Unexpected end of line at ${line(paramsToken)}`)
-    }
-    const params = parseParams(context, new Cursor(paramsToken.block))
-    
+    // // create proxy scope
+    // const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
+        
+    // // create scope
+    // const scope = new ParserScope({
+    //     global: context.scope.global,
+    //     parent: proxyScope,
+    // })
+    // params.forEach(param => {
+    //     scope.set(param.name, {
+    //         type: param.type,
+    //     })
+    // })
     // create scope
+    const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
     const funcParentScope = new ParserScope({
-        global: context.scope.global,
+        parent: proxyScope,
     })
     const scope = new ParserScope({
         parent: funcParentScope,
@@ -78,53 +66,44 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
         })
     })
 
-    // return type
-    let returnType: Type | undefined
-    if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
-        const next = cursor.next()
-        const typeToken = cursor.until(token => token.type === 'block' && token.value === '{}')
-        if(typeToken.remainingLength === 0) {
-            throw new Error(`Unexpected end of line at ${line(next)}`)
-        }
-        returnType = parseType(context, typeToken)
-    }
-
-    // body
-    const bodyToken = cursor.next()
-    if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
-        throw new Error(`Unexpected token ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
-    }
-    if(!bodyToken.block) {
-        throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
-    }
-
     // add field
     const functionType = new CallableType(params.map(param => param.type), new UnknownType())
-    context.scope.set(name.value, {
+    context.scope.set(name, {
         type: functionType,
-        preferredName: scopeUniqueName,
+        preferredName: uniqueName,
     })
 
     // add self to parent of body scope
-    funcParentScope.set(name.value, {
+    funcParentScope.set(name, {
         type: functionType,
-        preferredName: scopeUniqueName,
+        preferredName: uniqueName,
     })
 
     // create new wrappers
     const newWrappers: Wrappers = {
         current: {
             returnable: true,
-            returnableField: context.scope.getLocal(name.value)
+            returnableField: context.scope.getLocal(name)
         },
-        parent: wrappers,
+        parent: wrappers
     }
 
-    // parse body
+    if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
+        throw new Error(`Expected {}, got ${bodyToken.type} ${bodyToken.value} at ${line(bodyToken)}`)
+    }
+    if(!bodyToken.block) throw new Error(`Unexpected end of line at ${line(bodyToken)}`)
+
     const body = parseEnvironment(context.build, context.values, bodyToken.block, context.moduleManager, scope, newWrappers)
 
+    // // create global vars for collected
+    for(const { globalRef, type }  of proxyScope.collected) {
+        context.build.globals[globalRef] = {
+            type,
+        }
+    }
+
     // check if body has return
-    const func = context.scope.getLocal(name.value)!.type
+    const func = context.scope.getLocal(name)!.type
     if(!(func instanceof CallableType)) {
         throw new Error(`Unexpected type ${func} at ${line(bodyToken)}`)
     }
@@ -142,27 +121,77 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     }
 
     // update function type if function can throw exception
-    if(func.canThrowException) {
+    if(func.canThrowException || scope.get('%exception')) {
         functionType.canThrowException = true
     }
 
     // add function to build
-    context.build.callables[scopeUniqueName] = {
-        name: scopeUniqueName,
+    const callable: Callable = {
+        name: uniqueName,
         body: body.tree,
         params,
         returnType: func.returnType,
-        canThrowException: func.canThrowException,
+        canThrowException: functionType.canThrowException,
     }
 
+    context.build.callables[uniqueName] = callable
+    
     return {
-        type: functionType,
+        functionType,
+        outsideOfScopeAccesses: proxyScope.collected,
+    } 
+}
+
+export function parseFunc({ context, cursor, wrappers }: { context: Context; cursor: Cursor<Token>; isSync?: boolean; wrappers?: Wrappers; }): { statement: Statement, type: Type } {
+
+    // name
+    const name = cursor.next()
+    if(name.type !== 'identifier') {
+        throw new Error(`Unexpected token ${name.type} ${name.value} at ${line(name)}`)
+    }
+
+    const scopeUniqueName = `${name.value}_${context.scope.id}`
+    // check if field exists
+    const searchedField = context.scope.getLocal(name.value)
+    if(searchedField) {
+        throw new Error(`Field ${name} already exists at ${line(name)}`)
+    }
+    // check if callable exists
+    if(context.build.callables[scopeUniqueName]) {
+        throw new Error(`Callable ${scopeUniqueName} already exists at ${line(name)}`)
+    }
+
+    // params
+    const paramsToken = cursor.next()
+    if(paramsToken.type !== 'block' || paramsToken.value !== '()') {
+        throw new Error(`Unexpected token ${paramsToken.type} ${paramsToken.value} at ${line(paramsToken)}`)
+    }
+    if(!paramsToken.block) {
+        throw new Error(`Unexpected end of line at ${line(paramsToken)}`)
+    }
+    const params = parseParams(context, new Cursor(paramsToken.block))
+
+    // return type
+    let returnType: Type | undefined
+    if(cursor.peek().type === 'symbol' && cursor.peek().value === ':') {
+        const next = cursor.next()
+        const typeToken = cursor.until(token => token.type === 'block' && token.value === '{}')
+        if(typeToken.remainingLength === 0) {
+            throw new Error(`Unexpected end of line at ${line(next)}`)
+        }
+        returnType = parseType(context, typeToken)
+    }
+
+    // body
+    const bodyToken = cursor.next()
+
+    const created = createCallable(context, wrappers, name.value, scopeUniqueName, params, returnType, bodyToken)
+
+    return {
+        type: created.functionType,
         statement: {
             type: 'functionDeclaration',
-            name: scopeUniqueName,
-            params,
-            returnType: func.returnType,
-            body: body.tree,
+            outsideOfScopeAccesses: created.outsideOfScopeAccesses,
         }
     }
 }
@@ -272,20 +301,6 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     if(!paramBlock.block) throw new Error(`Unexpected end of line at ${line(paramBlock)}`)
     const params = parseParams(context, new Cursor(paramBlock.block))
         
-    // create proxy scope
-    const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
-    
-    // create scope
-    const scope = new ParserScope({
-        global: context.scope.global,
-        parent: proxyScope,
-    })
-    params.forEach(param => {
-        scope.set(param.name, {
-            type: param.type,
-        })
-    })
-
     let returnType: Type | undefined
 
     if(!leftCursor.done) {
@@ -297,64 +312,13 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
     }
 
     const bodyBlock = rightCursor.next()
-    if(bodyBlock.type !== 'block' || bodyBlock.value !== '{}') {
-        throw new Error(`Expected {}, got ${bodyBlock.type} ${bodyBlock.value} at ${line(bodyBlock)}`)
-    }
-    if(!bodyBlock.block) throw new Error(`Unexpected end of line at ${line(bodyBlock)}`)
 
-    // add field
-    const functionType = new CallableType(params.map(param => param.type), new UnknownType())
     const anonName = `_anonymous${randomUUID()}`
-    context.scope.set(anonName, {
-        type: functionType,
-    })
 
-    // create new wrappers
-    const newWrappers: Wrappers = {
-        current: {
-            returnable: true,
-            returnableField: context.scope.getLocal(anonName)
-        }
-        // no parent wrappers
-    }
+    const created = createCallable(context, undefined, anonName, anonName, params, returnType, bodyBlock)
 
-    const body = parseEnvironment(context.build, context.values, bodyBlock.block, context.moduleManager, scope, newWrappers)
-    
-    // create global vars for collected
-    for(const { globalRef, type }  of proxyScope.collected) {
-        context.build.globals[globalRef] = {
-            type,
-        }
-    }
-
-    // check if body has return
-    const func = context.scope.getLocal(anonName)!.type
-    if(!(func instanceof CallableType)) {
-        throw new Error(`Unexpected type ${func} at ${line(bodyBlock)}`)
-    }
-
-    if(func.returnType instanceof UnknownType) {
-        // will return void
-        func.returnType = new VoidType()
-    }
-    else if(returnType && !func.returnType.matches(returnType)) {
-        throw new Error(`Types ${func.returnType} and ${returnType} do not match at ${line(bodyBlock)}`)
-    }
-    else if(!returnType && !func.returnType) {
-        throw new Error(`No return type found at ${line(bodyBlock)}`)
-    }
-
-    // add function to build
-    const callable: Callable = {
-        name: anonName,
-        body: body.tree,
-        params,
-        returnType: func.returnType,
-    }
-
-    context.build.callables[anonName] = callable
     return {
-        type: new PointerType(functionType),
-        value: new ArrowFunctionValue(anonName, proxyScope.collected)
+        type: new PointerType(created.functionType),
+        value: new ArrowFunctionValue(anonName, created.outsideOfScopeAccesses)
     }
 }
