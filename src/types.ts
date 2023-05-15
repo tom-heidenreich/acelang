@@ -255,13 +255,10 @@ export abstract class AccessProxyScope extends ParserScope {
     protected abstract handleAccess(name: string): Field | undefined
 }
 
+export type OutsideOfScopeAccess = { name: string, globalRef: string, type: Type }
 export class ReplaceRefWithGlobalScope extends AccessProxyScope {
 
-    private readonly collectedAccesses: Set<{
-        name: string,
-        globalRef: string
-        type: Type
-    }> = new Set();
+    private readonly collectedAccesses: Set<OutsideOfScopeAccess> = new Set();
 
     public get collected() {
         return Array.from(this.collectedAccesses);
@@ -745,7 +742,7 @@ export class ArrayValue extends Value {
 }
 
 export class ArrowFunctionValue extends Value {
-    constructor(private name: string, private outsideOfScopeAccesses: { name: string, globalRef: string, type: Type }[]) {
+    constructor(private name: string, private outsideOfScopeAccesses: OutsideOfScopeAccess[]) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
@@ -1180,7 +1177,7 @@ export type VariableDeclaration = {
 
 export type FunctionDeclaration = {
     type: 'functionDeclaration',
-    outsideOfScopeAccesses: { globalRef: string, type: Type }[],
+    outsideOfScopeAccesses: OutsideOfScopeAccess[],
 }
 
 export type ReturnStatement = {
