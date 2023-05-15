@@ -6,7 +6,7 @@ export function parseExportStatement(context: Context, cursor: Cursor<Token>, wr
     if(wrappers) throw new Error(`Unexpected export at ${line(cursor.peekLast())}`)
 
     const valueCursor = cursor.until(token => token.type === 'keyword' && token.value === 'as')
-    const valueNode = context.values.parseValue(context, valueCursor)
+    const valueNode = context.values.parseValue(context, valueCursor, wrappers)
 
     if(cursor.done) {
         const value = valueNode.value

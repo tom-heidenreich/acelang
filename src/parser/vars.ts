@@ -1,9 +1,9 @@
-import { ArrayType, Context, PointerType, Statement, StructType, Token, Type } from "../types"
+import { ArrayType, Context, PointerType, Statement, StructType, Token, Type, Wrappers } from "../types"
 import Cursor from "../util/cursor"
 import { parseType } from "./types"
 import line from "../util/LineStringify"
 
-export function parseDeclaration(context: Context, cursor: Cursor<Token>, isConst: boolean = false): { statement: Statement, type: Type } {
+export function parseDeclaration(context: Context, cursor: Cursor<Token>, isConst: boolean = false, wrappers?: Wrappers): { statement: Statement, type: Type } {
 
     // name
     const nameToken = cursor.next()
@@ -75,7 +75,7 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
 
         // value
         const valueToken = cursor.peek()
-        const valueNode = context.values.parseValue(context, cursor.remaining(), type)
+        const valueNode = context.values.parseValue(context, cursor.remaining(), wrappers, type)
         const value = valueNode.value
 
         // dynamic type
@@ -247,10 +247,10 @@ export function parseDeclaration(context: Context, cursor: Cursor<Token>, isCons
     }
 }
 
-export function parseConst(context: Context, cursor: Cursor<Token>) {
-    return parseDeclaration(context, cursor, true).statement
+export function parseConst(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers) {
+    return parseDeclaration(context, cursor, true, wrappers).statement
 }
 
-export function parseVar(context: Context, cursor: Cursor<Token>) {
-    return parseDeclaration(context, cursor, false).statement
+export function parseVar(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers) {
+    return parseDeclaration(context, cursor, false, wrappers).statement
 }

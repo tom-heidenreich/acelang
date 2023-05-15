@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue, instanceOf, TypeRequired } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue, instanceOf, TypeRequired, Wrappers } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
@@ -29,10 +29,10 @@ function pointerCast(context: Context, target: ValueNode, token: Token): ValueNo
 
 export default class ExpressionParser {
 
-    public static parse(context: Context, cursor: Cursor<Token>): ValueNode {
+    public static parse(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): ValueNode {
 
         if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
-        else if (cursor.hasOnlyOne()) return context.values.parseValue(context, cursor);
+        else if (cursor.hasOnlyOne()) return context.values.parseValue(context, cursor, wrappers);
 
         let mainOperatorIndex = -1;
         let mainOperator: Operator | undefined;
@@ -62,7 +62,7 @@ export default class ExpressionParser {
 
         if(mainOperatorIndex === -1) {
             // no operators found, but we have more than one token
-            return parseOperatorlessExpression(context, cursor.reset());
+            return parseOperatorlessExpression(context, cursor.reset(), wrappers);
         }
         // prefix operator
         else if(mainOperatorIndex === 0) {
@@ -70,20 +70,20 @@ export default class ExpressionParser {
                 // dereference
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
-                const value = context.values.parseValue(context, cursor.remaining());
+                const value = context.values.parseValue(context, cursor.remaining(), wrappers);
                 return dereference(context, value, next);
             }
             else if(mainOperator === '*') {
                 // pointer
                 const resetCursor = cursor.reset();
                 const next = resetCursor.next();
-                const value = context.values.parseValue(context, cursor.remaining());
+                const value = context.values.parseValue(context, cursor.remaining(), wrappers);
                 return pointerCast(context, value, next);
             }
             else if(mainOperator === '-') {
                 // negative
                 cursor.reset().next()
-                const value = context.values.parseValue(context, cursor.remaining());
+                const value = context.values.parseValue(context, cursor.remaining(), wrappers);
                 return {
                     type: value.type,
                     value: new NegValue(value.value)
@@ -105,8 +105,8 @@ export default class ExpressionParser {
             case '=>': return parseArrowFunction(context, leftCursor.toReadCursor(), rightCursor.toReadCursor());
         }
 
-        const left = this.parse(context, leftCursor.toReadCursor());
-        const right = this.parse(context, rightCursor.toReadCursor());
+        const left = this.parse(context, leftCursor.toReadCursor(), wrappers);
+        const right = this.parse(context, rightCursor.toReadCursor(), wrappers);
         return this.parseOperator(context, mainOperator!, left, right, cursor.peekLast());
     }
 
@@ -147,7 +147,7 @@ export default class ExpressionParser {
     }
 }
 
-function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): ValueNode {
+function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): ValueNode {
 
     let lastValue: ValueNode | undefined;
 
@@ -159,7 +159,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
             if(!token.block) throw new Error(`Unexpected end of block at ${line(token)}`);
             if(!lastValue) {
                 if (token.block.length !== 1) throw new Error(`Expected end of block at ${line(token)}`)
-                lastValue = context.values.parseValue(context, new Cursor(token.block[0]));
+                lastValue = context.values.parseValue(context, new Cursor(token.block[0]), wrappers);
                 continue;
             }
 
@@ -170,7 +170,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                 if (!(lastValueType instanceof CallableType)) throw new Error(`Cannot call non-callable '${lastValueType}' at ${line(token)}`)
 
                 const params = lastValueType.params;
-                const args = token.block.map((block, index) => context.values.parseValue(context, new Cursor(block), params[index]));
+                const args = token.block.map((block, index) => context.values.parseValue(context, new Cursor(block), wrappers, params[index]));
 
                 if(args.length < params.length) throw new Error(`Too few arguments at ${line(token)}`);
                 for(let i = 0; i < params.length; i++) {
@@ -200,7 +200,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                     throw new Error(`Cannot access non-object at ${line(token)}`);
                 }
 
-                const property = context.values.parseValue(context, new Cursor(token.block[0]), new IntType());
+                const property = context.values.parseValue(context, new Cursor(token.block[0]), wrappers, new IntType());
 
                 if(!property.type.matches(new IntType())) {
                     throw new Error(`Expected int, got ${property.type} at ${line(token)}`);
@@ -281,7 +281,7 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
         // value
         else {
             if(lastValue) throw new Error(`Unexpected value ${lastValue.value} at ${line(token)}`);
-            const value = context.values.parseValue(context, new Cursor([token]));
+            const value = context.values.parseValue(context, new Cursor([token]), wrappers);
             lastValue = value;
         }
     }

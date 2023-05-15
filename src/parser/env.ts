@@ -107,6 +107,6 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
     // parse steps
     return {
         type: 'expressionStatement',
-        expression: ExpressionParser.parse(context, cursor).value
+        expression: ExpressionParser.parse(context, cursor, wrappers).value
     }
 }

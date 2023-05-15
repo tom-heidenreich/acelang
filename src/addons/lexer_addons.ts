@@ -1,4 +1,4 @@
-import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue, IntType, FloatType, BooleanType, StringType, ArrayType, NullValue, UnknownType } from "../types";
+import { KEYWORDS, LexerAddon, OPERATORS, SYMBOLS, LexerPriority, IntValue, FloatValue, BooleanValue, StringValue, ReferenceValue, Token, Type, Context, Value, ValueNode, StructValue, StructType, Key, ArrayValue, DereferenceValue, IntType, FloatType, BooleanType, StringType, ArrayType, NullValue, UnknownType, Wrappers } from "../types";
 import line, { lineInfo } from "../util/LineStringify";
 import Cursor from "../util/cursor";
 import { ValueAddon } from "../values";
@@ -690,8 +690,8 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 id: 'wrapped',
                 priority: 0,
                 accept: (token) => token.value === '()' && token.block !== undefined && token.block.length === 1,
-                parse: (context, token) => {
-                    return context.values.parseValue(context, new Cursor(token.block![0]));
+                parse: (context, token, wrappers) => {
+                    return context.values.parseValue(context, new Cursor(token.block![0]), wrappers);
                 }
             }
         },
@@ -702,8 +702,8 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 id: 'struct',
                 priority: 0,
                 accept: (token) => token.value === '{}' && token.block !== undefined,
-                parse: (context, token) => {
-                    return parseStruct(context, new Cursor(token.block!));
+                parse: (context, token, wrappers) => {
+                    return parseStruct(context, new Cursor(token.block!), wrappers);
                 }
             }
         },
@@ -714,8 +714,8 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 id: 'array',
                 priority: 0,
                 accept: (token) => token.value === '[]' && token.block !== undefined,
-                parse: (context, token) => {
-                    return parseArray(context, new Cursor(token.block!));
+                parse: (context, token, wrappers) => {
+                    return parseArray(context, new Cursor(token.block!), wrappers);
                 }
             }
         },
@@ -726,7 +726,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
                 id: 'null (parser)',
                 priority: 0,
                 accept: (token) => token.value === 'null',
-                parse: (context, token, predefinedType) => {
+                parse: (context, token, wrappers, predefinedType) => {
                     const type = predefinedType || new UnknownType();
                     type.setIsNullable(true);
                     return {
@@ -739,7 +739,7 @@ export const DEFAULT_VALUES_ADDON: ValueAddon = {
     ]
 }
 
-function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
+function parseArray(context: Context, cursor: Cursor<Token[]>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
 
     const items: Value[] = []
     let type: Type | undefined;
@@ -747,7 +747,7 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: 
     while(!cursor.done) {
         
         const next = cursor.next()
-        const node = context.values.parseValue(context, new Cursor(next), predefinedType)
+        const node = context.values.parseValue(context, new Cursor(next), wrappers, predefinedType)
         if(!type) {
             type = node.type;
         }
@@ -779,7 +779,7 @@ function parseArray(context: Context, cursor: Cursor<Token[]>, predefinedType?: 
     };
 }
 
-function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?: Type): ValueNode {
+function parseStruct(context: Context, cursor: Cursor<Token[]>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
     
     const values: { [key: string]: Value } = {};
     const types: { [key: string]: Type } = {};
@@ -808,7 +808,7 @@ function parseStruct(context: Context, cursor: Cursor<Token[]>, predefinedType?:
         }
         lineCursor.next();
 
-        const { type: propertyType, value: propertyValue } = context.values.parseValue(context, lineCursor.remaining(), predefinedType);
+        const { type: propertyType, value: propertyValue } = context.values.parseValue(context, lineCursor.remaining(), wrappers, predefinedType);
 
         values[key] = propertyValue
         types[key] = propertyType

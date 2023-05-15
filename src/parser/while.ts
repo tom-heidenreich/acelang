@@ -15,7 +15,7 @@ export function parseWhileStatement(context: Context, cursor: Cursor<Token>, wra
         throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at ${line(condition.block[1][0])}`)
     }
 
-    const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
+    const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]), wrappers)
     if(!conditionValue.type.matches(new BooleanType())) {
         throw new Error(`Expected boolean value at ${line(condition)}`)
     }

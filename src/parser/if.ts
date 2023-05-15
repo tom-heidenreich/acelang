@@ -17,7 +17,7 @@ export function parseIfStatement(context: Context, cursors: Cursor<Cursor<Token>
     else if(condition.block.length > 1) {
         throw new Error(`Unexpected token ${condition.block[1][0].type} ${condition.block[1][0].value} at ${line(condition)}`)
     }
-    const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]))
+    const conditionValue = context.values.parseValue(context, new Cursor(condition.block[0]), wrappers)
     if(!conditionValue.type.matches(new BooleanType())) {
         throw new Error(`Expected boolean value, got ${conditionValue.type} at ${line(condition)}`)
     }

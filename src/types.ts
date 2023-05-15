@@ -1291,7 +1291,7 @@ export type Wrapper = {
     returnableField?: Field,
     breakable?: boolean,
     continuable?: boolean,
-    class?: boolean,
+    throwing?: boolean,
 }
 
 // build

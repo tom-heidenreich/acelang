@@ -234,7 +234,7 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
 
     // value
     const valueToken = cursor.peek()
-    const valueNode = context.values.parseValue(context, cursor.remaining())
+    const valueNode = context.values.parseValue(context, cursor.remaining(), wrappers)
     const value = valueNode.value
 
     // check if types match

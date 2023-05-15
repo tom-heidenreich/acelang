@@ -13,7 +13,7 @@ export function parseForStatement(context: Context, cursor: Cursor<Token>, wrapp
     cursor.next()
 
     // get iterable
-    const iterable = context.values.parseValue(context, new Cursor([cursor.next()]))
+    const iterable = context.values.parseValue(context, new Cursor([cursor.next()]), wrappers)
     if(!(iterable.type instanceof ArrayType)) {
         throw new Error(`Expected array, got ${iterable.type}`)
     }

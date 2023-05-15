@@ -1,6 +1,6 @@
 import { DEFAULT_VALUES_ADDON } from "./addons/lexer_addons";
 import Lexer from "./lexer";
-import { Context, FloatValue, IntValue, Token, Type, ValueNode } from "./types";
+import { Context, FloatValue, IntValue, Token, Type, ValueNode, Wrappers } from "./types";
 import ExpressionParser from "./util/ExpressionParser";
 import line from "./util/LineStringify";
 import Cursor, { WriteCursor } from "./util/cursor";
@@ -62,7 +62,7 @@ type ValueParser<E extends (...args: any[]) => ValueNode, F extends (...args: an
     parse: E,
 }
 
-type ValueParseFunction = (context: Context, token: Token, predefinedType?: Type) => ValueNode
+type ValueParseFunction = (context: Context, token: Token, wrappers?: Wrappers, predefinedType?: Type) => ValueNode
 type ValueAcceptFunction = (token: Token) => boolean
 
 export default class Values {
@@ -144,9 +144,9 @@ export default class Values {
         }
     }
 
-    public parseValue(context: Context,cursor: Cursor<Token>, predefinedType?: Type): ValueNode {
+    public parseValue(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers, predefinedType?: Type): ValueNode {
         // TODO: temporary fix
-        if(!cursor.hasOnlyOne()) return ExpressionParser.parse(context, cursor);
+        if(!cursor.hasOnlyOne()) return ExpressionParser.parse(context, cursor, wrappers);
         // if(!cursor.hasOnlyOne()) return this.parseExpression(context, cursor)
         const token = cursor.next();
 
@@ -157,13 +157,13 @@ export default class Values {
         const parser = parsers.find(c => c.accept(token));
         if(!parser) throw new Error(`No parser accepted token ${token.type} at ${line(token)}`);
 
-        return parser.parse(context, token, predefinedType);
+        return parser.parse(context, token, wrappers, predefinedType);
     }
 
-    private parseExpression(context: Context, cursor: Cursor<Token>): ValueNode {
+    private parseExpression(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): ValueNode {
 
         if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
-        else if (cursor.hasOnlyOne()) return this.parseValue(context, cursor);
+        else if (cursor.hasOnlyOne()) return this.parseValue(context, cursor, wrappers);
 
         let mainOperatorIndex = -1;
         let mainOperator: string | undefined;
@@ -200,13 +200,13 @@ export default class Values {
         else if(mainOperatorIndex === 0) {
             const resetCursor = cursor.reset();
             const next = resetCursor.next();
-            const value = context.values.parseValue(context, cursor.remaining());
+            const value = context.values.parseValue(context, cursor.remaining(), wrappers);
             return this.parsePrefixOperator(context, value, next, mainOperator!);
         }
         // suffix operator
         else if(mainOperatorIndex === index - 1) {
             const last = cursor.rollback();
-            const value = context.values.parseValue(context, cursor.reset());
+            const value = context.values.parseValue(context, cursor.reset(), wrappers);
             return this.parseSuffixOperator(context, value, last, mainOperator!);
         }
         else if(mainOperatorIndex === 0 || mainOperatorIndex === index - 1) {
@@ -224,8 +224,8 @@ export default class Values {
             return this.parseSpecialOperator(context, leftCursor.toReadCursor(), rightCursor.toReadCursor(), mainOperator!);
         }
 
-        const left = this.parseExpression(context, leftCursor.toReadCursor());
-        const right = this.parseExpression(context, rightCursor.toReadCursor());
+        const left = this.parseExpression(context, leftCursor.toReadCursor(), wrappers);
+        const right = this.parseExpression(context, rightCursor.toReadCursor(), wrappers);
         return this.parseOperator(context, mainOperator!, left, right, cursor.peekLast());
     }
 
