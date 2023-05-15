@@ -769,7 +769,7 @@ export class ArrowFunctionValue extends Value {
 
 // expression
 export class CallExpression extends Value {
-    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false, private handleIt: boolean = false) {
+    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false, private exceptionHandler?: (module: LLVMModule, scope: Scope) => void) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
@@ -798,8 +798,8 @@ export class CallExpression extends Value {
         }
         else returnValue = module.builder.CreateCall(callable.getType(), callable, argValues);
 
-        // check if exception was thrown
-        if(this.handleIt && exceptionFlag) {
+        // handle exception
+        if(exceptionFlag && this.exceptionHandler) {
             const loadedExceptionFlag = module.builder.CreateLoad(exceptionFlag.getAllocatedType(), exceptionFlag);
 
             const handleBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionHandle'), scope.parentFunc);
@@ -809,12 +809,10 @@ export class CallExpression extends Value {
 
             module.builder.SetInsertPoint(handleBlock);
 
-            // TODO: this type of exception handling is only temporary
-            const printfFunc = scope.get('printf')!;
-            const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
-            module.builder.CreateCall(printfType, printfFunc, [module.Values.string('Exception thrown\n')]);
-            module.builder.CreateRet(module.Values.int(1));
+            const newScope = new Scope(scope.parentFunc, scope);
+            this.exceptionHandler(module, newScope);
 
+            if(!newScope.hasExited()) module.builder.CreateBr(continueBlock);
             module.builder.SetInsertPoint(continueBlock);
         }
 
@@ -1291,7 +1289,7 @@ export type Wrapper = {
     returnableField?: Field,
     breakable?: boolean,
     continuable?: boolean,
-    throwing?: boolean,
+    exceptionHandler?: (module: LLVMModule, scope: Scope) => void
 }
 
 // build

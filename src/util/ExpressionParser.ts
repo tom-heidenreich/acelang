@@ -181,11 +181,12 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wr
 
                 lastValue = {
                     type: lastValueType.returnType,
-                    value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException)
+                    value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException, wrappers.current.exceptionHandler)
                 }
 
-                if(lastValueType.canThrowException) {
-                    if(!wrappers.current.returnable) throw new Error(`Cannot throw exception in non-returnable wrapper at ${line(token)}`);
+                // set function if throwing, if there is no handler
+                if(lastValueType.canThrowException && !wrappers.current.exceptionHandler) {
+                    if(!wrappers.current.returnable) throw new Error(`Unhandled exception at ${line(token)}`);
                     const returnableField = wrappers.current.returnableField;
                     if(!returnableField) throw new Error(`Unexpected error. Returnable field is undefined at ${line(token)}`);
                     if(!(returnableField.type instanceof CallableType)) throw new Error(`Unexpected error. Returnable field is not callable at ${line(token)}`);
