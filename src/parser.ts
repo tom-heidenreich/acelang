@@ -1,3 +1,6 @@
+import llvm from "llvm-bindings";
+import { Scope } from "./compiler/compiler";
+import LLVMModule from "./compiler/llvm-module";
 import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
 import { Token, Types, Build, Value, Callable, ParserScope, StringType, VoidType, CallableType, IntType, FloatType, BooleanType, UnknownType, Wrappers } from "./types";
@@ -42,12 +45,22 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
     }
 
     const rootScope = new ParserScope({ isRoot: true })
+    const printfType = new CallableType(printfFunction.params.map(param => param.type), printfFunction.returnType)
     rootScope.setGlobal('printf', {
-        type: new CallableType(printfFunction.params.map(param => param.type), printfFunction.returnType)
+        type: printfType
     })
 
     const rootWrappers: Wrappers = {
-        current: {}
+        current: {
+            exceptionHandler: (module: LLVMModule, scope: Scope) => {
+                // default exception handler
+                const printfFunc = scope.get('printf')!;
+                const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
+                module.builder.CreateCall(printfType, printfFunc, [module.Values.string('Catched unhandled exception\n')]);
+                module.builder.CreateRet(module.Values.int(1));
+                scope.exit()
+            }
+        }
     }
 
     const { tree, typeModule } = parseEnvironment(build, values, tokens, rootWrappers, moduleManager, new ParserScope({ parent: rootScope }))
