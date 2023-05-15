@@ -74,6 +74,10 @@ export default async function compile(work_dir: string, file_name: string, modul
     const entryBB = llvm.BasicBlock.Create(module._context, 'entry', mainFunc);
     builder.SetInsertPoint(entryBB);
 
+    const exceptionFlag = module.builder.CreateAlloca(module.Types.bool);
+    module.builder.CreateStore(module.Values.bool(false), exceptionFlag);
+    scope.set('%exception', exceptionFlag)
+
     parseStatements(module, scope, tree);
 
     // end of main function block
