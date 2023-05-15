@@ -185,10 +185,6 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
 }
 
 export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: Wrappers): Statement {
-
-    if(!wrappers) {
-        throw new Error(`Unexpected return at ${line(cursor.peekLast())}`)
-    }
     
     // check if returnable
     if(!WrapperResolve.is(wrappers, 'returnable')) {
@@ -241,10 +237,6 @@ export function parseReturn(context: Context, cursor: Cursor<Token>, wrappers?: 
 }
 
 export function parseThrowStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
-
-    if(!wrappers) {
-        throw new Error(`Unexpected return at ${line(cursor.peekLast())}`)
-    }
     
     // check if returnable
     if(!WrapperResolve.is(wrappers, 'returnable')) {

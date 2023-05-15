@@ -2,9 +2,7 @@ import { Field, Wrappers } from "../types";
 
 export default class WrapperResolve {
 
-    public static is(wrappers?: Wrappers, ...match: ('returnable' | 'breakable' | 'continuable')[]): boolean {
-        if(!wrappers) return false
-
+    public static is(wrappers: Wrappers, ...match: ('returnable' | 'breakable' | 'continuable')[]): boolean {
         const current = wrappers.current
         for(const key of match) if(current[key]) return true
 
@@ -14,9 +12,7 @@ export default class WrapperResolve {
         return false
     }
 
-    public static resolveReturnableField(wrappers?: Wrappers): Field | undefined {
-        if(!wrappers) return undefined
-
+    public static resolveReturnableField(wrappers: Wrappers): Field | undefined {
         const current = wrappers.current
         if(current.returnableField) return current.returnableField
 
