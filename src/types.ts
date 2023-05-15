@@ -745,12 +745,12 @@ export class ArrayValue extends Value {
 }
 
 export class ArrowFunctionValue extends Value {
-    constructor(private name: string, private collected: { name: string, globalRef: string, type: Type }[]) {
+    constructor(private name: string, private outsideOfScopeAccesses: { name: string, globalRef: string, type: Type }[]) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
         
-        for(const { name, globalRef } of this.collected) {
+        for(const { name, globalRef } of this.outsideOfScopeAccesses) {
 
             const ref = scope.get(name);
             if(!ref) throw new Error(`Unexpected error. Reference ${name} not found`);
@@ -1180,6 +1180,7 @@ export type VariableDeclaration = {
 
 export type FunctionDeclaration = {
     type: 'functionDeclaration',
+    outsideOfScopeAccesses: { globalRef: string, type: Type }[],
 }
 
 export type ReturnStatement = {
