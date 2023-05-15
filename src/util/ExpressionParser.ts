@@ -183,6 +183,12 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>): V
                     type: lastValueType.returnType,
                     value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException)
                 }
+
+                if(lastValueType.canThrowException) {
+                    context.scope.set('%exception', {
+                        type: new VoidType(),
+                    })
+                }
             }
             // member access
             else if(token.value === '[]') {
