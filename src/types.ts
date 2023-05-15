@@ -270,6 +270,10 @@ export class ReplaceRefWithGlobalScope extends AccessProxyScope {
     protected handleAccess(name: string): Field | undefined {
         const field = this.scope.getNotGlobal(name);
         if(!field) return undefined;
+
+        // do not replace functions
+        if(field.type instanceof CallableType) return field;
+
         const globalPointerName = field.globalPointerName || `${name}_${randomUUID().replace(/-/g, '')}`
         this.collectedAccesses.add({
             name,
@@ -412,12 +416,13 @@ export class CallableType extends Type {
         for(let i = 0; i < this.params.length; i++) {
             if(!this.params[i].matches(type.params[i])) return false;
         }
+        if(this.canThrowException !== type.canThrowException) return false;
         return true;
     }
 
     public toLLVM(module: LLVMModule): llvm.Type {
-        return llvm.FunctionType.get(
-            this.returnType.toLLVM(module), this.params.map(param => param.toLLVM(module)), false);
+        if(this.canThrowException) this.params.unshift(new PointerType(new BooleanType()));
+        return llvm.FunctionType.get(this.returnType.toLLVM(module), this.params.map(param => param.toLLVM(module)), false);
     }
 
     public toString(): string {
@@ -767,7 +772,7 @@ export class ArrowFunctionValue extends Value {
 
 // expression
 export class CallExpression extends Value {
-    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false) {
+    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false, private handleIt: boolean = false) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
@@ -776,14 +781,14 @@ export class CallExpression extends Value {
 
         var exceptionFlag: llvm.AllocaInst | undefined;
         if(this.withExceptionFlag) {
-            exceptionFlag = module.builder.CreateAlloca(module.Types.bool);
-            module.builder.CreateStore(module.Values.bool(false), exceptionFlag);
+            exceptionFlag = scope.get('%exception') as llvm.AllocaInst;
+            if(!exceptionFlag) throw new Error("Callable throws exception but exception flag was not found")
             // add to front of args
             argValues.unshift(exceptionFlag);
         }
 
         var returnValue: llvm.CallInst
-        if(callable instanceof llvm.Function) returnValue =  module.builder.CreateCall(callable, argValues);
+        if(callable instanceof llvm.Function) returnValue = module.builder.CreateCall(callable, argValues);
         else if(callable.getType() instanceof llvm.PointerType) {
             const elementType = callable.getType().getPointerElementType()
             if(elementType instanceof llvm.FunctionType) {
@@ -797,8 +802,8 @@ export class CallExpression extends Value {
         else returnValue = module.builder.CreateCall(callable.getType(), callable, argValues);
 
         // check if exception was thrown
-        if(this.withExceptionFlag) {
-            const loadedExceptionFlag = module.builder.CreateLoad(exceptionFlag!.getAllocatedType(), exceptionFlag!);
+        if(this.handleIt && exceptionFlag) {
+            const loadedExceptionFlag = module.builder.CreateLoad(exceptionFlag.getAllocatedType(), exceptionFlag);
 
             const handleBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionHandle'), scope.parentFunc);
             const continueBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionContinue'), scope.parentFunc);
