@@ -32,6 +32,7 @@ export default class ExpressionParser {
 
     public static parse(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): ValueNode {
 
+        if(cursor.isEmpty) throw new Error(`Unexpected empty cursor.`)
         if(cursor.done) throw new Error(`Invalid expression at ${line(cursor.peekLast())}`)
         else if (cursor.hasOnlyOne()) return context.values.parseValue(context, cursor, wrappers);
 
@@ -106,8 +107,14 @@ export default class ExpressionParser {
             case '=>': return parseArrowFunction(context, leftCursor.toReadCursor(), rightCursor.toReadCursor());
         }
 
-        const left = this.parse(context, leftCursor.toReadCursor(), wrappers);
-        const right = this.parse(context, rightCursor.toReadCursor(), wrappers);
+        const leftReadCursor = leftCursor.toReadCursor();
+        const rightReadCursor = rightCursor.toReadCursor();
+
+        if(leftReadCursor.isEmpty) throw new Error(`Operator ${mainOperator} cannot be used as prefix at ${line(cursor.peekLast())}`);
+        if(rightReadCursor.isEmpty) throw new Error(`Operator ${mainOperator} cannot be used as suffix at ${line(cursor.peekLast())}`);
+
+        const left = this.parse(context, leftReadCursor, wrappers);
+        const right = this.parse(context, rightReadCursor, wrappers);
         return this.parseOperator(context, mainOperator!, left, right, cursor.peekLast());
     }
 

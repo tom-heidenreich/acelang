@@ -91,6 +91,10 @@ export default class Cursor<T> {
         this.cursor = 0;
         return this
     }
+
+    public get isEmpty() {
+        return this.array.length === 0;
+    }
 }
 
 export class WriteCursor<T> {
