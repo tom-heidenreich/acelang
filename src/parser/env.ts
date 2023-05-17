@@ -15,9 +15,13 @@ import { parseImportStatement } from "./import"
 import { ModuleManager } from "../modules"
 import line from "../util/LineStringify"
 import Values from "../values"
+import { parseTryStatement } from "./try-catch"
 
 let isIfElseChain = false
 const ifElseChain: Cursor<Token>[] = []
+
+let isTryCatchChain = false
+const tryCatchChain: Cursor<Token>[] = []
 
 export function parseEnvironment(build: Build, values: Values, tokens: Token[][], wrappers: Wrappers, moduleManager?: ModuleManager, preScope?: ParserScope) {
 
@@ -48,6 +52,11 @@ export function parseEnvironment(build: Build, values: Values, tokens: Token[][]
         isIfElseChain = false
         tree.push(parseIfStatement(context, new Cursor(ifElseChain), wrappers))
         ifElseChain.length = 0
+    }
+    if(isTryCatchChain) {
+        isTryCatchChain = false
+        tree.push(parseTryStatement(context, new Cursor(tryCatchChain), wrappers))
+        tryCatchChain.length = 0
     }
 
     return { tree, typeModule }
@@ -80,6 +89,29 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
         }
     }
 
+    if(isTryCatchChain) {
+        if(token.type === 'keyword' && token.value === 'catch') {
+            tryCatchChain.push(cursor)
+            return
+        }
+        else {
+            isTryCatchChain = false
+            const tryStatement = parseTryStatement(context, new Cursor(tryCatchChain), wrappers)
+            tryCatchChain.length = 0
+            const nextStatement = parseLine({ context, cursor, wrappers })
+
+            if(nextStatement) {
+                return {
+                    type: 'multiStatement',
+                    statements: [tryStatement, nextStatement]
+                }
+            }
+            else {
+                return tryStatement
+            }
+        }
+    }
+
     if(token.type === 'keyword') {
         cursor.next()
         switch(token.value) {
@@ -101,6 +133,11 @@ function parseLine({ context, cursor, wrappers }: { context: Context; cursor: Cu
             // case 'class': return parseClassStatement(context, cursor)
             case 'export': return parseExportStatement(context, cursor, wrappers)
             case 'import': return parseImportStatement(context, cursor, wrappers)
+            case 'try': {
+                isTryCatchChain = true
+                tryCatchChain.push(cursor)
+                return
+            }
         }
         throw new Error(`Unexpected token ${token.type} ${token.value} at ${line(token)}`)
     }

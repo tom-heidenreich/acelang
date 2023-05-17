@@ -57,7 +57,9 @@ export const KEYWORDS: Keyword[] = [
     'extends',
     'as',
     'declare',
-    'null'
+    'null',
+    'try',
+    'catch',
 ]
 export const MODIFIERS: Modifier[] = ['public', 'private', 'static', 'abstract']
 export const OPERATORS: Operator[] = [
@@ -113,7 +115,9 @@ export type Keyword = (
     'extends' |
     'as' |
     'declare' |
-    'null'
+    'null' |
+    'try' |
+    'catch'
 )
 export type Modifier = 'public' | 'private' | 'static' | 'abstract';
 export type Symbol =  Operator | ':' | ',' | '.' | '|' | '?'
@@ -769,7 +773,7 @@ export class ArrowFunctionValue extends Value {
 
 // expression
 export class CallExpression extends Value {
-    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false, private exceptionHandler?: (module: LLVMModule, scope: Scope) => void) {
+    constructor(private callable: Value, private args: Value[], private withExceptionFlag: boolean = false) {
         super()
     }
     public compile(module: LLVMModule, scope: Scope): llvm.Value {
@@ -799,20 +803,15 @@ export class CallExpression extends Value {
         else returnValue = module.builder.CreateCall(callable.getType(), callable, argValues);
 
         // handle exception
-        if(exceptionFlag && this.exceptionHandler) {
+        if(exceptionFlag) {
+            const catchBlock = scope.catchBlock
+            if(!catchBlock) throw new Error("Unhandled exception")
+
             const loadedExceptionFlag = module.builder.CreateLoad(exceptionFlag.getAllocatedType(), exceptionFlag);
+            
+            const continueBlock = llvm.BasicBlock.Create(module._context, scope.blockId('tryContinue'), scope.parentFunc);
 
-            const handleBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionHandle'), scope.parentFunc);
-            const continueBlock = llvm.BasicBlock.Create(module._context, scope.blockId('exceptionContinue'), scope.parentFunc);
-
-            module.builder.CreateCondBr(loadedExceptionFlag, handleBlock, continueBlock);
-
-            module.builder.SetInsertPoint(handleBlock);
-
-            const newScope = new Scope(scope.parentFunc, scope);
-            this.exceptionHandler(module, newScope);
-
-            if(!newScope.hasExited()) module.builder.CreateBr(continueBlock);
+            module.builder.CreateCondBr(loadedExceptionFlag, catchBlock, continueBlock);
             module.builder.SetInsertPoint(continueBlock);
         }
 
@@ -1158,7 +1157,8 @@ export type Statement = (
     ForStatement |
     ClassDeclarationStatement |
     ExportStatement |
-    ImportStatement
+    ImportStatement |
+    TryStatement
 )
 
 export type MultiStatement = {
@@ -1228,6 +1228,12 @@ export type ImportStatement = {
     type: 'importStatement',
 }
 
+export type TryStatement = {
+    type: 'tryStatement',
+    body: Statement[],
+    catch: Statement[],
+}
+
 export type ExpressionStatement = {
     type: 'expressionStatement',
     expression: Value,
@@ -1289,7 +1295,7 @@ export type Wrapper = {
     returnableField?: Field,
     breakable?: boolean,
     continuable?: boolean,
-    exceptionHandler?: (module: LLVMModule, scope: Scope) => void
+    handlesException?: boolean,
 }
 
 // build

@@ -2,7 +2,7 @@ import { Field, Wrappers } from "../types";
 
 export default class WrapperResolve {
 
-    public static is(wrappers: Wrappers, ...match: ('returnable' | 'breakable' | 'continuable')[]): boolean {
+    public static is(wrappers: Wrappers, ...match: ('returnable' | 'breakable' | 'continuable' | 'handlesException')[]): boolean {
         const current = wrappers.current
         for(const key of match) if(current[key]) return true
 

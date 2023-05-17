@@ -51,6 +51,10 @@ export default class LLVMModule {
         this._builder.ClearInsertionPoint();
     }
 
+    public createExceptionFlag() {
+        return this._builder.CreateAlloca(this.Types.bool);
+    }
+
     public verify(silent: boolean = false){
         if(llvm.verifyModule(this._module)) {
             if(!silent) console.error('Verifying module failed');

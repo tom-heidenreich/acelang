@@ -52,14 +52,8 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
 
     const rootWrappers: Wrappers = {
         current: {
-            exceptionHandler: (module: LLVMModule, scope: Scope) => {
-                // default exception handler
-                const printfFunc = scope.get('printf')!;
-                const printfType = llvm.FunctionType.get(module.Types.void, [module.Types.string], true);
-                module.builder.CreateCall(printfType, printfFunc, [module.Values.string('Catched unhandled exception\n')]);
-                module.builder.CreateRet(module.Values.int(1));
-                scope.exit()
-            }
+            // default exception handling
+            handlesException: true,
         }
     }
 

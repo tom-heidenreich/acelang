@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType, PointerType, BooleanType } from "../types";
+import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType, PointerType, BooleanType, TryStatement } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, scope: Scope, statements: Statement[]): void {
@@ -72,6 +72,7 @@ export function parseStatements(module: LLVMModule, scope: Scope, statements: St
                 scope.exit();
                 return;
             }
+            case 'tryStatement': return parseTryStatement(statement, module, scope);
         }
         throw new Error(`Unknown statement type ${statement.type}`);
     }
@@ -91,16 +92,18 @@ export class Scope {
 
     private readonly exitBB: llvm.BasicBlock | undefined
     private readonly loopBB: llvm.BasicBlock | undefined
+    private readonly catchBB: llvm.BasicBlock | undefined
 
     private exited: boolean = false;
 
-    constructor(func: llvm.Function, parent?: Scope, blocks?: { exit?: llvm.BasicBlock, loop?: llvm.BasicBlock }) {
+    constructor(func: llvm.Function, parent?: Scope, blocks?: { exit?: llvm.BasicBlock, loop?: llvm.BasicBlock, catch?: llvm.BasicBlock }) {
         this.parentFunc = func;
         this.values = new Map();
         this.parent = parent;
 
         this.exitBB = blocks?.exit;
         this.loopBB = blocks?.loop;
+        this.catchBB = blocks?.catch;
     }
 
     public set(name: string, value: llvm.Value) {
@@ -128,6 +131,12 @@ export class Scope {
     public get loopBlock(): llvm.BasicBlock | undefined {
         if(this.loopBB) return this.loopBB;
         if(this.parent) return this.parent.loopBlock;
+        return undefined;
+    }
+
+    public get catchBlock(): llvm.BasicBlock | undefined {
+        if(this.catchBB) return this.catchBB;
+        if(this.parent) return this.parent.catchBlock;
         return undefined;
     }
 
@@ -244,6 +253,51 @@ function parseIfStatement(statement: IfStatement, module: LLVMModule, scope: Sco
     
     if(!elseExited) module.builder.CreateBr(exitBB);
     module.builder.SetInsertPoint(exitBB);
+}
+
+function parseTryStatement(statement: TryStatement, module: LLVMModule, scope: Scope) {
+    
+    // reset exception flag
+    let exceptionFlag = scope.get('%exception')
+    if(!exceptionFlag) {
+        exceptionFlag = module.createExceptionFlag()
+        scope.set('%exception', exceptionFlag)
+    }
+    module.builder.CreateStore(module.Values.bool(false), exceptionFlag);
+
+    const tryBlock = llvm.BasicBlock.Create(module._context, scope.blockId('tryBody'), scope.parentFunc);
+    const catchBlock = llvm.BasicBlock.Create(module._context, scope.blockId('tryCatch'), scope.parentFunc);
+    const tryFinallyBlock = llvm.BasicBlock.Create(module._context, scope.blockId('tryFinally'), scope.parentFunc);
+
+    module.builder.CreateBr(tryBlock);
+
+    // catch block
+    module.builder.SetInsertPoint(catchBlock);
+    const catchScope = new Scope(scope.parentFunc, scope, {
+        exit: tryFinallyBlock,
+    });
+    parseStatements(module, catchScope, statement.catch);
+    if(!catchScope.hasExited()) module.builder.CreateBr(tryFinallyBlock);
+    else scope.exit();
+
+    // try block
+    module.builder.SetInsertPoint(tryBlock);
+    const tryScope = new Scope(scope.parentFunc, scope, {
+        exit: tryFinallyBlock,
+        catch: catchBlock,
+    })
+    parseStatements(module, tryScope, statement.body);
+    if(!tryScope.hasExited()) module.builder.CreateBr(tryFinallyBlock);
+    else scope.exit();
+
+    if(scope.hasExited()) {
+        // remove finally block
+        tryFinallyBlock.eraseFromParent();
+    }
+    else {
+        // finally block
+        module.builder.SetInsertPoint(tryFinallyBlock);
+    }
 }
 
 export function defineGlobal(module: LLVMModule, scope: Scope, global: Global, globalName: string) {

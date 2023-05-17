@@ -72,13 +72,28 @@ export default async function compile(work_dir: string, file_name: string, modul
 
     // start of main function block
     const entryBB = llvm.BasicBlock.Create(module._context, 'entry', mainFunc);
+    
+    // default catch block
+    const catchBlock = llvm.BasicBlock.Create(module._context, 'catch.default', mainFunc);
+    builder.SetInsertPoint(catchBlock);
+    builder.CreateCall(printf, [module.builder.CreateGlobalStringPtr('Exception thrown!\n')]);
+    builder.CreateRet(module.Values.int(1));
+    
+    // function body
+    const bodyBlock = llvm.BasicBlock.Create(module._context, 'body', mainFunc);
     builder.SetInsertPoint(entryBB);
+    builder.CreateBr(bodyBlock);
+    builder.SetInsertPoint(bodyBlock);
 
-    const exceptionFlag = module.builder.CreateAlloca(module.Types.bool);
-    module.builder.CreateStore(module.Values.bool(false), exceptionFlag);
-    scope.set('%exception', exceptionFlag)
+    // main scope
+    const mainScope = new Scope(mainFunc, scope, {
+        catch: catchBlock
+    });
 
-    parseStatements(module, scope, tree);
+    const exceptionFlag = module.createExceptionFlag();
+    mainScope.set('%exception', exceptionFlag)
+
+    parseStatements(module, mainScope, tree);
 
     // end of main function block
     module.exitMain();

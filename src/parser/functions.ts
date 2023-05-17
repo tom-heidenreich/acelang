@@ -37,7 +37,7 @@ export function parseParams(context: Context, cursor: Cursor<Token[]>) {
     return params;
 }
 
-export function createCallable(context: Context, wrappers: Wrappers | undefined, name: string, uniqueName: string, params: Param[], returnType: Type | undefined, bodyToken: Token) {
+export function createCallable(context: Context, name: string, uniqueName: string, params: Param[], returnType: Type | undefined, bodyToken: Token) {
 
     // // create proxy scope
     const proxyScope = new ReplaceRefWithGlobalScope(context.scope)
@@ -73,7 +73,6 @@ export function createCallable(context: Context, wrappers: Wrappers | undefined,
             returnable: true,
             returnableField: context.scope.getLocal(name)
         },
-        parent: wrappers
     }
 
     if(bodyToken.type !== 'block' || bodyToken.value !== '{}') {
@@ -173,7 +172,7 @@ export function parseFunc({ context, cursor, wrappers }: { context: Context; cur
     // body
     const bodyToken = cursor.next()
 
-    const created = createCallable(context, wrappers, name.value, scopeUniqueName, params, returnType, bodyToken)
+    const created = createCallable(context, name.value, scopeUniqueName, params, returnType, bodyToken)
 
     return {
         type: created.functionType,
@@ -295,7 +294,7 @@ export function parseArrowFunction(context: Context, leftCursor: Cursor<Token>, 
 
     const anonName = `_anonymous${randomUUID()}`
 
-    const created = createCallable(context, undefined, anonName, anonName, params, returnType, bodyBlock)
+    const created = createCallable(context, anonName, anonName, params, returnType, bodyBlock)
 
     return {
         type: new PointerType(created.functionType),

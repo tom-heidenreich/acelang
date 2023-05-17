@@ -7,6 +7,7 @@ import { parseArrowFunction } from "../parser/functions";
 import LLVMModule from "../compiler/llvm-module";
 import { Scope } from "../compiler/compiler";
 import llvm from "llvm-bindings";
+import WrapperResolve from "./WrapperResolve";
 
 function dereference(context: Context, target: ValueNode, token: Token): ValueNode {
     const { type, value } = target;
@@ -181,11 +182,11 @@ function parseOperatorlessExpression(context: Context, cursor: Cursor<Token>, wr
 
                 lastValue = {
                     type: lastValueType.returnType,
-                    value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException, wrappers.current.exceptionHandler)
-                }
+                    value: new CallExpression(lastValue.value, args.map(arg => arg.value), lastValueType.canThrowException)
+                }    
 
                 // set function if throwing, if there is no handler
-                if(lastValueType.canThrowException && !wrappers.current.exceptionHandler) {
+                if(lastValueType.canThrowException && !WrapperResolve.is(wrappers, 'handlesException')) {
                     if(!wrappers.current.returnable) throw new Error(`Unhandled exception at ${line(token)}`);
                     const returnableField = wrappers.current.returnableField;
                     if(!returnableField) throw new Error(`Unexpected error. Returnable field is undefined at ${line(token)}`);
