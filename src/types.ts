@@ -538,7 +538,7 @@ export class VoidType extends PrimitiveType {
 export class UnknownType extends PrimitiveType {
 
     public toLLVM(module: LLVMModule): llvm.Type {
-        throw new Error("Unknown type cannot be compiled");
+        return module.builder.getInt8PtrTy();
     }
 
     public matches(type: Type): boolean {
