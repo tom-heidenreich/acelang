@@ -53,6 +53,14 @@ export default async function compile(work_dir: string, file_name: string, modul
     const printf = llvm.Function.Create(printfType, llvm.Function.LinkageTypes.ExternalLinkage, 'printf', module._module);
     scope.set('printf', printf);
 
+    const mallocType = llvm.FunctionType.get(module.builder.getInt8PtrTy(), [module.builder.getInt64Ty()], true);
+    const malloc = llvm.Function.Create(mallocType, llvm.Function.LinkageTypes.ExternalLinkage, 'malloc', module._module);
+    scope.set('malloc', malloc);
+
+    const freeType = llvm.FunctionType.get(module.Types.void, [module.builder.getInt8PtrTy()], true);
+    const free = llvm.Function.Create(freeType, llvm.Function.LinkageTypes.ExternalLinkage, 'free', module._module);
+    scope.set('free', free);
+
     // declare imports
     for(const _import of imports) {
         if(_import.type !== 'function') throw new Error('Only function imports are supported');

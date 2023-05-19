@@ -34,11 +34,39 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
         body: [],
         isBuiltIn: true,
     }
+
+    const mallocFunction: Callable = {
+        name: 'malloc',
+        params: [
+            {
+                name: 'size',
+                type: new Int64Type(),
+            }
+        ],
+        returnType: new Int8PtrType(),
+        body: [],
+        isBuiltIn: true,
+    }
+
+    const freeFunction: Callable = {
+        name: 'free',
+        params: [
+            {
+                name: 'ptr',
+                type: new Int8PtrType(),
+            }
+        ],
+        returnType: new VoidType(),
+        body: [],
+        isBuiltIn: true,
+    }
     
     const build: Build = {
         types: defaultTypes,
         callables: {
-            printf: printfFunction
+            printf: printfFunction,
+            malloc: mallocFunction,
+            free: freeFunction,
         },
         imports: [],
         exports: [],
@@ -46,9 +74,18 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
     }
 
     const rootScope = new ParserScope({ isRoot: true })
+
     const printfType = new CallableType(printfFunction.params.map(param => param.type), printfFunction.returnType)
     rootScope.setGlobal('printf', {
         type: printfType
+    })
+    const mallocType = new CallableType(mallocFunction.params.map(param => param.type), mallocFunction.returnType)
+    rootScope.setGlobal('malloc', {
+        type: mallocType
+    })
+    const freeType = new CallableType(freeFunction.params.map(param => param.type), freeFunction.returnType)
+    rootScope.setGlobal('free', {
+        type: freeType
     })
 
     const rootWrappers: Wrappers = {
