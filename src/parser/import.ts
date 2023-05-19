@@ -5,8 +5,6 @@ import Cursor from "../util/cursor"
 // TODO: add support for relative paths
 
 export function parseImportStatement(context: Context, cursor: Cursor<Token>, wrappers: Wrappers): Statement {
-    if(wrappers) throw new Error(`Unexpected import at ${line(cursor.peekLast())}`)
-
     // names
     const nameToken = cursor.next()
 
