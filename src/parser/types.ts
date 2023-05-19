@@ -178,8 +178,8 @@ export function parseTypeStatement(context: Context, cursor: Cursor<Token>) {
         throw new Error(`Type already exists: ${name.value} at ${line(name)}`);
     }
 
-    if(cursor.peek().type !== 'symbol' || cursor.peek().value !== '=') {
-        throw new Error(`Expected symbol '=', got ${cursor.peek().type} at ${line(name)}`);
+    if(cursor.peek().type !== 'operator' || cursor.peek().value !== '=') {
+        throw new Error(`Expected operator '=', got ${cursor.peek().type} at ${line(name)}`);
     }
     cursor.next();
 
