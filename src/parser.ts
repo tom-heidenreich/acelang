@@ -3,7 +3,7 @@ import { Scope } from "./compiler/compiler";
 import LLVMModule from "./compiler/llvm-module";
 import { ModuleManager } from "./modules";
 import { parseEnvironment } from "./parser/env";
-import { Token, Types, Build, Value, Callable, ParserScope, StringType, VoidType, CallableType, IntType, FloatType, BooleanType, UnknownType, Wrappers } from "./types";
+import { Token, Types, Build, Value, Callable, ParserScope, StringType, VoidType, CallableType, IntType, FloatType, BooleanType, UnknownType, Wrappers, Int8PtrType, Int64Type } from "./types";
 import Values from "./values";
 
 export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], values: Values) {
@@ -11,6 +11,7 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
     const defaultTypes: Types = {
         string: new StringType(),
         int: new IntType(),
+        int64: new Int64Type(),
         float: new FloatType(),
         boolean: new BooleanType(),
         void: new VoidType(),

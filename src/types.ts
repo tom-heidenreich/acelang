@@ -31,7 +31,7 @@ export type SimpleToken = {
     block?: Token[][];
 }
 
-export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined']
+export const DATATYPES: DataType[] = ['string', 'int', 'float', 'boolean', 'void', 'any', 'undefined', 'int64']
 export const KEYWORDS: Keyword[] = [
     'debug',
     'const',
@@ -89,7 +89,7 @@ export const OPERATORS: Operator[] = [
 export const SYMBOLS: Symbol[] = [':', ',', '.', '|', '?']
 
 export type LiteralDataType = 'string' | 'int' | 'float' | 'boolean'
-export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined';
+export type DataType = LiteralDataType | 'void' | 'unknown' | 'callable' | 'object' | 'any' | 'undefined' | 'int64';
 export type Keyword = (
     'debug' |
     'const' |
@@ -456,6 +456,44 @@ export class IntType extends PrimitiveType {
 
     public get primitive(): DataType {
         return 'int'
+    }
+}
+
+export class Int64Type extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt64Ty();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof Int64Type;
+    }
+
+    public toString(): string {
+        return `int64`
+    }
+
+    public get primitive(): DataType {
+        return 'int64'
+    }
+}
+
+export class Int8PtrType extends PrimitiveType {
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return module.builder.getInt8PtrTy();
+    }
+
+    public matches(type: Type): boolean {
+        return type instanceof Int8PtrType;
+    }
+
+    public toString(): string {
+        return `int8ptr`
+    }
+
+    public get primitive(): DataType {
+        return 'unknown'
     }
 }
 
@@ -1089,6 +1127,19 @@ export class PointerCastValue extends Value {
     }
     public toString(): string {
         return `*${this.target}`
+    }
+}
+
+export class SExtValue extends Value {
+    public constructor(protected target: Value, private to: Type) {
+        super()
+    }
+    public compile(module: LLVMModule, scope: Scope): llvm.Value {
+        const target = this.target.compile(module, scope)
+        return module.builder.CreateSExt(target, this.to.toLLVM(module));
+    }
+    public toString(): string {
+        return `(${this.target} as ${this.to})`
     }
 }
 

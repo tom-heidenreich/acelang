@@ -1,4 +1,4 @@
-import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue, instanceOf, TypeRequired, Wrappers } from "../types";
+import { AddExpression, AssignExpression, BooleanToFloatCast, BooleanToIntCast, CallExpression, CallableType, ConcatStringExpression, Context, DereferenceValue, DivideExpression, EqualsExpression, FloatGreaterThanEqualsExpression, FloatGreaterThanExpression, FloatLessThanEqualsExpression, FloatLessThanExpression, FloatToBooleanCast, FloatToIntCast, IntGreaterThanEqualsExpression, IntGreaterThanExpression, IntLessThanEqualsExpression, IntLessThanExpression, IntToBooleanCast, IntToFloatCast, IntValue, MemberExpression, MultiplyExpression, NegValue, Operator, PointerCastValue, PointerType, ReferenceValue, StructType, SubtractExpression, Token, Type, Value, ValueNode, PrimitiveType, VoidType, StringType, FloatType, IntType, BooleanType, ObjectType, LiteralValue, instanceOf, TypeRequired, Wrappers, SExtValue, Int64Type } from "../types";
 import Cursor, { WriteCursor } from "./cursor";
 import { parseType } from "../parser/types";
 import Logger from "./logger";
@@ -611,6 +611,9 @@ export function cast(value: ValueNode, curentType: PrimitiveType, targetType: Pr
             return castToFloat(value, curentType);
         case 'boolean':
             return castToBoolean(value, curentType);
+        case 'int64': {
+            return castToInteger64(value, curentType);
+        }
     }
     throw new Error(`Cannot cast ${value.type} to ${targetType}`);
 }
@@ -667,4 +670,18 @@ function castToBoolean(value: ValueNode, curentType: PrimitiveType): ValueNode {
             return value;
     }
     throw new Error(`Cannot cast ${value.type} to boolean`);
+}
+
+function castToInteger64(value: ValueNode, curentType: PrimitiveType): ValueNode {
+    switch(curentType.primitive) {
+        case 'int':
+            const int64Ty = new Int64Type();
+            return {
+                type: int64Ty,
+                value: new SExtValue(value.value, int64Ty)
+            }
+        case 'int64':
+            return value;
+        }
+    throw new Error(`Cannot cast ${value.type} to int64`);
 }
