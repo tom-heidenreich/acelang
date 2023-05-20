@@ -33,7 +33,7 @@ export default async function compile(work_dir: string, file_name: string, modul
     // get ast
     LOGGER.log(`Parsing file ${file_name}`, { type: 'info', detail: 1 });
     const values = new Values()
-    const { tree, callables, imports, globals } = parseToTree(moduleManager, tokens, values);
+    const { tree, types, callables, imports, globals } = parseToTree(moduleManager, tokens, values);
 
     LOGGER.log(`Found ${tree.length} statements`, {detail: 1 });
 
@@ -65,6 +65,12 @@ export default async function compile(work_dir: string, file_name: string, modul
     for(const _import of imports) {
         if(_import.type !== 'function') throw new Error('Only function imports are supported');
         declareFunction(module, scope, _import);
+    }
+
+    // declare types
+    for(const typeName in types) {
+        console.log(typeName);
+        
     }
 
     // declare globals

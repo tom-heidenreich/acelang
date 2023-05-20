@@ -336,6 +336,30 @@ export abstract class Type {
     }
 }
 
+export class ReferenceType extends Type {
+
+    constructor(public readonly reference: string, private type: Type, nullable: boolean = false) {
+        super(nullable)
+    }
+
+    public get resolved(): Type {
+        if(this.type instanceof ReferenceType) return this.type.resolved;
+        return this.type;
+    }
+
+    public matches(type: Type): boolean {
+        return this.type.matches(type);
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        throw new Error("Method not implemented.");
+    }
+
+    public toString(): string {
+        return `${this.reference} (${this.type})`
+    }
+}
+
 export abstract class ObjectType extends Type {
     public abstract getPropertyAt(key: LiteralValue): Type | undefined;
 }

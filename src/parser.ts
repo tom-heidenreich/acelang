@@ -97,5 +97,5 @@ export function parseToTree(moduleManager: ModuleManager, tokens: Token[][], val
 
     const { tree, typeModule } = parseEnvironment(build, values, tokens, rootWrappers, moduleManager, new ParserScope({ parent: rootScope }))
 
-    return { tree, typeModule, callables: build.callables, imports: build.imports, exports: build.exports, globals: build.globals }
+    return { tree, types: build.types, callables: build.callables, imports: build.imports, exports: build.exports, globals: build.globals }
 }

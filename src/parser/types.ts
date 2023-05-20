@@ -1,4 +1,4 @@
-import { ArrayType, CallableType, Context, PointerType, StructType, Token, Type, Types } from "../types";
+import { ArrayType, CallableType, Context, PointerType, ReferenceType, StructType, Token, Type, Types, UnknownType } from "../types";
 import line from "../util/LineStringify";
 import Cursor, { WriteCursor } from "../util/cursor";
 
@@ -183,7 +183,10 @@ export function parseTypeStatement(context: Context, cursor: Cursor<Token>) {
     }
     cursor.next();
 
+    // create type
+    context.build.types[name.value] = new UnknownType()
+
     const type = parseType(context, cursor);
 
-    context.build.types[name.value] = type;
+    context.build.types[name.value] = new ReferenceType(name.value, type);
 }

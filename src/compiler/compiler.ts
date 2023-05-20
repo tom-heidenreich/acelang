@@ -1,5 +1,5 @@
 import llvm from "llvm-bindings";
-import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType, PointerType, BooleanType, TryStatement } from "../types";
+import { ArrayValue, Callable, FunctionBinding, IfStatement, Statement, StructValue, Value, VariableDeclaration, WhileStatement, Global, ArrayType, StructType, CallableType, VoidType, PointerType, BooleanType, TryStatement, ReferenceType } from "../types";
 import LLVMModule from "./llvm-module";
 
 export function parseStatements(module: LLVMModule, scope: Scope, statements: Statement[]): void {
@@ -159,8 +159,9 @@ export class Scope {
 function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMModule, scope: Scope): void {
     const { name, value, valueType } = statement;
 
+    const resolvedType = valueType instanceof ReferenceType ? valueType.resolved : valueType;
     // special cases
-    if(valueType instanceof ArrayType) {
+    if(resolvedType instanceof ArrayType) {
         const _var = module.builder.CreateAlloca(valueType.toLLVM(module));
         scope.set(name, _var);
         // initialize array
@@ -170,17 +171,17 @@ function parseVariableDeclaration(statement: VariableDeclaration, module: LLVMMo
         }
         return;
     }
-    else if(valueType instanceof StructType) {
+    else if(resolvedType instanceof StructType) {
         const _var = module.builder.CreateAlloca(valueType.toLLVM(module));
         scope.set(name, _var);
         // initialize struct
         if(value) {
             if(!(value instanceof StructValue)) throw new Error(`Expected struct value for struct variable ${name}`);
-            value.compile(module, scope, _var, valueType);
+            value.compile(module, scope, _var, resolvedType);
         }
         return;
     }
-    else if(valueType instanceof CallableType) throw new Error(`Cannot store callable in variable ${name}`);
+    else if(resolvedType instanceof CallableType) throw new Error(`Cannot store callable in variable ${name}`);
 
     let compiledValue: llvm.Value | undefined;
     if(value) compiledValue = value.compile(module, scope);
