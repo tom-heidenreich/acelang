@@ -1,18 +1,12 @@
+# binaries
+bin
+
+# output
+lib
+out
+
 # modules
 node_modules
-ace_modules
-global
 
-# build
-*.exe
-dist
-build
-lib
-tmp
-
-# include acelang cli exe
-!/bin/acelang.exe
-
-# log
-log
-log.txt
+# example
+example

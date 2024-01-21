@@ -1,4 +1,0 @@
-func hello() {
-    return 'hello world'
-}
-export hello

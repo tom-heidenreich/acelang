@@ -1,27 +1,19 @@
 {
-  "name": "@ace/paser",
+  "name": "acelang",
   "version": "1.0.0",
   "description": "",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "main": "src/index.ts",
   "scripts": {
-    "start": "acelang run index.ace",
-    "build": "tsc",
-    "watch": "tsc -w"
+    "start": "ts-node ./src/index.ts ./example/index.ace"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^18.14.1",
-    "typescript": "^4.9.4"
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "commander": "^10.0.0",
-    "llvm-bindings": "^0.4.2",
-    "path-equal": "^1.2.5"
-  },
-  "files": [
-    "build/**/*"
-  ]
+    "llvm-bindings": "^0.4.2"
+  }
 }
