@@ -1,14 +1,29 @@
 export const KEYWORDS = ['const', 'var', 'type', 'func', 'return'] as const
 
 export const SYMBOLS = ['+', '-', '*', '/', ':', ';', '=', '<', '>', '!', '&', '|', ',', '.'] as const;
-export const OPERATORS = ['+', '-', '*', '/', '=', '<', '>', '==', '!=', '<=', '>=', '&&', '||', '=>'] as const;
+export const OPERATORS = [
+    ['+', 5],
+    ['-', 5],
+    ['*', 6],
+    ['/', 6],
+    ['=', 7],
+    ['<', 4],
+    ['>', 4],
+    ['<=', 4],
+    ['>=', 4],
+    ['==', 4],
+    ['!=', 4],
+    ['&&', 3],
+    ['||', 2],
+    ['=>', 1],
+] as const;
 
 export const STRING_QUOTES = ['\'', '"'] as const;
 export const BRACKETS = [['(', ')'], ['[', ']'], ['{', '}']] as const;
 
 export type Keyword = typeof KEYWORDS[number];
 export type Symbol = typeof SYMBOLS[number];
-export type Operator = typeof OPERATORS[number];
+export type Operator = typeof OPERATORS[number][0];
 export type StringQuote = typeof STRING_QUOTES[number];
 export type Bracket = typeof BRACKETS[number];
 
@@ -21,7 +36,7 @@ export function isSymbol(s: string): s is Symbol {
 }
 
 export function isOperator(s: string): s is Operator {
-    return OPERATORS.includes(s as Operator);
+    return OPERATORS.some(o => o[0] === s);
 }
 
 export function isStringQuote(s: string): s is StringQuote {
@@ -37,4 +52,8 @@ export function getClosingBracket(s: Bracket[0]): Bracket[1] {
 
 export function isBoolean(s: string): s is 'true' | 'false' {
     return s === 'true' || s === 'false';
+}
+
+export function getPrecendence(operator: Operator) {
+    return OPERATORS.find(o => o[0] === operator)![1];
 }
