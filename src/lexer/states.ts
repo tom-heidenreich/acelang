@@ -1,7 +1,18 @@
 import { Lexer, LexerState, SharedFlags } from "."
 import {
+    Bracket,
+    StringQuote,
+    Symbol,
+    getClosingBracket,
+    isBoolean,
+    isKeyword,
+    isOpeningBracket,
+    isOperator, 
+    isStringQuote, 
+    isSymbol 
+} from "../constants";
+import {
     BooleanToken,
-    Bracket, 
     BracketToken, 
     CharToken, 
     CurlyBracketToken, 
@@ -12,18 +23,9 @@ import {
     NewLineToken, 
     OperatorToken, 
     ParenthesisToken, 
-    StringQuote, 
     StringToken, 
-    Symbol, 
     SymbolToken, 
-    Token, 
-    getClosingBracket, 
-    isBoolean, 
-    isKeyword, 
-    isOpeningBracket, 
-    isOperator, 
-    isStringQuote, 
-    isSymbol
+    Token,  
 } from "./tokens";
 
 function isNewLine(c: string, newLineWithComma: boolean) {
