@@ -6,7 +6,7 @@ export abstract class Value {
 }
 
 export abstract class NumberValue extends Value {
-    constructor(public value: number) {
+    constructor(protected readonly value: number) {
         super();
     }
 }
