@@ -29,3 +29,22 @@ export class FloatValue extends NumberValue {
         return module.builder.CreateFPCast(constantFP, module.builder.getFloatTy()); 
     }
 }
+
+export abstract class OperatorValue extends Value {}
+
+export abstract class UnaryOperatorValue extends OperatorValue {
+    constructor(protected readonly right: Value) {
+        super();
+    }
+}
+export abstract class BinaryOperatorValue extends UnaryOperatorValue {
+    constructor(protected readonly left: Value, right: Value) {
+        super(right);
+    }
+}
+
+export class AddOperatorValue extends BinaryOperatorValue {
+    public toLLVM(module: LLVMModule): llvm.Value {
+        return module.builder.CreateAdd(this.left.toLLVM(module), this.right.toLLVM(module));
+    }
+}
