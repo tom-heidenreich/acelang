@@ -16,12 +16,12 @@ export const BINARY_OPERATORS = [
     ['!=', 4],
     ['&&', 3],
     ['||', 2],
-    ['=>', 1],
+    ['=>', 0],
 ] as const;
 
 export const UNARY_OPERATORS = [
-    ['!', 8],
-    ['-', 8],
+    ['!', 1],
+    ['-', 1],
 ] as const;
 
 export const OPERATORS = [...BINARY_OPERATORS, ...UNARY_OPERATORS] as const;
