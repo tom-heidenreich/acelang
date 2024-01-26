@@ -1,10 +1,9 @@
 import * as fs from 'fs';
 import { Lexer } from './lexer';
 import { INITIAL_STATE } from './lexer/states';
-import parseExpression from './parser/expressions';
 import LLVMModule from './llvm-module';
 import llvm from 'llvm-bindings';
-import { Int64Type } from './parser/types';
+import parse from './parser';
 
 // get file path from command line arguments
 const filePath = process.argv[2];
@@ -24,14 +23,16 @@ fs.mkdirSync('out', { recursive: true });
 fs.writeFileSync('out/tokens.json', JSON.stringify(tokens, undefined, 4));
 
 // parse
-const value = parseExpression(tokens[0]);
+const node = parse(tokens)
 
 // compile
 const _module = new LLVMModule('my_module');
 
 const mainFunction = _module.createMain();
 _module.builder.SetInsertPoint(llvm.BasicBlock.Create(_module.context, 'entry', mainFunction));
-_module.builder.CreateAlloca(new Int64Type().toLLVM(_module), value.toLLVM(_module));
+for(const statement of node) {
+    statement.compile(_module);
+}
 _module.exitMain();
 
 fs.writeFileSync('out/llvm.ll', _module.toString());
