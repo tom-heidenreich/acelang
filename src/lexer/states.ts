@@ -112,7 +112,7 @@ class AlphabeticIdentifierState extends LexerState<SharedFlagKeys> {
             this.identifier += c;
             return this;
         }
-        if(/[_0-9]/.test(c)) return new IdentifierState(this.flags, c);
+        if(/[_0-9]/.test(c)) return new IdentifierState(this.flags, this.identifier + c);
         if(isSymbol(c)) return new SymbolState(this.flags, c);
         if(isOpeningBracket(c)) return new BlockState(this.flags, c);
         if(isTokenEnd(c, this.flags.get('newLineWithComma'))) return new InitialStateAfterTokenEnd(this.flags, isNewLine(c, this.flags.get('newLineWithComma')));
@@ -131,6 +131,10 @@ class IdentifierState extends LexerState<SharedFlagKeys> {
 
     public get output() {
         return new IdentifierToken(this.identifier);
+    }
+
+    public forceOverride(prev: LexerState<any>): boolean {
+        return prev instanceof AlphabeticIdentifierState;
     }
 
     public getNextState(c: string) {

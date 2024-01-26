@@ -54,6 +54,10 @@ export abstract class LexerState<T extends string[]> {
     public get readonlyFlags(): ReadonlySharedFlags<T> {
         return this.flags;
     }
+
+    public forceOverride(prev: LexerState<any>): boolean {
+        return false;
+    }
 }
 
 export class Lexer {
@@ -77,7 +81,7 @@ export class Lexer {
             const output = newState.output;
             if(output) {
                 // override token if no state change
-                if(this.state !== newState) this.tokenCollector.next();
+                if(this.state !== newState && !newState.forceOverride(this.state)) this.tokenCollector.next();
 
                 // possible char edge case
                 if(output instanceof NewLineToken && output.prevToken !== undefined) {
