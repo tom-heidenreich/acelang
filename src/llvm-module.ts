@@ -1,7 +1,7 @@
 import llvm from 'llvm-bindings';
 
-import { Int32Type } from './parser/types';
-import { Int32Value } from './parser/values';
+import { Int32Type } from './types';
+import { Int32Value } from './values';
 
 export default class LLVMModule {
 
