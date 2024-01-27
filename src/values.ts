@@ -105,7 +105,7 @@ export class AddOperatorValue<T extends (NumberType)> extends BinaryOperatorValu
 
 export class ReferenceValue extends TypedValue {
 
-    constructor(private readonly field: Field) {
+    constructor(public readonly field: Field) {
         super();
     }
 
