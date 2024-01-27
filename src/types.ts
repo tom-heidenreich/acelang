@@ -104,3 +104,25 @@ export class OptionalType extends Type {
         return `${this.type}?`;
     }
 }
+
+export class FunctionType extends Type {
+
+    constructor(public readonly returnType: Type, public readonly parameterTypes: Type[]) {
+        super();
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        return llvm.FunctionType.get(this.returnType.toLLVM(module), this.parameterTypes.map(type => type.toLLVM(module)), false);
+    }
+
+    public _matches(other: Type): boolean {
+        return other instanceof FunctionType
+            && other.returnType.matches(this.returnType)
+            && other.parameterTypes.length === this.parameterTypes.length
+            && other.parameterTypes.every((type, index) => type.matches(this.parameterTypes[index]));
+    }
+
+    public toString(): string {
+        return `(${this.parameterTypes.map(type => type.toString()).join(', ')}) => ${this.returnType.toString()}`;
+    }
+}
