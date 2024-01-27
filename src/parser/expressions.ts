@@ -1,8 +1,8 @@
 import { BinaryOperator, Operator, UnaryOperator, getPrecendence, isUnaryOperator } from "../constants";
-import { IdentifierToken, IntegerToken, OperatorToken, Token } from "../lexer/tokens";
+import { IdentifierToken, IntegerToken, OperatorToken, ParenthesisToken, Token } from "../lexer/tokens";
 import { IntType, OptionalType } from "../types";
-import { AssignOperatorValue, Int32Value, IntAddOperatorValue, ReferenceValue, TypedValue } from "../values";
-import { Parser } from "./util";
+import { AssignOperatorValue, FunctionCallValue, Int32Value, IntAddOperatorValue, ReferenceValue, TypedValue } from "../values";
+import { FunctionField, Parser } from "./util";
 
 export default class ExpressionParser extends Parser {
 
@@ -57,11 +57,22 @@ export default class ExpressionParser extends Parser {
             return new Int32Value(tokens[0].integer);
         }
         if(tokens[0] instanceof IdentifierToken) {
-            if(tokens.length > 1) {
-                throw new Error('Not implemented');
-            }
             const field = this.env.get(tokens[0].identifier);
             if(!field) throw new Error(`Unknown field ${tokens[0].identifier}`);
+
+            if(tokens.length > 1) {
+                const next = tokens[1];
+                if(next instanceof ParenthesisToken) {
+
+                    if(!(field instanceof FunctionField)) throw new SyntaxError(`Cannot call non-function ${tokens[0].identifier}`)
+
+                    const args = next.content.map(arg => this.parseExpression(arg));
+                    if(args.length !== field.type.parameterTypes.length) throw new SyntaxError(`Expected ${field.type.parameterTypes.length} arguments, got ${args.length}`);
+                    if(!args.every((arg, index) => field.type.parameterTypes[index].matches(arg.type))) throw new SyntaxError(`Argument type mismatch. Expected ${field.type.parameterTypes.map(type => type.toString()).join(', ')}, got ${args.map(arg => arg.type.toString()).join(', ')}`);
+
+                    return new FunctionCallValue(field, args)
+                }
+            }
             // TODO: ownership or borrow check
             return new ReferenceValue(field);
         }
