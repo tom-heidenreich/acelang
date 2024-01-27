@@ -83,28 +83,13 @@ export abstract class BinaryOperatorValue<T extends TypedValue = TypedValue, E e
 
 export abstract class AddOperatorValue<T extends (NumberType) = NumberType> extends BinaryOperatorValue<TypedValue<T>, TypedValue<T>> {}
 
-    constructor(protected readonly right: TypedValue<T>, type?: T) {
-        super(type ?? right.type);
-        this.right = right;
-    }
-}
-export abstract class BinaryOperatorValue<T extends Type> extends UnaryOperatorValue<T> {
-    constructor(protected readonly left: TypedValue<T>, right: TypedValue<T>) {
-        super(right, left.type);
-    }
-}
-
-export class AddOperatorValue<T extends (NumberType)> extends BinaryOperatorValue<T> {
+export class IntAddOperatorValue extends AddOperatorValue<IntType> {
     public toLLVM(module: LLVMModule): llvm.Value {
-        if(this.left.type instanceof IntType) {
-            if(!this.left.type.matches(this.left.type)) throw new SyntaxError(`Cannot add ${this.left.type} and ${this.right.type}`);
-            return module.builder.CreateAdd(this.left.toLLVM(module), this.right.toLLVM(module));
-        }
-        if(this.left.type instanceof FloatType) {
-            if(!this.left.type.matches(this.left.type)) throw new SyntaxError(`Cannot add ${this.left.type} and ${this.right.type}`);
-            return module.builder.CreateFAdd(this.left.toLLVM(module), this.right.toLLVM(module));
-        }
-        throw new SyntaxError(`Cannot add ${this.left.type} and ${this.right.type}`);
+        return module.builder.CreateAdd(this.left.toLLVM(module), this.right.toLLVM(module));
+    }
+
+    public get type(): Type {
+        return this.left.type;
     }
 }
 
