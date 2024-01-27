@@ -1,6 +1,6 @@
 export const KEYWORDS = ['const', 'var', 'type', 'func', 'return'] as const
 
-export const SYMBOLS = ['+', '-', '*', '/', ':', ';', '=', '<', '>', '!', '&', '|', ',', '.'] as const;
+export const SYMBOLS = ['+', '-', '*', '/', ':', ';', '=', '<', '>', '!', '&', '|', ',', '.', '?'] as const;
 
 export const BINARY_OPERATORS = [
     ['+', 5],
