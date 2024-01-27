@@ -1,7 +1,7 @@
 import llvm from "llvm-bindings";
 import LLVMModule from "./llvm-module";
 import { FloatType, Int32Type, Int64Type, IntType, NumberType, Type, VoidType } from "./types";
-import { Field } from "./parser/util";
+import { Field, FunctionField } from "./parser/util";
 
 const valueTraits = ['Copyable'] as const
 type ValueTrait = typeof valueTraits[number]
@@ -120,5 +120,23 @@ export class ReferenceValue extends TypedValue {
 
     public get type(): Type {
         return this.field.type;
+    }
+}
+
+export class FunctionCallValue extends TypedValue {
+
+    constructor(
+        public readonly func: FunctionField,
+        public readonly args: TypedValue[],
+    ) {
+        super();
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Value {
+        return module.builder.CreateCall(this.func.ptr, this.args.map(arg => arg.toLLVM(module)));
+    }
+
+    public get type(): Type {
+        return this.func.type.returnType;
     }
 }
