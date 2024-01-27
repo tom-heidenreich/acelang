@@ -107,6 +107,10 @@ class AlphabeticIdentifierState extends LexerState<SharedFlagKeys> {
         return new IdentifierToken(this.identifier);
     }
 
+    public forceOverride(prev: LexerState<any>): boolean {
+        return prev instanceof PossibleCharState;
+    }
+
     public getNextState(c: string) {
         if(/[a-zA-Z]/.test(c)) {
             this.identifier += c;
@@ -134,7 +138,7 @@ class IdentifierState extends LexerState<SharedFlagKeys> {
     }
 
     public forceOverride(prev: LexerState<any>): boolean {
-        return prev instanceof AlphabeticIdentifierState;
+        return prev instanceof AlphabeticIdentifierState || prev instanceof PossibleCharState;
     }
 
     public getNextState(c: string) {
@@ -231,28 +235,16 @@ class FloatState extends LexerState<SharedFlagKeys> {
 class PossibleCharState extends LexerState<SharedFlagKeys> {
 
     public get output() {
-        return undefined
+        return new IdentifierToken('c');
     }
 
     public getNextState(c: string) {
         if(c === '\'') return new CharState(this.flags);
         if(/[a-zA-Z]/.test(c)) return new AlphabeticIdentifierState(this.flags, `c${c}`);
         if(/[_0-9]/.test(c)) return new IdentifierState(this.flags, `c${c}`);
-        if(isTokenEnd(c, this.flags.get('newLineWithComma'))) return new InitialStateAfterPossibleCharEdgeCase(this.flags, isNewLine(c, this.flags.get('newLineWithComma')));
+        if(isSymbol(c)) return new SymbolState(this.flags, c);
+        if(isTokenEnd(c, this.flags.get('newLineWithComma'))) return new InitialState(this.flags);
         return new SyntaxError(`Unexpected character ${c}`);
-    }
-}
-
-// initial state after an identifier 'c'
-class InitialStateAfterPossibleCharEdgeCase extends InitialState {
-
-    constructor(flags: SharedFlags<SharedFlagKeys>, private readonly isNewLine: boolean) {
-        super(flags);
-    }
-
-    public get output() {
-        if(this.isNewLine) return new NewLineToken(new IdentifierToken('c'));
-        return new IdentifierToken('c');
     }
 }
 
@@ -262,6 +254,10 @@ class CharState extends LexerState<SharedFlagKeys> {
 
     public get output() {
         return new CharToken(this.char);
+    }
+
+    public forceOverride(prev: LexerState<any>): boolean {
+        return prev instanceof PossibleCharState;
     }
 
     public getNextState(c: string) {
