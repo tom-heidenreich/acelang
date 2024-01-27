@@ -66,3 +66,30 @@ export class VoidType extends Type {
         return 'void';
     }
 }
+
+export class OptionalType extends Type {
+
+    private isResolved: boolean = false;
+
+    constructor(public readonly type: Type) {
+        super();
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Type {
+        if(!this.isResolved) throw new Error('Optional type has not been resolved and cannot be compiled');
+        return this.type.toLLVM(module)
+    }
+
+    public matches(other: Type): boolean {
+        return other.matches(this.type) || (other instanceof OptionalType && other.type.matches(this.type));
+    }
+
+    public resolveBy(type: Type): void {
+        if(type instanceof OptionalType) this.isResolved = false
+        else this.isResolved = true;
+    }
+
+    public toString(): string {
+        return `${this.type}?`;
+    }
+}
