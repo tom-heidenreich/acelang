@@ -66,17 +66,22 @@ export class FloatValue extends NumberValue<FloatType> {
     }
 }
 
-export abstract class OperatorValue<T extends Type> extends TypedValue {
-    constructor(protected readonly _type: T) {
-        super();
-    }
+export abstract class OperatorValue extends TypedValue {}
 
-    public get type(): Type {
-        return this._type;
+export abstract class UnaryOperatorValue<T extends TypedValue = TypedValue> extends OperatorValue {
+
+    constructor(protected readonly right: T) {
+        super();
+        this.right = right;
+    }
+}
+export abstract class BinaryOperatorValue<T extends TypedValue = TypedValue, E extends TypedValue = TypedValue> extends UnaryOperatorValue<E> {
+    constructor(protected readonly left: T, right: E) {
+        super(right);
     }
 }
 
-export abstract class UnaryOperatorValue<T extends Type> extends OperatorValue<T> {
+export abstract class AddOperatorValue<T extends (NumberType) = NumberType> extends BinaryOperatorValue<TypedValue<T>, TypedValue<T>> {}
 
     constructor(protected readonly right: TypedValue<T>, type?: T) {
         super(type ?? right.type);
