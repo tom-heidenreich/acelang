@@ -1,6 +1,7 @@
 import { BinaryOperator, Operator, UnaryOperator, getPrecendence, isUnaryOperator } from "../constants";
 import { IdentifierToken, IntegerToken, OperatorToken, Token } from "../lexer/tokens";
-import { AddOperatorValue, Int32Value, ReferenceValue, TypedValue } from "../values";
+import { IntType } from "../types";
+import { Int32Value, IntAddOperatorValue, ReferenceValue, TypedValue } from "../values";
 import { Parser } from "./util";
 
 export default class ExpressionParser extends Parser {
@@ -73,7 +74,12 @@ export default class ExpressionParser extends Parser {
 
     private getBinaryOperatorValue(operator: BinaryOperator, left: TypedValue, right: TypedValue): TypedValue {
         switch(operator) {
-            case '+': return new AddOperatorValue(left, right);
+            case '+': {
+                if(left.type instanceof IntType) {
+                    if(!left.type.matches(right.type)) throw new Error(`Cannot add ${left.type} and ${right.type}`);
+                    return new IntAddOperatorValue(left, right);
+                }
+            }
         }
         throw new Error('Not implemented');
     }
