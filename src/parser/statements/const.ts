@@ -35,7 +35,10 @@ export default class ConstStatementParser extends StatementParser {
         if(type && !value.type.matches(type)) throw new SyntaxError(`Type mismatch: expected ${type}, got ${value.type}`)
 
         // add to environment
-        const field = new Field(type || value.type, identifier.identifier)
+        const field = Field.from({
+            type: type || value.type,
+            identifier: identifier.identifier,
+        })
         this.env.set(identifier.identifier, field);
 
         return new ConstStatement(field, value);
