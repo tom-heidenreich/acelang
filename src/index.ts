@@ -4,6 +4,8 @@ import { INITIAL_STATE } from './lexer/states';
 import LLVMModule from './llvm-module';
 import llvm from 'llvm-bindings';
 import parse from './parser';
+import { Environment } from './parser/util';
+import { PrintIntFunction } from './builtIn';
 
 // get file path from command line arguments
 const filePath = process.argv[2];
@@ -22,11 +24,17 @@ const tokens = lexer.tokenize(file);
 fs.mkdirSync('out', { recursive: true });
 fs.writeFileSync('out/tokens.json', JSON.stringify(tokens, undefined, 4));
 
-// parse
-const node = parse(tokens)
+// parse 
+const env = new Environment();
+
+env.set('printInt', PrintIntFunction.field);
+
+const node = parse(tokens, env)
 
 // compile
 const _module = new LLVMModule('my_module');
+
+PrintIntFunction.statement.compile(_module);
 
 const mainFunction = _module.createMain();
 _module.builder.SetInsertPoint(llvm.BasicBlock.Create(_module.context, 'entry', mainFunction));
