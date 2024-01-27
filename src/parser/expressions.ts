@@ -1,7 +1,7 @@
 import { BinaryOperator, Operator, UnaryOperator, getPrecendence, isUnaryOperator } from "../constants";
 import { IdentifierToken, IntegerToken, OperatorToken, Token } from "../lexer/tokens";
-import { IntType } from "../types";
-import { Int32Value, IntAddOperatorValue, ReferenceValue, TypedValue } from "../values";
+import { IntType, OptionalType } from "../types";
+import { AssignOperatorValue, Int32Value, IntAddOperatorValue, ReferenceValue, TypedValue } from "../values";
 import { Parser } from "./util";
 
 export default class ExpressionParser extends Parser {
@@ -79,6 +79,12 @@ export default class ExpressionParser extends Parser {
                     if(!left.type.matches(right.type)) throw new Error(`Cannot add ${left.type} and ${right.type}`);
                     return new IntAddOperatorValue(left, right);
                 }
+            }
+            case '=': {
+                if(!(left instanceof ReferenceValue)) throw new SyntaxError(`Expected reference, got ${left.type}`);
+                if(!left.type.matches(right.type)) throw new SyntaxError(`Cannot assign ${left.type} to ${right.type}`);
+                if(left.type instanceof OptionalType) left.type.resolveBy(right.type);
+                return new AssignOperatorValue(left, right);
             }
         }
         throw new Error('Not implemented');
