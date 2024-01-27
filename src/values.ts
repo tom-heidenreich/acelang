@@ -1,6 +1,6 @@
 import llvm from "llvm-bindings";
 import LLVMModule from "./llvm-module";
-import { FloatType, Int32Type, Int64Type, IntType, NumberType, Type } from "./types";
+import { FloatType, Int32Type, Int64Type, IntType, NumberType, Type, VoidType } from "./types";
 import { Field } from "./parser/util";
 
 const valueTraits = ['Copyable'] as const
@@ -90,6 +90,21 @@ export class IntAddOperatorValue extends AddOperatorValue<IntType> {
 
     public get type(): Type {
         return this.left.type;
+    }
+}
+
+export class AssignOperatorValue extends BinaryOperatorValue<ReferenceValue> {
+
+    constructor(left: ReferenceValue, right: TypedValue) {
+        super(left, right);
+    }
+
+    public toLLVM(module: LLVMModule): llvm.Value {
+        return module.builder.CreateStore(this.right.toLLVM(module), this.left.field.ptr);
+    }
+
+    public get type(): Type {
+        return new VoidType();
     }
 }
 
