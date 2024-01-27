@@ -69,6 +69,10 @@ export class Lexer {
     private state: LexerState<any> = this.initialState;
 
     public tokenize(input: string): Token[][] {
+
+        // append newline to prevent sudden eof
+        input += '\n';
+
         for(let i = 0; i < input.length; i++) {
             const c = input.charAt(i);
 
