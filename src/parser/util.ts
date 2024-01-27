@@ -1,7 +1,7 @@
 import llvm from "llvm-bindings";
 import { Token } from "../lexer/tokens";
 import LLVMModule from "../llvm-module";
-import { Type } from "../types";
+import { Type, FunctionType } from "../types";
 
 class TokenCursor {
     private _index = 0
@@ -60,19 +60,26 @@ export class Borrow {
     constructor(public readonly field: Field, public readonly mutable: boolean = false) {}
 }
 
-export class Field {
+export class Field<T extends llvm.Value = llvm.Value> {
 
-    private _ptr: llvm.AllocaInst | undefined;
+    public constructor(public readonly type: Type) {}
+
+    protected _ptr: T | undefined;
+
+    public get ptr(): T {
+        if(!this._ptr) throw new Error('Field has not been allocated');
+        return this._ptr;
+    }
+}
+
+export class VariableField extends Field<llvm.AllocaInst> {
 
     private constructor(
         public readonly type: Type,
         public readonly identifier: string,
         public readonly mutable: boolean,
-    ) {}
-
-    public get ptr(): llvm.AllocaInst {
-        if(!this._ptr) throw new Error('Field has not been allocated');
-        return this._ptr;
+    ) {
+        super(type);
     }
 
     public allocate(module: LLVMModule): llvm.AllocaInst {
@@ -84,10 +91,34 @@ export class Field {
         type: Type,
         identifier?: string,
         mutable?: boolean,
-    }): Field {
+    }): VariableField {
         const identifier = options.identifier ?? `field_${Math.random().toString(36).slice(2)}`;
         const mutable = options.mutable ?? false;
-        return new Field(options.type, identifier, mutable);
+        return new VariableField(options.type, identifier, mutable);
+    }
+}
+
+export class FunctionField extends Field<llvm.Function> {
+
+    private constructor(
+        public readonly type: FunctionType,
+        public readonly identifier: string,
+
+    ) {
+        super(type);
+    }
+
+    public allocate(module: LLVMModule): llvm.Function {
+        if(this._ptr) throw new Error('Field has already been allocated');
+        return this._ptr = llvm.Function.Create(this.type.toLLVM(module), llvm.Function.LinkageTypes.ExternalLinkage, this.identifier, module._module);
+    }
+
+    public static from(options: {
+        type: FunctionType,
+        identifier?: string,
+    }): FunctionField {
+        const identifier = options.identifier ?? `field_${Math.random().toString(36).slice(2)}`;
+        return new FunctionField(options.type, identifier);
     }
 }
 
