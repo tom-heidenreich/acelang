@@ -62,14 +62,13 @@ export class Borrow {
 
 export class Field {
 
-    private readonly identifier: string;
-
     private _ptr: llvm.AllocaInst | undefined;
 
-    constructor(public readonly type: Type, identifier?: string) {
-        // TODO: replace with uuid
-        this.identifier = identifier ?? `field_${Math.random().toString(36).substring(7)}`;
-    }
+    private constructor(
+        public readonly type: Type,
+        public readonly identifier: string,
+        public readonly mutable: boolean,
+    ) {}
 
     public get ptr(): llvm.AllocaInst {
         if(!this._ptr) throw new Error('Field has not been allocated');
@@ -79,6 +78,16 @@ export class Field {
     public allocate(module: LLVMModule): llvm.AllocaInst {
         if(this._ptr) throw new Error('Field has already been allocated');
         return this._ptr = module.builder.CreateAlloca(this.type.toLLVM(module), null, this.identifier);
+    }
+
+    public static from(options: {
+        type: Type,
+        identifier?: string,
+        mutable?: boolean,
+    }): Field {
+        const identifier = options.identifier ?? `field_${Math.random().toString(36).slice(2)}`;
+        const mutable = options.mutable ?? false;
+        return new Field(options.type, identifier, mutable);
     }
 }
 
