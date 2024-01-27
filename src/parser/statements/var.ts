@@ -3,7 +3,7 @@ import LLVMModule from "../../llvm-module";
 import { TypedValue } from "../../values";
 import parseType from "../types";
 import { OptionalType, Type } from "../../types";
-import { Field, Statement, StatementParser } from "../util";
+import { Field, Statement, StatementParser, VariableField } from "../util";
 import ExpressionParser from "../expressions";
 
 export default class VarStatementParser extends StatementParser {
@@ -26,7 +26,7 @@ export default class VarStatementParser extends StatementParser {
         if(!this.hasNext) {
             if(!type) throw new SyntaxError(`Undeclared variable ${identifier.identifier} must have a type`);
             if(!(type instanceof OptionalType)) throw new SyntaxError(`Undeclared variable ${identifier.identifier} must have optional type`)
-            const field = Field.from({
+            const field = VariableField.from({
                 type,
                 identifier: identifier.identifier,
                 mutable: true,
@@ -47,7 +47,7 @@ export default class VarStatementParser extends StatementParser {
         if(type && !value.type.matches(type)) throw new SyntaxError(`Type mismatch: expected ${type}, got ${value.type}`)
 
         // add to environment
-        const field = Field.from({
+        const field = VariableField.from({
             type: type || value.type,
             identifier: identifier.identifier,
             mutable: true,
@@ -61,7 +61,7 @@ export default class VarStatementParser extends StatementParser {
 export class VarStatement extends Statement {
 
     constructor(
-        private readonly field: Field,
+        private readonly field: VariableField,
         private readonly value?: TypedValue
     ) {
         super();
